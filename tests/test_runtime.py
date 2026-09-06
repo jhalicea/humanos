@@ -53,6 +53,8 @@ class RuntimeTests(unittest.TestCase):
             self.book.bind('Jon', 'later', self.binding['hcid'], 'wrong-page')
         self.assertEqual(self.book.db.execute('SELECT COUNT(*) FROM transcript').fetchone()[0], 0)
         self.assertEqual(self.book.db.execute("SELECT COUNT(*) FROM identities WHERE binding='RECONCILIATION_REQUIRED'").fetchone()[0], 1)
+        fallback = json.loads((self.book.root / 'recovery.jsonl').read_text().splitlines()[-1])
+        self.assertEqual(fallback['payload']['text'], 'later')
     def test_unknown_session_does_not_reuse_page(self):
         with self.assertRaises(BindingConflict):
             self.book.bind('Jon', 'opening', 'made-up')

@@ -112,6 +112,9 @@ class Notebook:
                     self.db.execute("UPDATE identities SET binding='RECONCILIATION_REQUIRED' WHERE hcid=?",
                                     (protected['hcid'],))
                 self.event(None, 'BINDING_CONFLICT_DETECTED', {'requested': hcid, 'protected': protected})
+                self.problem(None, 'Binding conflict; input retained for protected-page reconciliation',
+                             {'role': 'HUMAN', 'text': opening, 'protected_page': protected['page'],
+                              'requested_hcid': hcid})
                 self.project()
                 raise BindingConflict('Binding rejected; protected page ' + protected['page'] +
                                       ' requires explicit reconciliation. No transcript appended.')
