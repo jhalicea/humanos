@@ -1,111 +1,122 @@
+"""HumanOS Runtime 0.1 — extends the original local Mirror entry point."""
+import argparse
 import json
-import urllib.request
-from datetime import datetime
+import os
+import sys
+import uuid
 from pathlib import Path
-from typing import Optional
+from notebook import Notebook
+from engine import Agent, OllamaModel, Tools, load_context
+
+BASE = Path(__file__).resolve().parent
 
 
 class HumanOSRuntime:
-    def __init__(
-        self, vault_base="./HumanOS_Vault", core_path="./core", model="llama3"
-    ):
-        self.vault_base = Path(vault_base)
-        self.core_path = Path(core_path)
-        self.model = model
-        self.ollama_url = "http://localhost:11434/api/chat"
+    def __init__(self, vault_base=None, core_path=None, model=None, config=None):
+        config = config or {}
+        self.vault_base = Path(vault_base or config.get('vault', BASE / 'HumanOS_Vault'))
+        self.core_path = Path(core_path or config.get('core', BASE / 'core'))
+        self.model = model or os.environ.get('HUMANOS_MODEL', config.get('model', 'llama3:latest'))
+        self.ollama_url = os.environ.get('HUMANOS_ENDPOINT', config.get('endpoint', 'http://127.0.0.1:11434'))
+        self.book = Notebook(self.vault_base)
+        self.pending = self.book.recover()
+        self.tools = Tools(config.get('workspace', BASE / 'workspace'))
+        self.adapter = OllamaModel(self.model, self.ollama_url)
+        self.agent = Agent(self.book, self.adapter, self.tools, self.core_path,
+                           max_steps=config.get('max_steps', 6), max_seconds=config.get('max_seconds', 180))
 
-    @property
-    def notebook_path(self) -> Path:
-        """Dynamically generates today's markdown notebook file path."""
-        now = datetime.now()
-        year = now.strftime("%Y")
-        month = now.strftime("%m")
-        filename = now.strftime("%Y-%m-%d.md")
+    def load_system_context(self):
+        return load_context(self.core_path, [])
 
-        full_path = self.vault_base / year / month / filename
-        full_path.parent.mkdir(parents=True, exist_ok=True)
-        return full_path
+    def deliver(self, tx, response, stream=None):
+        stream = stream or sys.stdout
+        # Capture final once before delivery. Unknown terminal delivery is never called proven.
+        stream.write(response + '\n')
+        stream.flush()
+        state = self.book.task(tx)
+        state['delivery'] = 'WRITTEN_TO_OUTPUT_STREAM'
+        self.book.save_task(tx, state)
+        self.book.event(tx, 'DELIVERY', {'status': state['delivery'], 'text_sha256': __import__('notebook').digest(response)})
+        self.book.verify()
+        return response
 
-    def load_system_context(self) -> str:
-        """Loads constitution to anchor the model."""
-        context = "You are the Mirror layer of HumanOS. You have access to the local Life Notebook.\n\n"
-        const_file = self.core_path / "constitution.md"
-        if const_file.exists():
-            context += (
-                f"=== CONSTITUTION ===\n{const_file.read_text(encoding='utf-8')}\n\n"
-            )
-        return context
-
-    def log_interaction(self, role: str, message: str):
-        """Appends a turn to today's markdown notebook file."""
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        entry = f"\n**[{timestamp}] {role.upper()}**: {message}\n"
-        with open(self.notebook_path, "a", encoding="utf-8") as f:
-            f.write(entry)
-
-    def handle_local_commands(self, user_input: str) -> Optional[str]:
-        """Intercepts commands like viewing the notebook before hitting Ollama."""
-        cleaned = user_input.strip().lower()
-        if any(
-            keyword in cleaned
-            for keyword in ["show me the notebook", "notebook", "life notebook"]
-        ):
-            if self.notebook_path.exists():
-                return f"=== SYSTEM INTERCEPT: TODAY'S NOTEBOOK ===\n\n{self.notebook_path.read_text(encoding='utf-8')}"
-            return "Today's notebook file does not exist yet."
-        return None
-
-    def query_ollama(self, prompt: str) -> str:
-        system_prompt = self.load_system_context()
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            "stream": False,
-        }
-        req = urllib.request.Request(
-            self.ollama_url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-        )
-        try:
-            with urllib.request.urlopen(req) as response:
-                result = json.loads(response.read().decode("utf-8"))
-                return result.get("message", {}).get(
-                    "content", "Error: No response content."
-                )
-        except Exception as e:
-            return f"Error connecting to local model runtime: {e}"
-
-    def run(self):
-        print(f"=== HumanOS Active (Model: {self.model}) ===")
-        print(f"Logging to: {self.notebook_path}\n")
+    def run(self, args):
+        if args.status:
+            self.book.verify()
+            print(json.dumps(dict(self.book.status(), pending=self.pending), indent=2))
+            return
+        if args.resume:
+            response = self.agent.run(args.resume)
+            self.deliver(args.resume, response)
+            return
+        if any((self.book.task(t['tx']) or {}).get('phase') != 'EXTERNAL_CAPTURE_PENDING' for t in self.pending):
+            print('Unfinished transactions exist; use --status and --resume TX-ID.', file=sys.stderr)
+        binding = None
         while True:
             try:
-                user_input = input("HUMAN: ").strip()
-                if not user_input:
-                    continue
-                if user_input.lower() in ["exit", "quit"]:
-                    break
+                text = args.message if args.message is not None else input('HUMAN: ')
+                if text.lower() in ('exit', 'quit') and args.message is None:
+                    return
+                # Do not strip whitespace from visible input.
+                if binding is None:
+                    binding = self.book.bind('Jon', text, hcid=args.session)
+                    print('HumanOS session: ' + binding['hcid'], file=sys.stderr)
+                    print('Life Notebook page: ' + binding['page'], file=sys.stderr)
+                tx = args.tx or 'TX-' + uuid.uuid4().hex
+                print('Transaction: ' + tx, file=sys.stderr)
+                def authorize(request):
+                    if request.get('name') in ('read_file', 'list_files'):
+                        return True  # Owner-granted read scope, limited to configured workspace.
+                    if request.get('name') != 'create_file' or not sys.stdin.isatty():
+                        return False
+                    prompt = 'Approve creating this workspace file? ' + json.dumps(request, ensure_ascii=False) + ' [yes/no]'
+                    n = self.book.message_count(tx)
+                    self.book.append(tx, n, 'ASSISTANT', prompt)
+                    self.book.project()
+                    self.book.verify()
+                    answer = input(prompt + '\n')
+                    self.book.append(tx, n + 1, 'HUMAN', answer)
+                    self.book.project()
+                    self.book.verify()
+                    return answer == 'yes'
+                self.agent.authorize = authorize
+                response = self.agent.run(tx, binding['hcid'], text, args.context)
+                self.deliver(tx, response)
+                if args.message is not None:
+                    return
+            except (KeyboardInterrupt, EOFError):
+                print('\nStopped. Any unfinished transaction remains recoverable.', file=sys.stderr)
+                return
 
-                self.log_interaction("Human", user_input)
 
-                local_response = self.handle_local_commands(user_input)
-                if local_response:
-                    response_text = local_response
-                else:
-                    response_text = self.query_ollama(user_input)
+def main():
+    os.umask(0o077)
+    parser = argparse.ArgumentParser(description='HumanOS Runtime 0.1 / Mirror')
+    parser.add_argument('--config', default=str(BASE / 'config.json'))
+    parser.add_argument('--session', help='Exact HCID printed by an earlier session')
+    parser.add_argument('--tx', help='Caller-owned idempotent transaction ID')
+    parser.add_argument('--message', help='Run one turn')
+    parser.add_argument('--resume', help='Resume an exact transaction ID')
+    parser.add_argument('--context', action='append', default=[], help='Relevant filename in core, e.g. runtime.md')
+    parser.add_argument('--status', action='store_true')
+    args = parser.parse_args()
+    runtime = None
+    try:
+        config = json.loads(Path(args.config).read_text()) if Path(args.config).exists() else {}
+        # Relative configured locations are relative to config, never current shell directory.
+        for key in ('vault', 'core', 'workspace'):
+            if key in config:
+                config[key] = str((Path(args.config).resolve().parent / config[key]).resolve())
+        runtime = HumanOSRuntime(config=config)
+        runtime.run(args)
+        return 0
+    except Exception as error:
+        print('HumanOS RECOVERY REQUIRED: ' + str(error), file=sys.stderr)
+        return 1
+    finally:
+        if runtime:
+            runtime.book.close()
 
-                print(f"MIRROR: {response_text}\n")
-                self.log_interaction("Mirror", response_text)
 
-            except KeyboardInterrupt:
-                print("\nExiting session.")
-                break
-
-
-if __name__ == "__main__":
-    runtime = HumanOSRuntime()
-    runtime.run()
+if __name__ == '__main__':
+    raise SystemExit(main())

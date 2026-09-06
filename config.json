@@ -1,0 +1,9 @@
+{
+  "model": "llama3:latest",
+  "endpoint": "http://127.0.0.1:11434",
+  "vault": "HumanOS_Vault",
+  "core": "core",
+  "workspace": "workspace",
+  "max_steps": 6,
+  "max_seconds": 180
+}
