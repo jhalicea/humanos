@@ -65,9 +65,16 @@ class HumanOSRuntime:
                 tx = args.tx or 'TX-' + uuid.uuid4().hex
                 print('Transaction: ' + tx, file=sys.stderr)
                 def authorize(request):
-                    if request.get('name') in ('read_file', 'list_files'):
-                        return True  # Owner-granted read scope, limited to configured workspace.
-                    if request.get('name') != 'create_file' or not sys.stdin.isatty():
+                    name = request.get('name')
+                    path = request.get('path', '')
+                    request_text = text.casefold()
+                    if name == 'read_file':
+                        # A workspace read must be grounded in the current human request.
+                        return isinstance(path, str) and path.casefold() in request_text
+                    if name == 'list_files':
+                        return any(word in request_text for word in
+                                   ('list', 'files', 'workspace', 'folder', 'directory'))
+                    if name != 'create_file' or not sys.stdin.isatty():
                         return False
                     prompt = 'Approve creating this workspace file? ' + json.dumps(request, ensure_ascii=False) + ' [yes/no]'
                     n = self.book.message_count(tx)

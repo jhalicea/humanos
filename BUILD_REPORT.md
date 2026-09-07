@@ -150,3 +150,15 @@ Implement an idempotent adapter that synchronizes verified local Notebook
 transactions with the existing canonical Drive page/index/binding/transaction
 records, including conflict detection and readback, without changing local
 transaction identity or rewriting transcript history.
+
+## 2026-09-06 greeting repair
+
+A real interactive `hi` turn showed that Llama confused the already-loaded
+Constitution context with a workspace file and twice requested `constitution.md`.
+The file existed in `core/`; the error was a model/tool-boundary defect rather than
+missing local data. Runtime context is now strictly opt-in through `--context`,
+workspace reads must be grounded in the current human request, and the model prompt
+explicitly separates conversational answers, loaded records, and workspace tools.
+The prompt also requires all explicit parts of a request to be answered from exact
+observations. Automated tests cover empty-context greetings and denied ungrounded
+reads. Real isolated-vault tests cover both `hi` and the file-reading exercise.

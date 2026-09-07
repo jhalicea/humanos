@@ -85,7 +85,9 @@ model call has a socket timeout of at most 90 seconds. An abrupt process kill ma
 lose the in-flight elapsed-time increment, but the persisted iteration count still
 bounds attempts. Resuming with a different model/workspace requires reconciliation.
 Context selection is explicit via `--context filename.md`, with a 24 KB source
-budget; unselected Notebook history is never dumped into a model prompt.
+budget; unselected governance records and Notebook history are never dumped into
+a model prompt. Core ownership and tool rules remain in the small system prompt.
+Workspace reads must also be grounded in the current human request.
 
 ## Preservation and provenance
 

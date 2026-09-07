@@ -209,8 +209,23 @@ class RuntimeTests(unittest.TestCase):
         (self.core / 'selected.md').write_text('relevant')
         (self.core / 'private.md').write_text('unrelated')
         packet = load_context(self.core, ['selected.md'])
-        self.assertEqual(len(packet['records']), 2)
+        self.assertEqual(len(packet['records']), 1)
         self.assertNotIn('unrelated', json.dumps(packet))
+    def test_empty_context_does_not_load_constitution(self):
+        packet = load_context(self.core, [])
+        self.assertEqual(packet['records'], [])
+        self.assertEqual(packet['missing'], [])
+    def test_greeting_tool_request_is_denied(self):
+        agent = self.agent({'tool': {'name': 'read_file', 'path': 'constitution.md'}},
+                           {'final': 'Hello, Jon.'})
+        agent.authorize = lambda request: request.get('path', '').casefold() in 'hi'
+        self.assertEqual(agent.run('greeting', self.binding['hcid'], 'hi'), 'Hello, Jon.')
+        authorization = [json.loads(r[0]) for r in self.book.db.execute(
+            "SELECT payload FROM events WHERE tx='greeting' AND kind='AUTHORIZATION'")]
+        self.assertEqual(authorization[-1]['allowed'], False)
+    def test_system_prompt_requires_complete_observation_answer(self):
+        self.assertIn("answer every explicit part", __import__('engine').SYSTEM)
+        self.assertIn("Preserve exact values", __import__('engine').SYSTEM)
     def test_end_to_end_final_capture_and_output(self):
         agent = self.agent({'tool': {'name': 'list_files', 'path': '.'}}, {'final': '  Exact final\nwith correction. 🧭  '})
         final = self.turn(agent)
