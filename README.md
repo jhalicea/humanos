@@ -111,3 +111,13 @@ The Constitution file is a locally retrieved governance copy with its source lin
 `core/runtime.md` is an explicitly labeled implementation note, not a new canonical
 decision. Owner's 2026-09-06 request authorizes this bounded local implementation;
 older specifications withholding independent deployment remain preserved as history.
+# Verified local information
+
+In the interactive runtime, use `/time`, `/notebook`, or `/capabilities`.
+Common questions about the time and this conversation's Notebook are also routed
+to these read-only local queries. They do not require a model or an approval prompt.
+Notebook results cover the explicitly bound session, include a bounded excerpt,
+and distinguish local persistence from unconnected Drive synchronization.
+Ordinary model turns receive at most 12 recent checkpointed transcript messages
+from this session, within an 8,000-byte budget. Full history remains in the ledger.
+Restart an already-running process to load code changes.
