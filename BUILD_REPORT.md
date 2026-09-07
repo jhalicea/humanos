@@ -162,3 +162,30 @@ explicitly separates conversational answers, loaded records, and workspace tools
 The prompt also requires all explicit parts of a request to be answered from exact
 observations. Automated tests cover empty-context greetings and denied ungrounded
 reads. Real isolated-vault tests cover both `hi` and the file-reading exercise.
+# 2026-09-07 runtime awareness repair
+
+The reported session contained 14 transactions and 28 saved messages, including
+the model's false claims that the Notebook was empty. These historical statements
+were preserved. A captured answer does not establish its factual correctness.
+
+Added runtime_info.py for session-bound, read-only Notebook queries, the local
+clock, and an explicit capability report. engine.py now routes those requests to
+verified runtime answers through the existing final-capture/checkpoint path and
+loads bounded recent same-session history for model turns. Query authorization
+and results enter the existing provenance ledger. No web/Drive connection added.
+tests/test_runtime_info.py adds eight behavioral checks; the complete automated
+suite passes 47 tests (`python3 -m unittest discover -s tests`). Existing test
+fixtures now use a neutral default request; file tests explicitly request their
+target file. README.md documents commands and scope. Rollback source
+before this repair: commit 1cf4f80. The user's active notebook was inspected
+read-only; live checks use isolated temporary notebooks.
+
+Live verification: initial five-turn run passed recall, clock, Notebook and
+capture checks but failed the file-answer assertion (4 passed, 1 failed).
+Added a bounded rejection of final answers that skip an explicitly requested
+file read. The two-turn Notebook-to-file retest passed both turns, including the
+exact phrase/code, output/transcript equality, and checkpoint readback. These are
+local results, not proof of semantic correctness for all model answers. Natural
+language routing is deliberately limited; slash commands are the reliable entry
+points. Final capture in the local runtime is proven by output comparison; capture
+of this separate Codex conversation remains degraded/unverified.

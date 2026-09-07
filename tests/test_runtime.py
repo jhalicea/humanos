@@ -40,7 +40,7 @@ class RuntimeTests(unittest.TestCase):
         self.tmp.cleanup()
     def agent(self, *responses, **kwargs):
         return Agent(self.book, FakeModel(*responses), self.tools, self.core, **kwargs)
-    def turn(self, agent, text='read note.txt', tx='tx-1'):
+    def turn(self, agent, text='Help with this test task.', tx='tx-1'):
         return agent.run(tx, self.binding['hcid'], text)
     def test_new_identity_unique_even_same_opening(self):
         new = self.book.bind('Jon', 'opening')
@@ -166,14 +166,14 @@ class RuntimeTests(unittest.TestCase):
     def test_agent_loop_success(self):
         (self.workspace / 'note.txt').write_text('Notebook first')
         agent = self.agent({'tool': {'name': 'read_file', 'path': 'note.txt'}}, {'final': 'Notebook first'})
-        self.assertEqual(self.turn(agent), 'Notebook first')
+        self.assertEqual(self.turn(agent, 'read note.txt'), 'Notebook first')
         self.assertIn('Notebook first', agent.model.calls[1][-1]['content'])
         kinds = [r[0] for r in self.book.db.execute('SELECT kind FROM events')]
         for k in ('CONTEXT_LOADED', 'MODEL_REQUEST', 'AUTHORIZATION', 'TOOL_RESULT', 'CHECKPOINT_VERIFIED'):
             self.assertIn(k, kinds)
     def test_tool_failure_surfaced_and_recoverable(self):
         agent = self.agent({'tool': {'name': 'read_file', 'path': 'missing.txt'}}, {'final': 'File does not exist.'})
-        self.assertEqual(self.turn(agent), 'File does not exist.')
+        self.assertEqual(self.turn(agent, 'read missing.txt'), 'File does not exist.')
         self.assertIn('FileNotFoundError', agent.model.calls[1][-1]['content'])
         self.assertEqual(self.book.db.execute('SELECT COUNT(*) FROM recovery').fetchone()[0], 1)
     def test_task_resume_after_model_outage(self):
