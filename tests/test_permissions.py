@@ -34,6 +34,24 @@ class PermissionTests(unittest.TestCase):
         state = task_scope({'tx': 't', 'hcid': 'h', 'input': 'read secret.txt.bak'}, self.workspace)
         self.assertNotIn('secret.txt', state['read_paths'])
 
+    def test_cli_resume_preserves_scope_and_delivers_verified_final(self):
+        from types import SimpleNamespace
+        from contextlib import redirect_stdout
+        (self.workspace / 'allowed.txt').write_text('allowed CLI evidence')
+        (self.workspace / 'secret.txt').write_text('PRIVATE')
+        with self.assertRaises(ConnectionError):
+            self.turn(self.agent(ConnectionError()), 'read allowed.txt')
+        runtime = object.__new__(HumanOSRuntime)
+        runtime.book = self.book
+        runtime.agent = self.agent({'tool': {'name': 'read_file', 'path': 'secret.txt'}},
+            {'tool': {'name': 'read_file', 'path': 'allowed.txt'}}, {'final': 'allowed CLI evidence'})
+        output = io.StringIO()
+        with redirect_stdout(output):
+            runtime.run(SimpleNamespace(status=False, resume='tx-1'))
+        self.assertEqual(output.getvalue(), 'allowed CLI evidence\n')
+        self.assertNotIn('PRIVATE', json.dumps(runtime.agent.model.calls))
+        self.assertEqual(self.book.task('tx-1')['delivery'], 'WRITTEN_TO_OUTPUT_STREAM')
+
     def test_negated_filename_mention_is_not_permission(self):
         for text in ('read public.txt but do not read secret.txt', "don't read secret.txt", 'list files except secrets'):
             state = task_scope({'tx': 't', 'hcid': 'h', 'input': text}, self.workspace)
