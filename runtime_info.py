@@ -1,6 +1,7 @@
 """Read-only, session-bound facts. These answers do not depend on model guesses."""
 import re
 from datetime import datetime
+from capabilities import summary
 
 
 def recent(book, hcid, exclude_tx, limit=12, budget=8000):
@@ -11,6 +12,11 @@ def recent(book, hcid, exclude_tx, limit=12, budget=8000):
     result = []
     for row in rows:
         item = dict(row)
+        state = book.task(item['tx']) or {}
+        # Preserve saved-but-undelivered evidence in the Notebook, but never
+        # present it as something the human already received in model history.
+        if item['role'] == 'ASSISTANT' and state.get('delivery') != 'WRITTEN_TO_OUTPUT_STREAM':
+            continue
         raw = item['text'].encode('utf-8')
         if len(raw) > budget:
             break
@@ -31,7 +37,7 @@ def intent(text):
         return 'capabilities'
 
 
-def answer(book, identity, tx, text, history, now=None):
+def request_for(text, history):
     kind = intent(text)
     if text.casefold().strip().rstrip('?!.') in ('do it', 'why', 'what do you mean'):
         for item in reversed(history):
@@ -39,19 +45,21 @@ def answer(book, identity, tx, text, history, now=None):
                 kind = intent(item['text'])
                 if item['text'].casefold().strip().rstrip('?!.') not in ('do it', 'why', 'what do you mean'):
                     break
-    if not kind:
-        return None
-    book.event(tx, 'RUNTIME_QUERY_AUTHORIZATION', {'query': kind, 'hcid': identity['hcid'],
-        'allowed': True, 'scope': 'read-only current session or local clock; requested by human'})
-    if kind == 'clock':
+    names = {'clock': 'current_time', 'notebook': 'read_notebook', 'capabilities': 'runtime_capabilities'}
+    return {'name': names[kind]} if kind else None
+
+
+def execute(book, identity, tx, name, now=None):
+    row = book.get_transaction(tx)
+    if not row or row['hcid'] != identity['hcid'] or book.get_identity(row['hcid']) != identity or identity['binding'] != 'VERIFIED':
+        raise PermissionError('Runtime query requires the verified transaction identity')
+    if name == 'current_time':
         value = (now or datetime.now().astimezone()).isoformat(timespec='seconds')
         result = 'Your Mac’s local date and time is ' + value + '.'
-    elif kind == 'capabilities':
-        result = ('This HumanOS runtime can converse using the configured local model, read the Mac’s clock, '
-                  'show this session’s local Life Notebook, and read/list authorized workspace files. '
-                  'Creating a new workspace file requires approval. Internet search and Drive synchronization '
-                  'are not connected. Use /time, /notebook, or /capabilities for verified runtime information.')
-    else:
+    elif name == 'runtime_capabilities':
+        result = summary()
+    elif name == 'read_notebook':
+        history = recent(book, identity['hcid'], tx)
         book.verify()
         counts = book.db.execute('''SELECT COUNT(DISTINCT t.tx),COUNT(s.seq)
             FROM transactions t LEFT JOIN transcript s ON s.tx=t.tx WHERE t.hcid=?''',
@@ -64,5 +72,9 @@ def answer(book, identity, tx, text, history, now=None):
                   'Recent saved transcript excerpt (bounded; not the whole Notebook):\n')
         result += '\n'.join(f'[{item["seq"]}] {item["role"]}: {item["text"][:500]}' +
                             (' [excerpt truncated]' if len(item['text']) > 500 else '') for item in history)
-    book.event(tx, 'RUNTIME_QUERY_RESULT', {'query': kind, 'text': result})
+        pending = [entry for entry in book.delivery_pending() if entry['hcid'] == identity['hcid'] and entry['tx'] != tx]
+        if pending:
+            result += '\nSaved answers with unconfirmed output: ' + ', '.join(entry['tx'] for entry in pending)
+    else:
+        raise PermissionError('Unknown runtime query')
     return result

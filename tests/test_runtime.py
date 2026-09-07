@@ -180,7 +180,7 @@ class RuntimeTests(unittest.TestCase):
         (self.workspace / 'note.txt').write_text('persisted')
         agent = self.agent({'tool': {'name': 'read_file', 'path': 'note.txt'}}, ConnectionError('offline'))
         with self.assertRaises(ConnectionError):
-            self.turn(agent)
+            self.turn(agent, 'read note.txt')
         self.book.close()
         self.book = Notebook(self.root / 'vault')
         self.book.recover()
@@ -246,7 +246,7 @@ class RuntimeTests(unittest.TestCase):
                 raise BrokenPipeError('closed')
         with self.assertRaises(BrokenPipeError):
             runtime.deliver('tx-1', final, Broken())
-        self.assertEqual(self.book.task('tx-1')['delivery'], 'PREPARED_NOT_CONFIRMED')
+        self.assertEqual(self.book.task('tx-1')['delivery'], 'OUTPUT_UNCERTAIN')
     def test_second_writer_rejected(self):
         with self.assertRaises(RuntimeError):
             Notebook(self.root / 'vault')
