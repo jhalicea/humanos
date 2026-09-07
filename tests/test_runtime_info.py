@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 import unittest
 import test_runtime
-from runtime_info import answer, recent, intent
+from runtime_info import execute, recent, intent
+from server import HumanOSRuntime
+import io
 
 
 class RuntimeInfoTests(unittest.TestCase):
@@ -9,6 +11,12 @@ class RuntimeInfoTests(unittest.TestCase):
     tearDown = test_runtime.RuntimeTests.tearDown
     agent = test_runtime.RuntimeTests.agent
     turn = test_runtime.RuntimeTests.turn
+    def delivered(self, agent, text, tx):
+        result = self.turn(agent, text, tx)
+        runtime = object.__new__(HumanOSRuntime)
+        runtime.book = self.book
+        runtime.deliver(tx, result, io.StringIO())
+        return result
     def test_clock_captured_without_model(self):
         agent = self.agent()
         result = self.turn(agent, 'what time it is?')
@@ -19,18 +27,18 @@ class RuntimeInfoTests(unittest.TestCase):
 
     def test_fixed_clock(self):
         self.book.start(self.binding['hcid'], 't', '/time')
-        result = answer(self.book, self.binding, 't', '/time', [], datetime(2026, 9, 7, tzinfo=timezone.utc))
+        result = execute(self.book, self.binding, 't', 'current_time', datetime(2026, 9, 7, tzinfo=timezone.utc))
         self.assertIn('2026-09-07T00:00:00+00:00', result)
 
     def test_notebook_is_not_empty(self):
-        self.turn(self.agent({'final': 'Hello Jon'}), 'hi', 'one')
+        self.delivered(self.agent({'final': 'Hello Jon'}), 'hi', 'one')
         result = self.turn(self.agent(), 'is this conversation in the notebook?', 'two')
         self.assertIn('2 transactions and 3 saved transcript messages', result)
         self.assertIn('Hello Jon', result)
         self.book.verify()
 
     def test_history_is_session_scoped_and_bounded(self):
-        self.turn(self.agent({'final': 'visible answer'}), 'remember apple', 'one')
+        self.delivered(self.agent({'final': 'visible answer'}), 'remember apple', 'one')
         other = self.book.bind('Jon', 'different')
         self.assertEqual(recent(self.book, other['hcid'], 'x'), [])
         self.assertEqual(recent(self.book, self.binding['hcid'], 'x', budget=1), [])

@@ -30,15 +30,34 @@ class HumanOSRuntime:
 
     def deliver(self, tx, response, stream=None):
         stream = stream or sys.stdout
-        # Capture final once before delivery. Unknown terminal delivery is never called proven.
-        stream.write(response + '\n')
-        stream.flush()
-        state = self.book.task(tx)
-        state['delivery'] = 'WRITTEN_TO_OUTPUT_STREAM'
-        self.book.save_task(tx, state)
-        self.book.event(tx, 'DELIVERY', {'status': state['delivery'], 'text_sha256': __import__('notebook').digest(response)})
-        self.book.verify()
+        if not self.book.prepare_delivery(tx, response):
+            return response
+        try:
+            visible = response + '\n'
+            if stream.write(visible) != len(visible):
+                raise IOError('Output stream accepted only part of the response')
+            stream.flush()
+            self.book.finish_delivery(tx)
+        except BaseException as error:
+            self.book.fail_delivery(tx, error)
+            raise
         return response
+
+    def authorize(self, tx, request):
+        if request.get('name') != 'create_file':
+            return True  # Engine applies the persisted read scope first.
+        if not sys.stdin.isatty():
+            return False
+        prompt = 'Approve creating this workspace file? ' + json.dumps(request, ensure_ascii=False) + ' [yes/no]'
+        n = self.book.message_count(tx)
+        self.book.append(tx, n, 'ASSISTANT', prompt)
+        self.book.project()
+        self.book.verify()
+        answer = input(prompt + '\n')
+        self.book.append(tx, n + 1, 'HUMAN', answer)
+        self.book.project()
+        self.book.verify()
+        return answer == 'yes'
 
     def run(self, args):
         if args.status:
@@ -46,11 +65,13 @@ class HumanOSRuntime:
             print(json.dumps(dict(self.book.status(), pending=self.pending), indent=2))
             return
         if args.resume:
+            self.agent.authorize = lambda request: self.authorize(args.resume, request)
             response = self.agent.run(args.resume)
             self.deliver(args.resume, response)
             return
         if any((self.book.task(t['tx']) or {}).get('phase') != 'EXTERNAL_CAPTURE_PENDING' for t in self.pending):
-            print('Unfinished transactions exist; use --status and --resume TX-ID.', file=sys.stderr)
+            print('Unfinished work or unconfirmed output exists; use --status and --resume TX-ID. '
+                  'Resuming uncertain output can repeat text, but does not rerun completed tools.', file=sys.stderr)
         binding = None
         while True:
             try:
@@ -64,29 +85,7 @@ class HumanOSRuntime:
                     print('Life Notebook page: ' + binding['page'], file=sys.stderr)
                 tx = args.tx or 'TX-' + uuid.uuid4().hex
                 print('Transaction: ' + tx, file=sys.stderr)
-                def authorize(request):
-                    name = request.get('name')
-                    path = request.get('path', '')
-                    request_text = text.casefold()
-                    if name == 'read_file':
-                        # A workspace read must be grounded in the current human request.
-                        return isinstance(path, str) and path.casefold() in request_text
-                    if name == 'list_files':
-                        return any(word in request_text for word in
-                                   ('list', 'files', 'workspace', 'folder', 'directory'))
-                    if name != 'create_file' or not sys.stdin.isatty():
-                        return False
-                    prompt = 'Approve creating this workspace file? ' + json.dumps(request, ensure_ascii=False) + ' [yes/no]'
-                    n = self.book.message_count(tx)
-                    self.book.append(tx, n, 'ASSISTANT', prompt)
-                    self.book.project()
-                    self.book.verify()
-                    answer = input(prompt + '\n')
-                    self.book.append(tx, n + 1, 'HUMAN', answer)
-                    self.book.project()
-                    self.book.verify()
-                    return answer == 'yes'
-                self.agent.authorize = authorize
+                self.agent.authorize = lambda request: self.authorize(tx, request)
                 response = self.agent.run(tx, binding['hcid'], text, args.context)
                 self.deliver(tx, response)
                 if args.message is not None:

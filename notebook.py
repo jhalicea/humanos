@@ -64,7 +64,8 @@ class Notebook:
             previous_hash TEXT NOT NULL, event_hash TEXT NOT NULL);
           CREATE TABLE IF NOT EXISTS recovery(
             id INTEGER PRIMARY KEY AUTOINCREMENT, tx TEXT, error TEXT NOT NULL,
-            closed INTEGER NOT NULL DEFAULT 0, created TEXT NOT NULL);
+            closed INTEGER NOT NULL DEFAULT 0, created TEXT NOT NULL,
+            scope TEXT NOT NULL DEFAULT 'NOTEBOOK');
           CREATE TRIGGER IF NOT EXISTS transcript_no_update BEFORE UPDATE ON transcript
             BEGIN SELECT RAISE(ABORT, 'append-only transcript'); END;
           CREATE TRIGGER IF NOT EXISTS transcript_no_delete BEFORE DELETE ON transcript
@@ -74,20 +75,28 @@ class Notebook:
           CREATE TRIGGER IF NOT EXISTS events_no_delete BEFORE DELETE ON events
             BEGIN SELECT RAISE(ABORT, 'append-only events'); END;
         ''')
+        # Existing vaults retain their rows and original recovery semantics.
+        if 'scope' not in {row['name'] for row in self.db.execute('PRAGMA table_info(recovery)')}:
+            with self.db:
+                self.db.execute("ALTER TABLE recovery ADD COLUMN scope TEXT NOT NULL DEFAULT 'NOTEBOOK'")
 
     def close(self):
         self.db.close()
         self.lock.close()
 
     def event(self, tx, kind, payload):
+        with self.db:
+            self._append_event(tx, kind, payload)
+
+    def _append_event(self, tx, kind, payload):
+        """Append inside the caller's transaction when state and evidence must agree."""
         previous = self.db.execute('SELECT seq,event_hash FROM events ORDER BY seq DESC LIMIT 1').fetchone()
         seq, prev = (previous['seq'] + 1, previous['event_hash']) if previous else (1, 'GENESIS')
         stamp = now()
         body = {'payload': payload, 'created': stamp}
-        with self.db:
-            self.db.execute('INSERT INTO events VALUES(?,?,?,?,?,?,?)',
-                            (seq, tx, kind, encode(payload), stamp, prev,
-                             hash_event(seq, kind, tx or '', body, prev)))
+        self.db.execute('INSERT INTO events VALUES(?,?,?,?,?,?,?)',
+                        (seq, tx, kind, encode(payload), stamp, prev,
+                         hash_event(seq, kind, tx or '', body, prev)))
 
     def problem(self, tx, error, payload=None):
         # Independent fsynced fallback retains the exact input even if SQLite fails.
@@ -182,6 +191,12 @@ class Notebook:
         with self.db:
             self.db.execute('INSERT OR REPLACE INTO tasks VALUES(?,?)', (tx, encode(state)))
 
+    def save_task_event(self, tx, state, kind, payload):
+        """Commit execution authority and its audit evidence in one transaction."""
+        with self.db:
+            self.db.execute('INSERT OR REPLACE INTO tasks VALUES(?,?)', (tx, encode(state)))
+            self._append_event(tx, kind, payload)
+
     def task(self, tx):
         row = self.db.execute('SELECT state FROM tasks WHERE tx=?', (tx,)).fetchone()
         return json.loads(row[0]) if row else None
@@ -200,7 +215,113 @@ class Notebook:
     def status(self):
         return {'transactions': [dict(r) for r in self.db.execute('SELECT * FROM transactions')],
                 'identities': [dict(r) for r in self.db.execute('SELECT * FROM identities')],
-                'open_recovery': [dict(r) for r in self.db.execute('SELECT * FROM recovery WHERE closed=0')]}
+                'open_recovery': [dict(r) for r in self.db.execute('SELECT * FROM recovery WHERE closed=0')],
+                'pending_delivery': self.delivery_pending()}
+
+    def delivery_pending(self):
+        """Saved finals awaiting output, including legacy tasks without delivery metadata."""
+        pending = []
+        for row in self.db.execute('''SELECT transactions.*,tasks.state FROM transactions
+                JOIN tasks USING(tx) ORDER BY transactions.created,transactions.tx'''):
+            state = json.loads(row['state'])
+            if state.get('phase') != 'COMPLETE' or state.get('delivery') == 'WRITTEN_TO_OUTPUT_STREAM':
+                continue
+            record = {key: row[key] for key in row.keys() if key != 'state'}
+            record.update(recovery_kind='DELIVERY', delivery=state.get('delivery', 'NOT_CONFIRMED'),
+                          delivery_attempt=state.get('delivery_attempt'),
+                          delivery_error=state.get('delivery_error'))
+            pending.append(record)
+        return pending
+
+    def _verified_final(self, tx, response=None):
+        state = self.task(tx)
+        transaction = self.get_transaction(tx)
+        if not state or state.get('phase') != 'COMPLETE':
+            raise RuntimeError('Cannot deliver before final transcript capture is complete')
+        if not transaction or transaction['status'] != 'CHECKPOINTED':
+            raise RuntimeError('Cannot deliver before Notebook checkpoint readback')
+        final = self.db.execute('SELECT text,role,sha256 FROM transcript WHERE tx=? AND ordinal=?',
+                                (tx, state.get('final_ordinal'))).fetchone()
+        if (not final or final['role'] != 'ASSISTANT' or final['text'] != state.get('final') or
+                digest(final['text']) != final['sha256'] or
+                (response is not None and response != final['text'])):
+            raise RuntimeError('Delivery response differs from preserved final transcript')
+        self.verify()
+        return state
+
+    def prepare_delivery(self, tx, response):
+        """Durably record an output attempt before the caller writes any characters.
+
+        Returns False for a previously confirmed output. Retrying an uncertain
+        attempt may repeat terminal output, but never appends transcript again.
+        """
+        state = self._verified_final(tx, response)
+        if state.get('delivery') == 'WRITTEN_TO_OUTPUT_STREAM':
+            return False
+        state.update(delivery='DELIVERING', delivery_attempt=uuid.uuid4().hex,
+                     delivery_attempts=state.get('delivery_attempts', 0) + 1,
+                     delivery_started=now(), delivery_sha256=digest(response))
+        state.pop('delivery_error', None)
+        with self.db:
+            self.db.execute('UPDATE tasks SET state=? WHERE tx=?', (encode(state), tx))
+            self._append_event(tx, 'DELIVERY_STARTED', {
+                'attempt': state['delivery_attempt'], 'sha256': state['delivery_sha256'],
+                'characters_with_terminal_newline': len(response) + 1})
+        return True
+
+    def finish_delivery(self, tx):
+        """Called only after the full output write and flush both succeed.
+
+        This confirms the output stream, never a claim that a human read it.
+        A crash between flush and this commit remains an uncertain outcome.
+        """
+        state = self._verified_final(tx)
+        if state.get('delivery') == 'WRITTEN_TO_OUTPUT_STREAM':
+            return False
+        if state.get('delivery') != 'DELIVERING' or state.get('delivery_sha256') != digest(state['final']):
+            raise RuntimeError('Output confirmation requires a matching durable delivery attempt')
+        state.update(delivery='WRITTEN_TO_OUTPUT_STREAM', delivery_finished=now())
+        state.pop('delivery_error', None)
+        with self.db:
+            self.db.execute('UPDATE tasks SET state=? WHERE tx=?', (encode(state), tx))
+            self.db.execute("UPDATE recovery SET closed=1 WHERE tx=? AND scope='DELIVERY' AND closed=0", (tx,))
+            self._append_event(tx, 'DELIVERY', {'status': state['delivery'],
+                                               'attempt': state['delivery_attempt'],
+                                               'sha256': state['delivery_sha256']})
+        return True
+
+    def _delivery_recovery(self, tx, error, uncertain=False):
+        state = self.task(tx)
+        if not state or state.get('phase') != 'COMPLETE':
+            raise RuntimeError('Delivery recovery requires a saved final response')
+        if state.get('delivery') == 'WRITTEN_TO_OUTPUT_STREAM':
+            return False
+        delivery = 'OUTPUT_UNCERTAIN' if uncertain else state.get('delivery', 'NOT_CONFIRMED')
+        existing = self.db.execute("SELECT id FROM recovery WHERE tx=? AND scope='DELIVERY' AND closed=0",
+                                   (tx,)).fetchone()
+        changed = state.get('delivery') != delivery or state.get('delivery_error') != str(error)
+        if existing and not changed:
+            return False
+        # The fallback survives a failure while updating SQLite task/recovery state.
+        record = {'tx': tx, 'scope': 'DELIVERY', 'error': str(error),
+                  'payload': {'delivery': delivery, 'attempt': state.get('delivery_attempt')}, 'created': now()}
+        with open(self.root / 'recovery.jsonl', 'a', encoding='utf-8') as f:
+            f.write(encode(record) + '\n')
+            f.flush()
+            os.fsync(f.fileno())
+        state.update(delivery=delivery, delivery_error=str(error))
+        with self.db:
+            self.db.execute('UPDATE tasks SET state=? WHERE tx=?', (encode(state), tx))
+            if not existing:
+                self.db.execute("INSERT INTO recovery(tx,error,created,scope) VALUES(?,?,?,'DELIVERY')",
+                                (tx, str(error), now()))
+            self._append_event(tx, 'DELIVERY_RECOVERY_REQUIRED', {
+                'delivery': delivery, 'error': str(error), 'attempt': state.get('delivery_attempt')})
+        return True
+
+    def fail_delivery(self, tx, error):
+        """Output may have been partial or flushed; preserve this uncertainty."""
+        return self._delivery_recovery(tx, error, uncertain=True)
 
     def projections(self):
         identities = [dict(r) for r in self.db.execute('SELECT * FROM identities ORDER BY hcid')]
@@ -259,6 +380,9 @@ class Notebook:
                                    (tx, state['final_ordinal'])).fetchone()
             if not final or final['role'] != 'ASSISTANT' or final['text'] != state['final']:
                 raise RuntimeError('Final response readback differs from task checkpoint')
+            if self.get_transaction(tx)['status'] == 'CHECKPOINTED':
+                self.verify()
+                return
             self.project()
             self.verify()
             with self.db:
@@ -266,7 +390,7 @@ class Notebook:
             self.project()
             self.verify()
             with self.db:
-                self.db.execute('UPDATE recovery SET closed=1 WHERE tx=?', (tx,))
+                self.db.execute("UPDATE recovery SET closed=1 WHERE tx=? AND scope='NOTEBOOK'", (tx,))
             self.event(tx, 'CHECKPOINT_VERIFIED', {'verification': 'SQLite, hashes, page, index, binding readback',
                                                  'delivery': state.get('delivery', 'NOT_CONFIRMED')})
             self.verify()
@@ -298,14 +422,35 @@ class Notebook:
             if state and state.get('phase') == 'COMPLETE':
                 self.checkpoint(row['tx'])
             else:
-                self.event(row['tx'], 'RESUME_REQUIRED', {'status': row['status']})
+                payload = {'status': row['status']}
+                previous = self.db.execute("SELECT payload FROM events WHERE tx=? AND kind='RESUME_REQUIRED' ORDER BY seq DESC LIMIT 1",
+                                           (row['tx'],)).fetchone()
+                if not previous or json.loads(previous['payload']) != payload:
+                    self.event(row['tx'], 'RESUME_REQUIRED', payload)
         fallback = self.root / 'recovery.jsonl'
+        delivery_fallback = {}
         if fallback.exists():
             for line in fallback.read_text(encoding='utf-8').splitlines():
                 record = json.loads(line)
                 payload = record.get('payload')
                 tx = record.get('tx')
+                if tx and record.get('scope') == 'DELIVERY' and isinstance(payload, dict):
+                    delivery_fallback[tx] = record
                 if tx and isinstance(payload, dict) and payload.get('role') == 'HUMAN' and not self.get_transaction(tx):
                     self.start(payload['hcid'], tx, payload['text'])
                     self.event(tx, 'FALLBACK_INPUT_RECOVERED', {'source': str(fallback)})
-        return [dict(r) for r in self.db.execute("SELECT * FROM transactions WHERE status!='CHECKPOINTED'")]
+        for delivery in self.delivery_pending():
+            record = delivery_fallback.get(delivery['tx'])
+            if record and record['payload'].get('attempt') == delivery.get('delivery_attempt'):
+                # A failed SQLite update must not discard the specific output
+                # failure already retained in the independent recovery ledger.
+                delivery['delivery_error'] = record['error']
+                if record['payload'].get('delivery') == 'OUTPUT_UNCERTAIN':
+                    delivery['delivery'] = 'OUTPUT_UNCERTAIN'
+            uncertain = delivery['delivery'] in ('DELIVERING', 'OUTPUT_UNCERTAIN')
+            error = delivery.get('delivery_error') or (
+                'Process ended during output; terminal delivery is uncertain' if uncertain else
+                'Final answer saved and checkpointed; output has not been confirmed')
+            self._delivery_recovery(delivery['tx'], error, uncertain=uncertain)
+        return ([dict(r) for r in self.db.execute("SELECT * FROM transactions WHERE status!='CHECKPOINTED'")]
+                + self.delivery_pending())
