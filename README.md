@@ -72,8 +72,8 @@ No encryption or full CIBE merge/split/provider migration UI is claimed.
 
 ## Tool scope
 
-Default workspace is `/Users/jhalicea/humanos/workspace`. Read/list are authorized
-inside that scope. File creation requires interactive per-request approval and
+Default workspace is `/Users/jhalicea/humanos/workspace`. Read/list require the
+scope saved from the human's original request. File creation requires interactive per-request approval and
 never overwrites. Absolute paths, traversal, hidden paths, symlinks, hardlinked
 files, devices, and files over 16 KiB are rejected. No shell or arbitrary Python.
 This is a narrow file capability boundary, not a general operating-system sandbox.
@@ -121,3 +121,49 @@ and distinguish local persistence from unconnected Drive synchronization.
 Ordinary model turns receive at most 12 recent checkpointed transcript messages
 from this session, within an 8,000-byte budget. Full history remains in the ledger.
 Restart an already-running process to load code changes.
+
+## Durable tools and recovery
+
+`capabilities.py` supplies the model's tool contract, argument validation and
+`/capabilities` output. Clock, bound-session Notebook and file requests all use the
+same executor and authorization audit path. Internet and Drive remain unavailable.
+
+Each new task persists its original input hash, session, workspace, exact allowed
+read/list paths, and policy version. Resume validates and reuses that scope;
+callbacks can narrow reads, never expand them. Denials and exact write approvals
+are saved with their authorization event. Mixed negative file requests fail closed;
+use a simple affirmative request such as `read folder/note.txt`.
+
+`CHECKPOINTED` describes verified local capture. Delivery has separate durable
+states: `PREPARED_NOT_CONFIRMED`, `DELIVERING`, `OUTPUT_UNCERTAIN`, and
+`WRITTEN_TO_OUTPUT_STREAM`. Startup lists saved answers with unconfirmed output,
+including older checkpointed tasks. `--status` shows them; `--resume TX-ID` retries
+the exact saved final without rerunning completed tools or appending transcript.
+An uncertain output retry may repeat terminal text. Confirmed output is not emitted
+again by a duplicate resume. Output-stream confirmation does not prove human receipt.
+Unconfirmed assistant messages remain preserved but are excluded from model history.
+
+Older unfinished tasks without saved scope require explicit reconciliation; the
+runtime does not infer new permissions for them. An interrupted file creation with
+unknown outcome still stops for inspection, never replays automatically. A guided
+reconciliation interface is not yet implemented.
+
+The recovery schema gains a `scope` column without changing existing records.
+Before an installed upgrade, stop the running process and retain a private backup
+of its vault. The code rollback baseline is `2cf2c98`; prior code can read the
+additive database schema but does not implement the new delivery distinctions.
+Keep the upgraded vault as evidence rather than reverting data to an older backup.
+
+Validation:
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 verify_durable_live.py
+```
+
+The first command is offline and includes real process-death/restart tests. GitHub
+Actions runs it on Linux and macOS with Python 3.11 and 3.13. The second is opt-in,
+uses configured local Ollama, and always creates an isolated temporary test vault
+and workspace. It checks five real turns including exact final output/readback.
+CI does not prove local-model quality. Branch protection and auto-deployment are
+not configured. See `REVIEW.md` for the milestone and reviewer guidance.
