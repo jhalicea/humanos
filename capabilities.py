@@ -30,6 +30,8 @@ REGISTRY = {item['name']: item for item in (
                parameters={'path': {'type': 'string'}}, required=('path',)),
     definition('plan_contextual_organization', 'Preview organization by local content and context with reasons; nothing moves until separately approved.', 'workspace', 'plan',
                parameters={'path': {'type': 'string', 'default': '.'}}),
+    definition('plan_inbox_organization', 'Preview inbox classification, destination, and clearer filename suggestions; nothing moves until separately approved.', 'workspace', 'plan',
+               parameters={'path': {'type': 'string', 'default': 'inbox'}}),
     definition('plan_move', 'Preview moving a file or folder within the authorized workspace.', 'workspace', 'plan',
                parameters={'source': {'type': 'string'}, 'destination': {'type': 'string'}}, required=('source', 'destination')),
     definition('apply_plan', 'Apply a specific saved organization plan only after human approval of its moves.', 'workspace', 'organize',
@@ -94,4 +96,4 @@ def summary():
             'read files, inspect folders, understand local file context, find exact duplicates, and organize files using a reviewed plan. '
             'File access stays inside the folder you select. Duplicate checks never delete files.\n' + supported +
             '\n' + missing + ' are not connected. Use /files, /read PATH, /duplicates, /organize, '
-            '/understand PATH, /smart-organize, /apply PLAN-ID, /undo PLAN-ID, /source, /time, or /notebook.')
+            '/understand PATH, /smart-organize, /organize-inbox, /apply PLAN-ID, /undo PLAN-ID, /source, /time, or /notebook.')

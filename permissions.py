@@ -38,7 +38,7 @@ def task_scope(row, workspace, version=3):
         scope['plan_action'] = direct if direct.get('name') in ('apply_plan', 'undo_plan') else None
     if version >= 3:
         scope['contextual_paths'] = [direct.get('path', '.')] if direct.get('name') in (
-            'understand_file', 'plan_contextual_organization') else []
+            'understand_file', 'plan_contextual_organization', 'plan_inbox_organization') else []
     return scope
 
 
@@ -64,6 +64,6 @@ def allows_read(scope, request):
         return request.get('path', '.') in scope.get('scan_paths', [])
     if name == 'plan_move':
         return request == scope.get('move_request')
-    if name in ('understand_file', 'plan_contextual_organization'):
+    if name in ('understand_file', 'plan_contextual_organization', 'plan_inbox_organization'):
         return request.get('path', '.') in scope.get('contextual_paths', [])
     return name in scope['runtime_reads']

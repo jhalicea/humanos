@@ -48,10 +48,11 @@ def request_for(text, history):
         words = []
     commands = {'/files': 'scan_files', '/duplicates': 'find_duplicates', '/organize': 'plan_organization',
                 '/smart-organize': 'plan_contextual_organization', '/understand': 'understand_file',
-                '/read': 'read_file', '/source': 'read_source'}
+                '/organize-inbox': 'plan_inbox_organization', '/read': 'read_file', '/source': 'read_source'}
     if words and words[0] in commands and len(words) <= 3:
         name = commands[words[0]]
-        result = {'name': name, 'path': words[1] if len(words) > 1 else ('server.py' if name == 'read_source' else '.')}
+        default_path = 'server.py' if name == 'read_source' else 'inbox' if name == 'plan_inbox_organization' else '.'
+        result = {'name': name, 'path': words[1] if len(words) > 1 else default_path}
         if len(words) == 3:
             if name not in ('read_file', 'read_source') or not words[2].isdigit():
                 return None
@@ -74,6 +75,8 @@ def request_for(text, history):
             return {'name': 'find_duplicates', 'path': '.'}
         if re.fullmatch(r'(organize|sort) (my |these |the )?(files|folders)[.! ]*', lowered.strip()):
             return {'name': 'plan_organization', 'path': '.'}
+        if re.fullmatch(r'(mirror )?(organize|sort) (my |these |the )?inbox[.! ]*', lowered.strip()):
+            return {'name': 'plan_inbox_organization', 'path': 'inbox'}
     kind = intent(text)
     if text.casefold().strip().rstrip('?!.') in ('do it', 'why', 'what do you mean'):
         for item in reversed(history):
@@ -110,6 +113,9 @@ def format_plan(report, undo=False):
             detail = item['classification']
             lines.append('    ' + detail['summary'] + ' — ' + detail['rationale'] +
                          ' (' + str(round(detail['confidence'] * 100)) + '% confidence)')
+            if detail.get('rename'):
+                lines.append('    Suggested filename: ' + detail['suggested_filename'] +
+                             ' (the current name is generic or less searchable)')
     if not undo and report.get('metadata', {}).get('decisions'):
         kept = [item for item in report['metadata']['decisions'] if item['source'] == item['destination']]
         for item in kept:
@@ -117,6 +123,9 @@ def format_plan(report, undo=False):
             lines.append('  KEEP ' + item['source'])
             lines.append('    ' + detail['summary'] + ' — ' + detail['rationale'] +
                          ' (' + str(round(detail['confidence'] * 100)) + '% confidence)')
+            if detail.get('rename'):
+                lines.append('    Suggested filename: ' + detail['suggested_filename'] +
+                             ' (the current name is generic or less searchable)')
     lines.append('Existing destinations will never be overwritten. Undo restores unchanged items; empty folders created for the plan may remain.')
     return '\n'.join(lines)
 
@@ -141,7 +150,7 @@ def format_observation(request, observation):
             answer += '\nContinue with /read ' + shlex.quote(request['path']) + ' ' + str(observation['next_offset'])
         return answer
     if name in ('scan_files', 'find_duplicates', 'plan_organization', 'understand_file',
-                'plan_contextual_organization', 'plan_move', 'apply_plan', 'undo_plan'):
+                'plan_contextual_organization', 'plan_inbox_organization', 'plan_move', 'apply_plan', 'undo_plan'):
         report = json.loads(observation['stdout'])
         if name == 'scan_files':
             lines = ['Folder: ' + report['folder'], str(len(report['entries'])) + ' visible entries:']
