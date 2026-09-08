@@ -47,6 +47,7 @@ def request_for(text, history):
     except ValueError:
         words = []
     commands = {'/files': 'scan_files', '/duplicates': 'find_duplicates', '/organize': 'plan_organization',
+                '/smart-organize': 'plan_contextual_organization', '/understand': 'understand_file',
                 '/read': 'read_file', '/source': 'read_source'}
     if words and words[0] in commands and len(words) <= 3:
         name = commands[words[0]]
@@ -105,6 +106,17 @@ def format_plan(report, undo=False):
     for item in report['moves']:
         left, right = (item['destination'], item['source']) if undo else (item['source'], item['destination'])
         lines.append('  ' + left + ' → ' + right)
+        if not undo and item.get('classification'):
+            detail = item['classification']
+            lines.append('    ' + detail['summary'] + ' — ' + detail['rationale'] +
+                         ' (' + str(round(detail['confidence'] * 100)) + '% confidence)')
+    if not undo and report.get('metadata', {}).get('decisions'):
+        kept = [item for item in report['metadata']['decisions'] if item['source'] == item['destination']]
+        for item in kept:
+            detail = item['classification']
+            lines.append('  KEEP ' + item['source'])
+            lines.append('    ' + detail['summary'] + ' — ' + detail['rationale'] +
+                         ' (' + str(round(detail['confidence'] * 100)) + '% confidence)')
     lines.append('Existing destinations will never be overwritten. Undo restores unchanged items; empty folders created for the plan may remain.')
     return '\n'.join(lines)
 
@@ -128,7 +140,8 @@ def format_observation(request, observation):
         if observation.get('truncated'):
             answer += '\nContinue with /read ' + shlex.quote(request['path']) + ' ' + str(observation['next_offset'])
         return answer
-    if name in ('scan_files', 'find_duplicates', 'plan_organization', 'plan_move', 'apply_plan', 'undo_plan'):
+    if name in ('scan_files', 'find_duplicates', 'plan_organization', 'understand_file',
+                'plan_contextual_organization', 'plan_move', 'apply_plan', 'undo_plan'):
         report = json.loads(observation['stdout'])
         if name == 'scan_files':
             lines = ['Folder: ' + report['folder'], str(len(report['entries'])) + ' visible entries:']
@@ -145,9 +158,16 @@ def format_observation(request, observation):
             if report['skipped']: lines.append(str(len(report['skipped'])) + ' hidden, protected, linked or special entries excluded.')
             lines.append('Nothing deleted or moved.')
             return '\n'.join(lines)
+        if name == 'understand_file':
+            folder = ('current folder' if report['destination_folder'] == '.' else report['destination_folder'])
+            return ('File: ' + report['source'] + '\nSummary: ' + report['summary'] +
+                    '\nSuggested folder: ' + folder +
+                    '\nWhy: ' + report['rationale'] +
+                    '\nConfidence: ' + str(round(report['confidence'] * 100)) +
+                    '%\nNothing moved.')
         answer = format_plan(report, undo=name == 'undo_plan')
         plan_id = report.get('plan_id') or report.get('id')
-        if plan_id and name in ('plan_organization', 'plan_move'):
+        if plan_id and name in ('plan_organization', 'plan_contextual_organization', 'plan_move'):
             answer += '\nNo files moved. Review this plan, then use /apply ' + plan_id
         if plan_id and name == 'apply_plan':
             answer += '\nTo undo this plan, use /undo ' + plan_id
