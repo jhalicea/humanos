@@ -81,6 +81,40 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.book.start(self.binding['hcid'], 't', 'two')
         self.assertEqual(self.book.db.execute('SELECT input FROM transactions WHERE tx=?', ('t',)).fetchone()[0], 'one')
+    def test_unfinished_turn_does_not_block_later_turn_on_same_page(self):
+        self.book.start(self.binding['hcid'], 'old', 'older unfinished input')
+        later = self.agent({'final': 'Current answer remains available.'})
+        self.assertEqual(later.run('new', self.binding['hcid'], 'new input'),
+                         'Current answer remains available.')
+        self.assertEqual(self.book.get_transaction('old')['status'], 'STARTED')
+        self.assertEqual(self.book.get_transaction('new')['status'], 'CHECKPOINTED')
+        self.assertEqual(self.book.message_count('old'), 1)
+        self.assertEqual(self.book.message_count('new'), 2)
+        resumed = self.agent({'final': 'Late answer to the older turn.'})
+        self.assertEqual(resumed.run('old'), 'Late answer to the older turn.')
+        transcript = [(row['tx'], row['role'], row['text']) for row in self.book.db.execute(
+            'SELECT tx,role,text FROM transcript ORDER BY seq')]
+        self.assertEqual(transcript, [
+            ('old', 'HUMAN', 'older unfinished input'),
+            ('new', 'HUMAN', 'new input'),
+            ('new', 'ASSISTANT', 'Current answer remains available.'),
+            ('old', 'ASSISTANT', 'Late answer to the older turn.'),
+        ])
+        self.book.verify()
+    def test_recovery_preserves_rejected_input_without_blocking_current_turn(self):
+        self.book.start(self.binding['hcid'], 'old', 'older unfinished input')
+        self.book.problem('rejected', 'legacy turn blocker', {
+            'hcid': self.binding['hcid'], 'requested_tx': 'rejected',
+            'role': 'HUMAN', 'text': '  exact rejected input 🧭\n'})
+        pending = self.book.recover()
+        self.assertEqual(self.book.get_transaction('rejected')['input'], '  exact rejected input 🧭\n')
+        self.assertEqual(self.book.message_count('rejected'), 1)
+        self.assertIn('rejected', [row['tx'] for row in pending])
+        final = self.agent({'final': 'New turn works.'}).run(
+            'current', self.binding['hcid'], 'continue now')
+        self.assertEqual(final, 'New turn works.')
+        self.assertEqual(self.book.get_transaction('current')['status'], 'CHECKPOINTED')
+        self.book.verify()
     def test_rejected_replay_does_not_change_verified_transaction(self):
         self.turn(self.agent({'final': 'done'}))
         with self.assertRaises(ValueError):
