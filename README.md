@@ -30,6 +30,13 @@ Ctrl-C stops execution. Startup reconciles projections, lists unfinished turns,
 and never silently reruns a model or tool. Resume is explicit. Reads may retry;
 an interrupted create with uncertain outcome stops for inspection. Do not edit
 SQLite task state to force a retry. That manual reconciliation UI remains open.
+An unfinished turn no longer blocks later turns on the same Notebook page. Each
+turn keeps its own transaction and recovery state. If an older turn is resumed
+later, its response is appended at the time it is actually produced, preserving
+the visible chronology. Inputs retained by the fallback recovery ledger are
+restored as pending transactions without fabricating assistant responses.
+Run `python3 verify_nonblocking_live.py` for an isolated real-model check of this
+recovery behavior.
 
 Configuration is in `config.json`. Relative paths resolve beside that file, so
 launching from another directory cannot silently create a different vault.
