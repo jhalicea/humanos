@@ -278,6 +278,30 @@ contextual plan is at most 10 top-level files and 120 seconds, and existing
 scan/hash limits still apply. The plan is idempotent by transaction and path;
 repeating a request does not call the model or move files twice.
 
+## Inbox Librarian
+
+The selected workspace can contain an `inbox/` folder for unsorted files. Use
+the librarian preview to classify its top-level contents:
+
+```text
+/organize-inbox
+```
+
+For each file, Mirror records the available bounded context, proposes a
+relative project or research folder, and checks whether the name is generic
+(`internet.pdf`, `document.pdf`, `IMG_1234.jpg`, and similar). A generic name
+gets a clearer filename proposal while preserving its extension. The preview
+shows the original path, proposed path, explanation, confidence, and rename
+suggestion. It does not change the inbox.
+
+Applying the saved plan still requires the exact plan ID and a separate human
+approval. Moves and renames are non-overwriting, hash-checked, reversible, and
+logged with the original name, final name, content proof, model, decision, and
+Notebook transaction. Repeating the same turn is idempotent. Files with no
+extractable content remain metadata-only and are flagged for review rather than
+being assigned a fabricated meaning. Automatic background moves and whole-home
+scans are not enabled.
+
 `/source` reads only an allowlist of HumanOS code/documentation, separately from
 personal workspace files. It cannot read configuration, secrets, vaults or Git
 internals. Mirror's capability answers come from the actual registry.
