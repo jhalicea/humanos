@@ -1,9 +1,14 @@
 """Bounded local file understanding that proposes plans but never moves files."""
 import hashlib
+import io
 import os
 from pathlib import Path
+import re
 import stat
+import struct
 import time
+import xml.etree.ElementTree as ET
+import zipfile
 
 from file_manager import MAX_BYTES, parts
 from notebook import encode
@@ -11,15 +16,21 @@ from notebook import encode
 MAX_CONTEXT_FILES = 10
 MAX_EXCERPT_BYTES = 4096
 MAX_CONTEXT_FILE_BYTES = 16 * 1024 * 1024
+MAX_EXTRACT_FILE_BYTES = 4 * 1024 * 1024
+MAX_ARCHIVE_MEMBERS = 100
+MAX_ARCHIVE_MEMBER_BYTES = 2 * 1024 * 1024
+MAX_ARCHIVE_TOTAL_BYTES = 4 * 1024 * 1024
 MAX_FOLDERS = 50
 TEXT_EXTENSIONS = {
     '', '.txt', '.md', '.csv', '.json', '.py', '.js', '.ts', '.html', '.css',
     '.yaml', '.yml', '.xml', '.log', '.sql', '.ini', '.toml', '.rtf',
 }
+OFFICE_EXTENSIONS = {'.docx', '.xlsx', '.pptx', '.odt'}
+IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.tif', '.tiff', '.heic'}
 
 
 class FileInspector:
-    """Extract a small model-visible excerpt through the manager's anchored FDs."""
+    """Extract bounded local evidence through the manager's anchored file handles."""
     def __init__(self, manager):
         self.manager = manager
 
@@ -29,11 +40,34 @@ class FileInspector:
             raise PermissionError('Context understanding currently accepts ordinary files only')
         if proof['size'] > MAX_CONTEXT_FILE_BYTES:
             raise ValueError('Context understanding accepts files up to 16 MiB')
-        extension = Path(path).suffix.casefold()
         result = {'method': 'filename-and-metadata', 'readable_text': False,
                   'excerpt': '', 'excerpt_sha256': None, 'proof': proof}
-        if extension not in TEXT_EXTENSIONS:
+        extension = Path(path).suffix.casefold()
+        if extension in TEXT_EXTENSIONS:
+            raw = self._read_bytes(path, proof, MAX_EXCERPT_BYTES + 4)
+            excerpt = self._utf8_excerpt(raw[:MAX_EXCERPT_BYTES])
+            if excerpt is None:
+                return result
+            result.update(method='utf-8-excerpt', readable_text=True, excerpt=excerpt)
+        elif extension in OFFICE_EXTENSIONS or extension == '.pdf' or extension in IMAGE_EXTENSIONS:
+            if proof['size'] > MAX_EXTRACT_FILE_BYTES:
+                return result
+            raw = self._read_bytes(path, proof, proof['size'])
+            if extension == '.pdf':
+                result.update(self._pdf_evidence(raw))
+            elif extension in OFFICE_EXTENSIONS:
+                result.update(self._office_evidence(raw, extension))
+            else:
+                result.update(self._image_evidence(raw, extension))
+        else:
             return result
+        if result['excerpt']:
+            result['excerpt_sha256'] = hashlib.sha256(result['excerpt'].encode()).hexdigest()
+        if self.manager._snapshot(path, budget) != proof:
+            raise RuntimeError('File changed while its contextual evidence was being prepared: ' + path)
+        return result
+
+    def _read_bytes(self, path, proof, limit):
         names = parts(path)
         parent = self.manager._dir(names[:-1])
         try:
@@ -44,30 +78,112 @@ class FileInspector:
             before = os.fstat(fd)
             if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
                 raise PermissionError('Only ordinary non-hardlinked files can be understood')
-            raw = os.read(fd, MAX_EXCERPT_BYTES + 4)
+            if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+                    proof['device'], proof['inode'], proof['size'], proof['modified_ns']):
+                raise RuntimeError('File changed before contextual inspection: ' + path)
+            chunks, remaining = [], limit
+            while remaining:
+                block = os.read(fd, min(65536, remaining))
+                if not block: break
+                chunks.append(block); remaining -= len(block)
+            raw = b''.join(chunks)
             after = os.fstat(fd)
             if (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) != (
                     proof['device'], proof['inode'], proof['size'], proof['modified_ns']):
                 raise RuntimeError('File changed during contextual inspection: ' + path)
         finally:
             os.close(fd)
-        raw = raw[:MAX_EXCERPT_BYTES]
+        return raw
+
+    def _utf8_excerpt(self, raw):
         while raw:
             try:
-                excerpt = raw.decode('utf-8')
-                break
+                return raw.decode('utf-8')
             except UnicodeDecodeError as error:
                 if error.end == len(raw) and len(raw) > MAX_EXCERPT_BYTES - 4:
                     raw = raw[:-1]
                     continue
-                return result
-        else:
-            excerpt = ''
-        result.update(method='utf-8-excerpt', readable_text=True, excerpt=excerpt,
-                      excerpt_sha256=hashlib.sha256(excerpt.encode()).hexdigest())
-        if self.manager._snapshot(path, budget) != proof:
-            raise RuntimeError('File changed while its contextual evidence was being prepared: ' + path)
-        return result
+                return None
+        return ''
+
+    def _excerpt(self, value):
+        value = ' '.join(value.split())[:MAX_EXCERPT_BYTES]
+        return value
+
+    def _pdf_evidence(self, raw):
+        if not raw.startswith(b'%PDF-'):
+            return {'method': 'filename-and-metadata', 'readable_text': False,
+                    'excerpt': '', 'excerpt_sha256': None}
+        values = []
+        for match in re.finditer(rb'\((?:\\.|[^\\)]){1,2048}\)', raw):
+            item = match.group()[1:-1]
+            item = re.sub(rb'\\([nrtbf()\\])',
+                          lambda value: {b'n': b'\n', b'r': b'\r', b't': b'\t', b'b': b'\b', b'f': b'\f',
+                                         b'(': b'(', b')': b')', b'\\': b'\\'}[value.group(1)], item)
+            item = re.sub(rb'\\([0-7]{1,3})', lambda value: bytes([int(value.group(1), 8)]), item)
+            text = item.decode('utf-8', 'ignore').strip()
+            if text: values.append(text)
+            if sum(map(len, values)) >= MAX_EXCERPT_BYTES: break
+        excerpt = self._excerpt(' '.join(values))
+        if not excerpt:
+            return {'method': 'pdf-limited-text', 'readable_text': False, 'excerpt': '', 'excerpt_sha256': None}
+        return {'method': 'pdf-limited-text', 'readable_text': True, 'excerpt': excerpt,
+                'excerpt_sha256': None}
+
+    def _office_evidence(self, raw, extension):
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                infos = archive.infolist()
+                if (len(infos) > MAX_ARCHIVE_MEMBERS or
+                        sum(info.file_size for info in infos) > MAX_ARCHIVE_TOTAL_BYTES or
+                        any(info.file_size > MAX_ARCHIVE_MEMBER_BYTES for info in infos)):
+                    raise ValueError('archive bounds')
+                if extension == '.docx':
+                    wanted = ['word/document.xml']
+                elif extension == '.xlsx':
+                    wanted = ['xl/sharedStrings.xml'] + sorted(
+                        info.filename for info in infos if re.fullmatch(r'xl/worksheets/sheet[0-9]+\.xml', info.filename))
+                elif extension == '.pptx':
+                    wanted = sorted(info.filename for info in infos if re.fullmatch(r'ppt/slides/slide[0-9]+\.xml', info.filename))
+                else:
+                    wanted = ['content.xml']
+                values = []
+                for name in wanted:
+                    try: data = archive.read(name)
+                    except KeyError: continue
+                    root = ET.fromstring(data)
+                    values.extend(value.strip() for value in root.itertext() if value.strip())
+                    if sum(map(len, values)) >= MAX_EXCERPT_BYTES: break
+        except (ET.ParseError, ValueError, zipfile.BadZipFile, RuntimeError):
+            return {'method': 'filename-and-metadata', 'readable_text': False,
+                    'excerpt': '', 'excerpt_sha256': None}
+        excerpt = self._excerpt(' '.join(values))
+        return {'method': 'office-xml-text', 'readable_text': bool(excerpt), 'excerpt': excerpt,
+                'excerpt_sha256': None}
+
+    def _image_evidence(self, raw, extension):
+        description = None
+        if raw.startswith(b'\x89PNG\r\n\x1a\n') and len(raw) >= 24:
+            width, height = struct.unpack('>II', raw[16:24]); description = 'PNG %dx%d' % (width, height)
+        elif raw.startswith((b'GIF87a', b'GIF89a')) and len(raw) >= 10:
+            width, height = struct.unpack('<HH', raw[6:10]); description = 'GIF %dx%d' % (width, height)
+        elif raw.startswith(b'\xff\xd8'):
+            index = 2
+            while index + 9 < len(raw):
+                if raw[index] != 0xff: index += 1; continue
+                marker = raw[index + 1]; index += 2
+                if marker in (0xd8, 0xd9) or 0xd0 <= marker <= 0xd7: continue
+                length = int.from_bytes(raw[index:index + 2], 'big')
+                if length < 2 or index + length > len(raw): break
+                if 0xc0 <= marker <= 0xc3:
+                    height, width = struct.unpack('>HH', raw[index + 3:index + 7]); description = 'JPEG %dx%d' % (width, height); break
+                index += length
+        if not description:
+            return {'method': 'filename-and-metadata', 'readable_text': False,
+                    'excerpt': '', 'excerpt_sha256': None}
+        return {'method': 'image-metadata', 'readable_text': False,
+                'excerpt': 'Image metadata: ' + description + '. No OCR or visual interpretation was performed.',
+                'excerpt_sha256': None}
 
 
 class FileIntelligence:
