@@ -93,7 +93,7 @@ class Tools:
                 result.update(ok=True, stdout=encode(page), source=page['source'], sha256=page['sha256'])
                 return result
             if name in ('scan_files', 'find_duplicates', 'plan_organization', 'understand_file',
-                        'plan_contextual_organization', 'plan_move', 'apply_plan', 'undo_plan'):
+                        'plan_contextual_organization', 'plan_inbox_organization', 'plan_move', 'apply_plan', 'undo_plan'):
                 if self.manager is None:
                     raise PermissionError('File manager is not bound to a Notebook')
                 if not authorize(request):
@@ -104,6 +104,7 @@ class Tools:
                 elif name == 'plan_organization': report = self.manager.plan_organize(path, tx and tx + ':extension', tx)
                 elif name == 'understand_file': report = self.intelligence.understand(path, tx)
                 elif name == 'plan_contextual_organization': report = self.intelligence.plan(path, tx)
+                elif name == 'plan_inbox_organization': report = self.librarian.plan(path, tx)
                 elif name == 'plan_move': report = self.manager.plan_move(request['source'], request['destination'], tx and tx + ':move', tx)
                 elif name == 'apply_plan': report = self.manager.apply(request['plan_id'], authorized=True)
                 else: report = self.manager.undo(request['plan_id'], authorized=True)
@@ -266,6 +267,8 @@ class Agent:
         self.tools.manager = FileManager(tools.workspace, notebook)
         from file_intelligence import FileIntelligence
         self.tools.intelligence = FileIntelligence(self.tools.manager, model)
+        from inbox_librarian import InboxLibrarian
+        self.tools.librarian = InboxLibrarian(self.tools.manager, model)
 
     def run(self, tx, hcid=None, user_input=None, context=()):
         if user_input is not None:
