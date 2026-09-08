@@ -226,6 +226,52 @@ still be listed, moved by an approved plan, and checked for duplicate content.
 Natural language recognition is deliberately narrow. Use quoted slash commands
 when specifying a subfolder, filename with spaces, or exact destination.
 
+## Contextual file intelligence
+
+Runtime 0.1 can make a local-model suggestion about where files belong while
+keeping the file manager and approval boundary in charge. Start with one
+explicitly selected folder:
+
+```sh
+python3 server.py --workspace "/absolute/path/to/your/chosen/folder"
+```
+
+Then use:
+
+```text
+/understand "notes.md"
+/smart-organize
+/apply PLAN-ID-FROM-PREVIEW
+/undo PLAN-ID-FROM-PREVIEW
+```
+
+`/understand` reads a bounded UTF-8 excerpt (up to 4 KiB) plus file metadata and
+returns a classification, rationale, and confidence. Unsupported or invalid
+text, including PDF, Office, image, and other binary files, is honestly
+metadata-only until a dedicated extractor is added. The excerpt is used for
+the model call but is not written into the audit event; hashes and the exact
+source proof are retained for provenance.
+
+`/smart-organize` analyzes at most 10 top-level files and produces a durable
+preview. The local Ollama model proposes short relative folders; the proposal
+is evidence, not authority. No file moves during analysis. Applying a plan
+shows every source and destination and requires you to type `yes`; the move is
+non-overwriting, verified against the preview proof, and undo remains available.
+Every turn, model decision, tool request, approval, observation, and final
+response follows the existing Life Notebook transaction and readback rules.
+
+“Whole computer” is implemented as explicit folder-by-folder permission
+compartments. The runtime rejects the home directory, system root, its own
+source, the Notebook/vault, and overlapping governance paths. A future
+multi-location registry can enroll several separately approved folders without
+changing these transaction semantics. Duplicate detection remains report-only
+and never deletes files.
+
+Contextual limits are intentionally bounded: one file is at most 16 MiB, a
+contextual plan is at most 10 top-level files and 120 seconds, and existing
+scan/hash limits still apply. The plan is idempotent by transaction and path;
+repeating a request does not call the model or move files twice.
+
 `/source` reads only an allowlist of HumanOS code/documentation, separately from
 personal workspace files. It cannot read configuration, secrets, vaults or Git
 internals. Mirror's capability answers come from the actual registry.

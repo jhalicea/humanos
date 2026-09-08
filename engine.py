@@ -43,7 +43,7 @@ class OllamaModel:
                 raise PermissionError('Model endpoint redirects are not allowed')
         self.opener = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
 
-    def invoke(self, messages, timeout):
+    def structured(self, messages, timeout):
         payload = {'model': self.name, 'messages': messages, 'stream': False, 'format': 'json',
                    'options': {'temperature': 0, 'num_predict': 800, 'num_ctx': 8192}}
         req = urllib.request.Request(self.endpoint + '/api/chat', data=encode(payload).encode(),
@@ -56,7 +56,13 @@ class OllamaModel:
         if 'error' in result:
             raise RuntimeError('Local model: ' + str(result['error']))
         # Deliberately excludes optional hidden thinking fields.
-        return validate(json.loads(result['message']['content']))
+        value = json.loads(result['message']['content'])
+        if not isinstance(value, dict):
+            raise ValueError('Local model structured response must be an object')
+        return value
+
+    def invoke(self, messages, timeout):
+        return validate(self.structured(messages, timeout))
 
 
 class Tools:
@@ -73,7 +79,7 @@ class Tools:
         self.manager = None
         self.source = SourceReader()
 
-    def execute(self, request, authorize, runtime=None):
+    def execute(self, request, authorize, runtime=None, tx=None):
         result = {'ok': False, 'stdout': '', 'stderr': '', 'artifacts': [], 'authorization': 'DENIED'}
         fd = None
         try:
@@ -86,7 +92,8 @@ class Tools:
                 page = self.source.read(path, request.get('offset', 0))
                 result.update(ok=True, stdout=encode(page), source=page['source'], sha256=page['sha256'])
                 return result
-            if name in ('scan_files', 'find_duplicates', 'plan_organization', 'plan_move', 'apply_plan', 'undo_plan'):
+            if name in ('scan_files', 'find_duplicates', 'plan_organization', 'understand_file',
+                        'plan_contextual_organization', 'plan_move', 'apply_plan', 'undo_plan'):
                 if self.manager is None:
                     raise PermissionError('File manager is not bound to a Notebook')
                 if not authorize(request):
@@ -94,8 +101,10 @@ class Tools:
                 result['authorization'] = 'ALLOWED'
                 if name == 'scan_files': report = self.manager.scan(path)
                 elif name == 'find_duplicates': report = self.manager.duplicates(path)
-                elif name == 'plan_organization': report = self.manager.plan_organize(path)
-                elif name == 'plan_move': report = self.manager.plan_move(request['source'], request['destination'])
+                elif name == 'plan_organization': report = self.manager.plan_organize(path, tx and tx + ':extension', tx)
+                elif name == 'understand_file': report = self.intelligence.understand(path, tx)
+                elif name == 'plan_contextual_organization': report = self.intelligence.plan(path, tx)
+                elif name == 'plan_move': report = self.manager.plan_move(request['source'], request['destination'], tx and tx + ':move', tx)
                 elif name == 'apply_plan': report = self.manager.apply(request['plan_id'], authorized=True)
                 else: report = self.manager.undo(request['plan_id'], authorized=True)
                 result.update(ok=True, stdout=encode(report))
@@ -255,6 +264,8 @@ class Agent:
             if tools.workspace == protected or tools.workspace in protected.parents or protected in tools.workspace.parents:
                 raise PermissionError('The selected folder overlaps HumanOS Notebook or governing records')
         self.tools.manager = FileManager(tools.workspace, notebook)
+        from file_intelligence import FileIntelligence
+        self.tools.intelligence = FileIntelligence(self.tools.manager, model)
 
     def run(self, tx, hcid=None, user_input=None, context=()):
         if user_input is not None:
@@ -293,7 +304,7 @@ class Agent:
             if state['phase'] == 'COMPLETE':
                 self.book.checkpoint(tx)
                 return state['final']
-            if state['phase'] == 'EXECUTING' and REGISTRY.get(state['pending'].get('name'), {}).get('effect') != 'read':
+            if state['phase'] == 'EXECUTING' and REGISTRY.get(state['pending'].get('name'), {}).get('effect') not in ('read', 'plan'):
                 raise RuntimeError('Interrupted write has unknown outcome; inspect artifact before manual reconciliation')
             if 'permissions' not in state:
                 raise PermissionError('Legacy unfinished task has no saved permission scope; explicit reconciliation required')
@@ -347,7 +358,7 @@ class Agent:
                             'scope_sha256': digest(encode(state['permissions']))})
                         return allowed
                     observation = self.tools.execute(state['pending'], policy,
-                        runtime=lambda name: runtime_execute(self.book, identity, tx, name))
+                        runtime=lambda name: runtime_execute(self.book, identity, tx, name), tx=tx)
                     self.book.event(tx, 'TOOL_RESULT', observation)
                     if state['pending'].get('name') in ('read_file', 'read_source'):
                         state.setdefault('attempted_reads', []).append(state['pending'].get('path'))

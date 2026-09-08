@@ -24,9 +24,13 @@ REGISTRY = {item['name']: item for item in (
                parameters={'path': {'type': 'string', 'default': '.'}}),
     definition('find_duplicates', 'Find exact-content duplicate files; report only, never delete.', 'workspace',
                parameters={'path': {'type': 'string', 'default': '.'}}),
-    definition('plan_organization', 'Preview a reversible organization plan by file type without moving files.', 'workspace',
+    definition('plan_organization', 'Preview a reversible organization plan by file type without moving files.', 'workspace', 'plan',
                parameters={'path': {'type': 'string', 'default': '.'}}),
-    definition('plan_move', 'Preview moving a file or folder within the authorized workspace.', 'workspace',
+    definition('understand_file', 'Understand one selected file from a bounded local excerpt and suggest a folder; nothing moves.', 'workspace',
+               parameters={'path': {'type': 'string'}}, required=('path',)),
+    definition('plan_contextual_organization', 'Preview organization by local content and context with reasons; nothing moves until separately approved.', 'workspace', 'plan',
+               parameters={'path': {'type': 'string', 'default': '.'}}),
+    definition('plan_move', 'Preview moving a file or folder within the authorized workspace.', 'workspace', 'plan',
                parameters={'source': {'type': 'string'}, 'destination': {'type': 'string'}}, required=('source', 'destination')),
     definition('apply_plan', 'Apply a specific saved organization plan only after human approval of its moves.', 'workspace', 'organize',
                parameters={'plan_id': {'type': 'string'}}, required=('plan_id',)),
@@ -87,7 +91,7 @@ def summary():
     supported = '\n'.join('- ' + item['name'] + ': ' + item['description'] for item in describe() if item['available'])
     missing = ', '.join(item['description'] for item in describe() if not item['available'])
     return ('I’m Mirror, the human-facing interface of HumanOS. I can help with conversation and planning, '
-            'read files, inspect folders, find exact duplicates, and organize files using a reviewed plan. '
+            'read files, inspect folders, understand local file context, find exact duplicates, and organize files using a reviewed plan. '
             'File access stays inside the folder you select. Duplicate checks never delete files.\n' + supported +
             '\n' + missing + ' are not connected. Use /files, /read PATH, /duplicates, /organize, '
-            '/apply PLAN-ID, /undo PLAN-ID, /source, /time, or /notebook.')
+            '/understand PATH, /smart-organize, /apply PLAN-ID, /undo PLAN-ID, /source, /time, or /notebook.')
