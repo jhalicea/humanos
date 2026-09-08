@@ -250,7 +250,7 @@ class Notebook:
         from capabilities import REGISTRY
         pending = original.get('pending') or {}
         effect = REGISTRY.get(pending.get('name'), {}).get('effect') if isinstance(pending, dict) else None
-        uncertain = original.get('phase') == 'EXECUTING' and effect not in ('read', 'network_read')
+        uncertain = original.get('phase') == 'EXECUTING' and effect not in ('read', 'network_read', 'plan')
         outcome = 'NEEDS_RECONCILIATION' if uncertain else 'FAILED'
         closed = dict(original, phase='COMPLETE', final=message, final_ordinal=ordinal,
                       delivery='PREPARED_NOT_CONFIRMED', outcome=outcome,

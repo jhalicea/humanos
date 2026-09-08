@@ -198,14 +198,31 @@ class FileManager:
             tree.append(entry)
         return {'kind': 'folder', 'device': info.st_dev, 'inode': info.st_ino, 'tree': tree}
 
-    def _new_plan(self, moves):
+    def _plan_id(self, idempotency_key):
+        return ('PLAN-' + hashlib.sha256(idempotency_key.encode()).hexdigest()[:32]
+                if idempotency_key else 'PLAN-' + uuid.uuid4().hex)
+
+    def plan_for_key(self, idempotency_key):
+        if not idempotency_key:
+            return None
+        plan_id = self._plan_id(idempotency_key)
+        row = self.book.db.execute('SELECT 1 FROM file_plans WHERE plan_id=?', (plan_id,)).fetchone()
+        return self.get_plan(plan_id) if row else None
+
+    def _new_plan(self, moves, idempotency_key=None, tx=None, metadata=None):
         if len(moves) > 100: raise ValueError('Plan exceeds 100 moves; select a smaller folder')
-        plan_id = 'PLAN-' + uuid.uuid4().hex
+        plan_id = self._plan_id(idempotency_key)
         plan = {'plan_id': plan_id, 'workspace': self._identity(), 'moves': moves}
+        if metadata: plan['metadata'] = metadata
         state = {'status': 'PREVIEW', 'completed': [], 'undone': [], 'inflight': None}
         with self.book.db:
-            self.book.db.execute('INSERT INTO file_plans VALUES(?,?,?)', (plan_id, encode(plan), encode(state)))
-            self.book._append_event(None, 'FILE_PLAN_CREATED', {'plan': plan, 'sha256': digest(encode(plan))})
+            prior = self.book.db.execute('SELECT plan FROM file_plans WHERE plan_id=?', (plan_id,)).fetchone()
+            if prior:
+                if prior['plan'] != encode(plan):
+                    raise RuntimeError('Idempotent plan differs from preserved evidence')
+            else:
+                self.book.db.execute('INSERT INTO file_plans VALUES(?,?,?)', (plan_id, encode(plan), encode(state)))
+                self.book._append_event(tx, 'FILE_PLAN_CREATED', {'plan': plan, 'sha256': digest(encode(plan))})
         return self.get_plan(plan_id)
 
     def _load(self, plan_id):
@@ -245,14 +262,18 @@ class FileManager:
                                'completed_moves': len(state['completed']), 'undone_moves': len(state['undone'])})
         return result
 
-    def plan_move(self, source, destination):
+    def plan_move(self, source, destination, idempotency_key=None, tx=None):
+        existing = self.plan_for_key(idempotency_key)
+        if existing: return existing
         parts(source); parts(destination)
         if source == destination or destination.startswith(source + '/') or destination == '.':
             raise ValueError('Destination must be a different path outside the source folder')
         proof = self._snapshot(source)
-        return self._new_plan([{'source': source, 'destination': destination, 'proof': proof}])
+        return self._new_plan([{'source': source, 'destination': destination, 'proof': proof}], idempotency_key, tx)
 
-    def plan_organize(self, path='.'):
+    def plan_organize(self, path='.', idempotency_key=None, tx=None):
+        existing = self.plan_for_key(idempotency_key)
+        if existing: return existing
         prefix = parts(path)
         report = self.scan(path)
         if report['truncated']: raise ValueError('Scan is incomplete; choose a smaller folder')
@@ -268,7 +289,7 @@ class FileManager:
             destination = '/'.join(prefix + [category, Path(item['path']).name])
             if len(moves) >= 100: raise ValueError('Plan exceeds 100 moves; select a smaller folder')
             moves.append({'source': item['path'], 'destination': destination, 'proof': self._snapshot(item['path'], budget)})
-        return self._new_plan(moves)
+        return self._new_plan(moves, idempotency_key, tx)
 
     def _save(self, plan, state, event):
         with self.book.db:
