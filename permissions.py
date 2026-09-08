@@ -4,7 +4,7 @@ import shlex
 from notebook import digest
 
 
-def task_scope(row, workspace, version=2):
+def task_scope(row, workspace, version=3):
     text = row['input']
     try:
         tokens = shlex.split(text)
@@ -28,7 +28,7 @@ def task_scope(row, workspace, version=2):
             'list_paths': ['.'] + sorted(set(paths)) if listing else [],
             'runtime_reads': ['current_time', 'read_notebook', 'runtime_capabilities'],
             'writes': 'EXACT_REQUEST_APPROVAL'}
-    if version == 2:
+    if version >= 2:
         from runtime_info import request_for
         direct = request_for(text, []) or {}
         scope['source_paths'] = [direct.get('path', 'server.py')] if direct.get('name') == 'read_source' else []
@@ -36,13 +36,16 @@ def task_scope(row, workspace, version=2):
             'scan_files', 'find_duplicates', 'plan_organization') else []
         scope['move_request'] = direct if direct.get('name') == 'plan_move' else None
         scope['plan_action'] = direct if direct.get('name') in ('apply_plan', 'undo_plan') else None
+    if version >= 3:
+        scope['contextual_paths'] = [direct.get('path', '.')] if direct.get('name') in (
+            'understand_file', 'plan_contextual_organization') else []
     return scope
 
 
 def validate_scope(scope, row, workspace):
     # The source input remains immutable. Reject altered/unsupported saved policy;
     # do not silently widen a task when implementation defaults change.
-    if scope.get('version') not in (1, 2):
+    if scope.get('version') not in (1, 2, 3):
         raise PermissionError('Unsupported saved task policy version')
     expected = task_scope(row, workspace, scope['version'])
     if scope != expected:
@@ -61,4 +64,6 @@ def allows_read(scope, request):
         return request.get('path', '.') in scope.get('scan_paths', [])
     if name == 'plan_move':
         return request == scope.get('move_request')
+    if name in ('understand_file', 'plan_contextual_organization'):
+        return request.get('path', '.') in scope.get('contextual_paths', [])
     return name in scope['runtime_reads']
