@@ -201,6 +201,79 @@ class Notebook:
         row = self.db.execute('SELECT state FROM tasks WHERE tx=?', (tx,)).fetchone()
         return json.loads(row[0]) if row else None
 
+    def finalize_failure(self, tx, message, reason):
+        """Capture a failed task's exact final without treating execution as successful.
+
+        This closes execution, not outstanding reconciliation or output delivery.
+        The original task remains in failure_snapshot; a pending mutation is never
+        retried here. Transcript, closure, recovery, and audit evidence commit
+        together, so retry after a crash either creates one closure or reads it.
+        """
+        if not isinstance(message, str) or not message:
+            raise ValueError('Failure final must be nonempty exact visible text')
+        transaction = self.get_transaction(tx)
+        if not transaction:
+            raise ValueError('Cannot close an unknown transaction')
+        identity = self.get_identity(transaction['hcid'])
+        if not identity or identity['binding'] != 'VERIFIED':
+            raise BindingConflict('Failure closure requires verified identity binding')
+        state = self.task(tx)
+        if state and state.get('phase') == 'EXTERNAL_CAPTURE_PENDING':
+            raise RuntimeError('External transcript capture requires host reconciliation')
+        if state and state.get('phase') == 'COMPLETE':
+            if not state.get('failure_finalized'):
+                raise ValueError('Existing final response is immutable')
+            self.checkpoint(tx)
+            return state['final']
+        if transaction['status'] == 'CHECKPOINTED':
+            raise ValueError('Completed transaction is immutable')
+
+        human = self.db.execute('SELECT * FROM transcript WHERE tx=? AND ordinal=0', (tx,)).fetchone()
+        if (not human or human['role'] != 'HUMAN' or human['text'] != transaction['input'] or
+                human['sha256'] != digest(human['text'])):
+            raise RuntimeError('Failure closure requires the preserved exact human input')
+        original = json.loads(encode(state)) if state else {}
+        ordinal = original.get('final_ordinal', self.message_count(tx))
+        if isinstance(ordinal, bool) or not isinstance(ordinal, int) or ordinal < 1:
+            raise ValueError('Invalid failure final ordinal')
+        prior = self.db.execute('SELECT * FROM transcript WHERE tx=? AND ordinal=?', (tx, ordinal)).fetchone()
+        if prior:
+            if (prior['role'] != 'ASSISTANT' or prior['text'] != message or
+                    prior['sha256'] != digest(message) or ordinal != self.message_count(tx) - 1):
+                raise ValueError('Failure final collides with preserved transcript evidence')
+        elif ordinal != self.message_count(tx):
+            raise ValueError('Failure final must preserve transcript order')
+
+        # The registry supplies effect metadata, not authority to execute. An
+        # unknown interrupted operation is conservatively left for inspection.
+        from capabilities import REGISTRY
+        pending = original.get('pending') or {}
+        effect = REGISTRY.get(pending.get('name'), {}).get('effect') if isinstance(pending, dict) else None
+        uncertain = original.get('phase') == 'EXECUTING' and effect not in ('read', 'network_read')
+        outcome = 'NEEDS_RECONCILIATION' if uncertain else 'FAILED'
+        closed = dict(original, phase='COMPLETE', final=message, final_ordinal=ordinal,
+                      delivery='PREPARED_NOT_CONFIRMED', outcome=outcome,
+                      failure_finalized=True, failure_reason=str(reason), failure_closed_at=now(),
+                      failure_snapshot=original, failure_transaction_status=transaction['status'])
+        try:
+            with self.db:
+                if not prior:
+                    self.db.execute('INSERT INTO transcript(tx,ordinal,role,text,sha256,created) VALUES(?,?,?,?,?,?)',
+                                    (tx, ordinal, 'ASSISTANT', message, digest(message), now()))
+                self.db.execute('INSERT OR REPLACE INTO tasks VALUES(?,?)', (tx, encode(closed)))
+                self.db.execute("INSERT INTO recovery(tx,error,created,scope) VALUES(?,?,?,'TASK')",
+                                (tx, outcome + ': ' + str(reason), now()))
+                self._append_event(tx, 'TASK_FAILURE_FINALIZED', {
+                    'outcome': outcome, 'reason': str(reason), 'final_ordinal': ordinal,
+                    'final_sha256': digest(message), 'prior_phase': original.get('phase'),
+                    'prior_state_sha256': digest(encode(original)), 'pending': pending,
+                    'execution_closed': True, 'reconciliation_closed': False})
+        except Exception as error:
+            self.problem(tx, error, {'failure_final': message, 'failure_reason': str(reason)})
+            raise
+        self.checkpoint(tx)
+        return message
+
     def get_transaction(self, tx):
         row = self.db.execute('SELECT * FROM transactions WHERE tx=?', (tx,)).fetchone()
         return dict(row) if row else None

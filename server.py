@@ -23,7 +23,8 @@ class HumanOSRuntime:
         self.tools = Tools(config.get('workspace', BASE / 'workspace'))
         self.adapter = OllamaModel(self.model, self.ollama_url)
         self.agent = Agent(self.book, self.adapter, self.tools, self.core_path,
-                           max_steps=config.get('max_steps', 6), max_seconds=config.get('max_seconds', 180))
+                           max_steps=config.get('max_steps', 6), max_seconds=config.get('max_seconds', 180),
+                           finalize_on_error=True)
 
     def load_system_context(self):
         return load_context(self.core_path, [])
@@ -44,11 +45,17 @@ class HumanOSRuntime:
         return response
 
     def authorize(self, tx, request):
-        if request.get('name') != 'create_file':
+        if request.get('name') not in ('create_file', 'apply_plan', 'undo_plan'):
             return True  # Engine applies the persisted read scope first.
         if not sys.stdin.isatty():
             return False
-        prompt = 'Approve creating this workspace file? ' + json.dumps(request, ensure_ascii=False) + ' [yes/no]'
+        if request['name'] in ('apply_plan', 'undo_plan'):
+            from runtime_info import format_plan
+            plan = self.tools.manager.get_plan(request['plan_id'])
+            prompt = ('Review file changes in ' + str(self.tools.workspace) + ':\n' +
+                      format_plan(plan, undo=request['name'] == 'undo_plan') + '\nApprove ' + request['name'] + '? [yes/no]')
+        else:
+            prompt = 'Approve creating this workspace file? ' + json.dumps(request, ensure_ascii=False) + ' [yes/no]'
         n = self.book.message_count(tx)
         self.book.append(tx, n, 'ASSISTANT', prompt)
         self.book.project()
@@ -62,7 +69,15 @@ class HumanOSRuntime:
     def run(self, args):
         if args.status:
             self.book.verify()
-            print(json.dumps(dict(self.book.status(), pending=self.pending), indent=2))
+            print(json.dumps(dict(self.book.status(), pending=self.pending,
+                                  file_plans=self.tools.manager.pending()), indent=2))
+            return
+        if getattr(args, 'close_task', None):
+            tx = args.close_task
+            final = self.book.finalize_failure(tx,
+                'This task was closed at your request without further tool execution. Original input, errors, and any partial effects remain preserved.',
+                'Explicit user close command')
+            self.deliver(tx, final)
             return
         if args.resume:
             self.agent.authorize = lambda request: self.authorize(args.resume, request)
@@ -73,6 +88,8 @@ class HumanOSRuntime:
             print('Unfinished work or unconfirmed output exists; use --status and --resume TX-ID. '
                   'Resuming uncertain output can repeat text, but does not rerun completed tools.', file=sys.stderr)
         binding = None
+        if self.tools.manager.pending():
+            print('A file plan needs review; use --status for its ID and folder. No moves were replayed on startup.', file=sys.stderr)
         while True:
             try:
                 text = args.message if args.message is not None else input('HUMAN: ')
@@ -93,6 +110,10 @@ class HumanOSRuntime:
             except (KeyboardInterrupt, EOFError):
                 print('\nStopped. Any unfinished transaction remains recoverable.', file=sys.stderr)
                 return
+            except Exception as error:
+                if args.message is not None:
+                    raise
+                print('HumanOS needs attention: ' + str(error) + '\nYou can continue chatting. To manage an older task, exit and use --close-task TX-ID or --resume TX-ID.', file=sys.stderr)
 
 
 def main():
@@ -103,6 +124,8 @@ def main():
     parser.add_argument('--tx', help='Caller-owned idempotent transaction ID')
     parser.add_argument('--message', help='Run one turn')
     parser.add_argument('--resume', help='Resume an exact transaction ID')
+    parser.add_argument('--close-task', help='Close an exact failed/unfinished transaction without executing tools')
+    parser.add_argument('--workspace', help='Explicit folder to read and organize (not the whole home directory)')
     parser.add_argument('--context', action='append', default=[], help='Relevant filename in core, e.g. runtime.md')
     parser.add_argument('--status', action='store_true')
     args = parser.parse_args()
@@ -113,6 +136,11 @@ def main():
         for key in ('vault', 'core', 'workspace'):
             if key in config:
                 config[key] = str((Path(args.config).resolve().parent / config[key]).resolve())
+        if args.workspace:
+            workspace = Path(args.workspace).expanduser()
+            if not workspace.is_dir():
+                raise ValueError('Selected workspace folder does not exist')
+            config['workspace'] = str(workspace.resolve())
         runtime = HumanOSRuntime(config=config)
         runtime.run(args)
         return 0
