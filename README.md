@@ -221,8 +221,11 @@ Duplicate checks compare complete SHA-256 hashes and byte counts and never delet
 anything. Scans exclude hidden/protected paths, links and special files. Limits:
 2,000 entries, depth 20, 512 MiB of hashing and 20 seconds per hashing operation;
 plans allow at most 100 moves. Incomplete results are labeled. Text reads support
-UTF-8 only; PDF/Office/image content extraction is not connected. Binary files can
-still be listed, moved by an approved plan, and checked for duplicate content.
+Text reads use UTF-8. Contextual understanding also has bounded local extractors
+for accessible PDF literal text and common Office XML archives (`.docx`, `.xlsx`,
+`.pptx`, `.odt`). Image context is limited to verified format and dimensions;
+no OCR or visual interpretation is claimed. Binary files can still be listed,
+moved by an approved plan, and checked for duplicate content.
 Natural language recognition is deliberately narrow. Use quoted slash commands
 when specifying a subfolder, filename with spaces, or exact destination.
 
@@ -246,11 +249,14 @@ Then use:
 ```
 
 `/understand` reads a bounded UTF-8 excerpt (up to 4 KiB) plus file metadata and
-returns a classification, rationale, and confidence. Unsupported or invalid
-text, including PDF, Office, image, and other binary files, is honestly
-metadata-only until a dedicated extractor is added. The excerpt is used for
-the model call but is not written into the audit event; hashes and the exact
-source proof are retained for provenance.
+returns a classification, rationale, and confidence. It also extracts bounded
+local context for accessible PDF literal text and standard Office XML content
+in `.docx`, `.xlsx`, `.pptx`, and `.odt` files. Files larger than 4 MiB,
+malformed documents, unsupported formats, and archive structures beyond the
+safety limits remain metadata-only. Images provide only file format and
+dimensions: OCR and visual interpretation are not connected. The excerpt is
+used for the model call but is not written into the audit event; hashes and the
+exact source proof are retained for provenance.
 
 `/smart-organize` analyzes at most 10 top-level files and produces a durable
 preview. The local Ollama model proposes short relative folders; the proposal
