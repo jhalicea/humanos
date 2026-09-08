@@ -150,9 +150,10 @@ class Notebook:
                 if prior['hcid'] != hcid or prior['input'] != user_input:
                     raise ValueError('Transaction ID collision: payload or identity differs')
                 return dict(prior)
-            unfinished = self.db.execute("SELECT tx FROM transactions WHERE hcid=? AND status!='CHECKPOINTED'", (hcid,)).fetchone()
-            if unfinished:
-                raise RuntimeError('Resume unfinished transaction first: ' + unfinished['tx'])
+            # An unfinished turn remains independently resumable. It must not
+            # silence later human input or block the rest of the Notebook page.
+            # Transcript sequence still records the order in which messages are
+            # actually captured, including a late response to an older turn.
             self.verify()
             with self.db:
                 self.db.execute('INSERT INTO transactions VALUES(?,?,?,?,?)',
