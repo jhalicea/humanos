@@ -75,7 +75,8 @@ No encryption or full CIBE merge/split/provider migration UI is claimed.
 Default workspace is `/Users/jhalicea/humanos/workspace`. Read/list require the
 scope saved from the human's original request. File creation requires interactive per-request approval and
 never overwrites. Absolute paths, traversal, hidden paths, symlinks, hardlinked
-files, devices, and files over 16 KiB are rejected. No shell or arbitrary Python.
+files and devices are rejected. UTF-8 text reads allow up to 16 MiB, returned in
+16 KiB pages; file creation remains limited to 16 KiB. No shell or arbitrary Python.
 This is a narrow file capability boundary, not a general operating-system sandbox.
 Only put files you authorize HumanOS to read in the workspace. Never configure it
 as your home directory, whole disk, Notebook, or canonical records directory.
@@ -167,3 +168,80 @@ uses configured local Ollama, and always creates an isolated temporary test vaul
 and workspace. It checks five real turns including exact final output/readback.
 CI does not prove local-model quality. Branch protection and auto-deployment are
 not configured. See `REVIEW.md` for the milestone and reviewer guidance.
+
+## Reading and organizing a selected folder
+
+Choose one dedicated folder explicitly when starting HumanOS:
+
+```sh
+python3 server.py --workspace "/absolute/path/to/your/chosen/folder"
+```
+
+The whole home directory, system root, runtime source directory and overlapping
+Notebook/governance directories are rejected. The default remains the existing
+`workspace` folder. Selecting a folder does not authorize moving its files.
+
+Inside the conversation:
+
+```text
+/files
+/read "notes.txt"
+/duplicates
+/duplicates "Receipts"
+/organize
+/move "Old folder" "Archive/Renamed folder"
+/apply PLAN-ID-FROM-PREVIEW
+/undo PLAN-ID-FROM-PREVIEW
+/source server.py
+```
+
+`/organize` previews top-level files grouped by extension, preserving existing
+subfolders. `/move` previews one file or folder move. Apply and undo each show
+the exact paths and require typing `yes`. Nothing overwrites existing destinations.
+Plans and progress stay in the private Notebook database, with audit evidence and
+the selected folder's identity. Restart does not apply any plan automatically.
+`--status` lists interrupted plans. An explicit `/apply` or `/undo` reconciles a
+completed in-flight rename by its saved identity/content proof before continuing.
+
+Undo restores unchanged moved items; empty destination folders created by the
+plan may remain. Files edited since preview or after moving require inspection.
+Do not edit the selected tree concurrently while applying a plan: each rename is
+atomic and non-overwriting, but the complete multi-file operation is not one
+filesystem transaction. A change in the final check/rename window can leave an
+uncertain outcome, which is preserved and reported rather than overwritten.
+
+Duplicate checks compare complete SHA-256 hashes and byte counts and never delete
+anything. Scans exclude hidden/protected paths, links and special files. Limits:
+2,000 entries, depth 20, 512 MiB of hashing and 20 seconds per hashing operation;
+plans allow at most 100 moves. Incomplete results are labeled. Text reads support
+UTF-8 only; PDF/Office/image content extraction is not connected. Binary files can
+still be listed, moved by an approved plan, and checked for duplicate content.
+Natural language recognition is deliberately narrow. Use quoted slash commands
+when specifying a subfolder, filename with spaces, or exact destination.
+
+`/source` reads only an allowlist of HumanOS code/documentation, separately from
+personal workspace files. It cannot read configuration, secrets, vaults or Git
+internals. Mirror's capability answers come from the actual registry.
+
+Failed requests now save a truthful final response and allow conversation to
+continue. Capture success does not turn a failed operation into a successful one.
+To close an older unfinished task without further tool execution:
+
+```sh
+python3 server.py --close-task TX-ID-FROM-STATUS
+```
+
+This is an administrative CLI control, not an in-conversation `/close` command.
+It records failure closure and preserves original input, steps and uncertain
+effects. It does not resolve an uncertain file mutation by itself.
+
+Run the new real-model acceptance separately from the automated suite:
+
+```sh
+python3 verify_files_live.py
+```
+
+It uses temporary synthetic files and a separate Notebook, including simulated
+human approval input passed through the real approval/capture implementation.
+Rollback code baseline for this milestone: `6f8656c`. Keep newer Notebook evidence;
+the additive `file_plans` table must not be discarded by restoring an old vault.
