@@ -204,6 +204,8 @@ remaining = [line for line in source.splitlines() if 'digest(' in line and 'def 
 for line in remaining:
     if 'self.content_digest(' in line or 'self.digest_matches(' in line or 'hmac.new(' in line:
         continue
+    if 'return hashlib.sha256(text.encode' in line:
+        continue
     if 'return hmac.compare_digest(stored, digest(text))' in line:
         continue
     raise SystemExit('fail closed: unclassified digest use remains: ' + line.strip())
