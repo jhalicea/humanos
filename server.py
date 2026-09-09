@@ -14,6 +14,8 @@ BASE = Path(__file__).resolve().parent
 class HumanOSRuntime:
     def __init__(self, vault_base=None, core_path=None, model=None, config=None):
         config = config or {}
+        if config.get('profile', 'DEFAULT') != 'DEFAULT':
+            raise ValueError('Non-default profiles require the dedicated runtime entrypoint')
         self.vault_base = Path(vault_base or config.get('vault', BASE / 'HumanOS_Vault'))
         self.core_path = Path(core_path or config.get('core', BASE / 'core'))
         self.model = model or os.environ.get('HUMANOS_MODEL', config.get('model', 'llama3:latest'))
@@ -132,6 +134,17 @@ def main():
     runtime = None
     try:
         config = json.loads(Path(args.config).read_text()) if Path(args.config).exists() else {}
+        if config.get('profile') == 'AUTHORIZED_RED_TEAM_SWARM':
+            from swarm import serve
+            if set(config) != {'profile', 'envelope', 'agents', 'control_state'}:
+                raise ValueError('Swarm config requires only profile, envelope, agents, control_state')
+            state_dir = Path(config['control_state'])
+            if not state_dir.is_absolute():
+                raise ValueError('Control state requires an absolute owner-controlled path')
+            if args.workspace or args.message or args.resume or args.close_task or args.session or args.tx or args.context or args.status:
+                raise ValueError('Swarm profile accepts only --config; use broker JSON input')
+            serve({k: v for k, v in config.items() if k != 'control_state'}, state_dir)
+            return 0
         # Relative configured locations are relative to config, never current shell directory.
         for key in ('vault', 'core', 'workspace'):
             if key in config:
