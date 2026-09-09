@@ -22,7 +22,12 @@ class HumanOSRuntime:
         self.ollama_url = os.environ.get('HUMANOS_ENDPOINT', config.get('endpoint', 'http://127.0.0.1:11434'))
         self.book = Notebook(self.vault_base)
         self.pending = self.book.recover()
-        self.tools = Tools(config.get('workspace', BASE / 'workspace'))
+        browser = None
+        if config.get('browser'):
+            from browser_bridge import BrowserBroker, bridge_sender
+            b = config['browser']
+            browser = BrowserBroker(b['envelope'], b['state'], bridge_sender(b['socket'], b['secret']))
+        self.tools = Tools(config.get('workspace', BASE / 'workspace'), browser=browser)
         self.adapter = OllamaModel(self.model, self.ollama_url)
         self.agent = Agent(self.book, self.adapter, self.tools, self.core_path,
                            max_steps=config.get('max_steps', 6), max_seconds=config.get('max_seconds', 180),
@@ -47,7 +52,7 @@ class HumanOSRuntime:
         return response
 
     def authorize(self, tx, request):
-        if request.get('name') not in ('create_file', 'apply_plan', 'undo_plan'):
+        if request.get('name') not in ('create_file', 'apply_plan', 'undo_plan', 'browser_navigate', 'browser_click', 'browser_type'):
             return True  # Engine applies the persisted read scope first.
         if not sys.stdin.isatty():
             return False
