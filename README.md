@@ -83,7 +83,10 @@ Default workspace is `/Users/jhalicea/humanos/workspace`. Read/list require the
 scope saved from the human's original request. File creation requires interactive per-request approval and
 never overwrites. Absolute paths, traversal, hidden paths, symlinks, hardlinked
 files and devices are rejected. UTF-8 text reads allow up to 16 MiB, returned in
-16 KiB pages; file creation remains limited to 16 KiB. No shell or arbitrary Python.
+128 KiB pages; file creation remains limited to 16 KiB. No shell or arbitrary Python.
+The 128 KiB page size is an intentional capability expansion for fewer explicit
+read turns; it increases per-read exposure while preserving the same human-scoped
+authorization and 16 MiB total text-read ceiling.
 This is a narrow file capability boundary, not a general operating-system sandbox.
 Only put files you authorize HumanOS to read in the workspace. Never configure it
 as your home directory, whole disk, Notebook, or canonical records directory.

@@ -9,7 +9,7 @@ def definition(name, description, scope, effect='read', parameters=None, require
 
 
 REGISTRY = {item['name']: item for item in (
-    definition('read_file', 'Read a page of an explicitly requested UTF-8 workspace file (16 KiB per page).', 'workspace',
+    definition('read_file', 'Read a page of an explicitly requested UTF-8 workspace file (128 KiB per page).', 'workspace',
                parameters={'path': {'type': 'string'}, 'offset': {'type': 'integer'}}, required=('path',)),
     definition('list_files', 'List an authorized workspace directory.', 'workspace',
                parameters={'path': {'type': 'string', 'default': '.'}}),
@@ -18,6 +18,8 @@ REGISTRY = {item['name']: item for item in (
     definition('current_time', 'Read the Mac local date/time and UTC offset.', 'local_clock'),
     definition('read_notebook', 'Read verified counts and a bounded transcript excerpt from the bound session.', 'current_session'),
     definition('runtime_capabilities', 'Report this runtime capability registry.', 'runtime'),
+    definition('debug_trace', 'Show owner-visible provenance summary for a transaction; set full true only after explicit owner request to display prompts, exposed model responses, tools, and authorizations. Hidden chain-of-thought is not captured.', 'current_session',
+               parameters={'tx': {'type': 'string', 'default': ''}, 'full': {'type': 'boolean', 'default': False}}),
     definition('read_source', 'Read allowlisted HumanOS source code, separate from workspace files.', 'source',
                parameters={'path': {'type': 'string', 'default': 'server.py'}, 'offset': {'type': 'integer', 'default': 0}}),
     definition('scan_files', 'List the folder tree with file sizes; bounded scan, no symlinks or hidden files.', 'workspace',
@@ -63,8 +65,10 @@ def validate_request(request):
         if name not in result and 'default' in prop:
             result[name] = prop['default']
         if name in result:
-            expected = int if prop['type'] == 'integer' else str
+            expected = {'integer': int, 'string': str, 'boolean': bool}[prop['type']]
             if not isinstance(result[name], expected) or isinstance(result[name], bool):
+                if expected is bool and isinstance(result[name], bool):
+                    continue
                 raise PermissionError('Invalid type for tool argument: ' + name)
             if expected is int and not 0 <= result[name] <= 16777216:
                 raise PermissionError('Offset is outside the allowed range')
@@ -76,7 +80,8 @@ def model_instructions():
     lines = ['Available tools and valid JSON examples. Put arguments directly beside name; '
              'never wrap them in parameters or arguments. The registry lists tools, not workspace files.']
     examples = {'path': 'example.txt', 'content': 'text', 'source': 'example.txt',
-                'destination': 'Documents/example.txt', 'plan_id': 'ID returned by plan tool', 'offset': 0}
+                'destination': 'Documents/example.txt', 'plan_id': 'ID returned by plan tool',
+                'offset': 0, 'tx': 'current transaction or TX-ID', 'full': False}
     for spec in describe():
         if not spec['available']:
             lines.append(spec['name'] + ': unavailable; no executor connected.')

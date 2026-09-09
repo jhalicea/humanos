@@ -14,6 +14,9 @@ from capabilities import REGISTRY, validate_request, model_instructions
 from permissions import task_scope, validate_scope, allows_read
 from source_reader import SourceReader
 
+WORKSPACE_READ_PAGE_BYTES = 128 * 1024
+WORKSPACE_READ_MAX_BYTES = 16 * 1024 * 1024
+
 
 class Model(Protocol):
     name: str
@@ -116,7 +119,7 @@ class Tools:
                 if not authorize(request):
                     raise PermissionError('HumanOS policy did not authorize this request')
                 result['authorization'] = 'ALLOWED'
-                result['stdout'] = runtime(name)
+                result['stdout'] = runtime(request)
                 result['ok'] = True
                 return result
             if name not in ('read_file', 'list_files', 'create_file'):
@@ -152,8 +155,8 @@ class Tools:
                     info = os.fstat(f.fileno())
                     if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
                         raise PermissionError('Only ordinary non-hardlinked files are allowed')
-                    raw = f.read(16777217)
-                    if len(raw) > 16777216:
+                    raw = f.read(WORKSPACE_READ_MAX_BYTES + 1)
+                    if len(raw) > WORKSPACE_READ_MAX_BYTES:
                         raise ValueError('File exceeds the 16 MiB text-read limit')
                     after = os.fstat(f.fileno())
                     if (info.st_size, info.st_mtime_ns, info.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
@@ -165,7 +168,7 @@ class Tools:
                 offset = request.get('offset', 0)
                 if offset > len(raw): raise ValueError('Offset exceeds file size')
                 raw[:offset].decode('utf-8')  # Reject a split character offset.
-                chunk = raw[offset:offset+16384]
+                chunk = raw[offset:offset+WORKSPACE_READ_PAGE_BYTES]
                 visible = chunk.decode('utf-8', errors='ignore')
                 result['stdout'] = visible
                 result['sha256'] = digest(full)
@@ -361,7 +364,8 @@ class Agent:
                             'scope_sha256': digest(encode(state['permissions']))})
                         return allowed
                     observation = self.tools.execute(state['pending'], policy,
-                        runtime=lambda name: runtime_execute(self.book, identity, tx, name), tx=tx)
+                        runtime=lambda request: runtime_execute(self.book, identity, tx, request,
+                            model_name=self.model.name, workspace=self.tools.workspace), tx=tx)
                     self.book.event(tx, 'TOOL_RESULT', observation)
                     if state['pending'].get('name') in ('read_file', 'read_source'):
                         state.setdefault('attempted_reads', []).append(state['pending'].get('path'))
@@ -375,6 +379,15 @@ class Agent:
                             final = self.book.finalize_failure(tx, message, observation['stderr'])
                             state = self.book.task(tx)
                             return final
+                        self.book.event(tx, 'REASONING_PROVENANCE', {
+                            'mode': 'owner_visible_debug_trace',
+                            'hidden_chain_of_thought_captured': False,
+                            'summary': self._provenance_summary(state, message),
+                            'model': self.model.name,
+                            'steps': state['steps'],
+                            'permissions_sha256': digest(encode(state.get('permissions', {}))),
+                            'attempted_reads': state.get('attempted_reads', []),
+                            'direct_response': True})
                         state.update(phase='FINAL', final=message)
                     else:
                         state['phase'] = 'MODEL'
@@ -404,6 +417,15 @@ class Agent:
                         self.book.save_task(tx, state)
                         continue
                     state['final'] = proposal['final']
+                    self.book.event(tx, 'REASONING_PROVENANCE', {
+                        'mode': 'owner_visible_debug_trace',
+                        'hidden_chain_of_thought_captured': False,
+                        'summary': self._provenance_summary(state, proposal['final']),
+                        'model': self.model.name,
+                        'steps': state['steps'],
+                        'permissions_sha256': digest(encode(state.get('permissions', {}))),
+                        'attempted_reads': state.get('attempted_reads', []),
+                        'direct_response': bool(state.get('direct_response'))})
                     state['phase'] = 'FINAL'
                 else:
                     state['pending'], state['phase'] = proposal['tool'], 'TOOL'
@@ -424,3 +446,15 @@ class Agent:
             if persisted is not None:
                 persisted['elapsed'] = persisted.get('elapsed', 0) + time.monotonic() - began
                 self.book.save_task(tx, persisted)
+
+    def _provenance_summary(self, state, final):
+        pending = state.get('pending') or {}
+        if state.get('direct_response'):
+            name = pending.get('name', 'runtime')
+            return 'Answered by deterministic HumanOS runtime route: ' + name + '.'
+        reads = state.get('attempted_reads') or []
+        if reads:
+            return 'Answered after explicit local read(s): ' + ', '.join(reads) + '.'
+        if state.get('steps', 0):
+            return 'Answered by model from current request, selected context, and recent bounded transcript.'
+        return 'Answered without a model call.'

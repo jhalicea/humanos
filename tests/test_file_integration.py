@@ -109,14 +109,14 @@ class FileIntegrationTests(unittest.TestCase):
             result = self.tools.execute({'name': 'read_file', 'path': 'my note.txt', 'offset': offset}, lambda request: True)
             self.assertTrue(result['ok'], result['stderr'])
             self.assertEqual(result['sha256'], digest(text))
-            self.assertLessEqual(len(result['stdout'].encode('utf-8')), 16384)
+            self.assertLessEqual(len(result['stdout'].encode('utf-8')), 128 * 1024)
             pages.append(result['stdout'])
             next_offset = result['next_offset']
             if next_offset is not None:
                 self.assertGreater(next_offset, offset)
             offset = next_offset
         self.assertEqual(''.join(pages), text)
-        split = self.tools.execute({'name': 'read_file', 'path': 'my note.txt', 'offset': 16384}, lambda request: True)
+        split = self.tools.execute({'name': 'read_file', 'path': 'my note.txt', 'offset': 128 * 1024}, lambda request: True)
         self.assertFalse(split['ok'])
 
     def test_quoted_read_command_captures_exact_input_and_page(self):

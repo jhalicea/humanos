@@ -16,7 +16,7 @@ ALLOWED_FILES = frozenset({
     'README.md', 'REVIEW.md', 'AGENTS.md',
 })
 MAX_SOURCE_BYTES = 256 * 1024
-MAX_PAGE_BYTES = 16000
+MAX_PAGE_BYTES = 64 * 1024
 
 
 class SourceReader:
@@ -28,7 +28,7 @@ class SourceReader:
         return ('Read-only HumanOS source inspection in ' + str(self.root) + '. '
                 'Allowed filenames: ' + ', '.join(sorted(ALLOWED_FILES)) + '. '
                 'Notebook records, workspace files, configuration, credentials, and other '
-                'paths are outside this tool. Pages contain at most 16000 UTF-8 bytes; '
+                'paths are outside this tool. Pages contain at most 65536 UTF-8 bytes; '
                 'offset and next_offset are byte offsets at character boundaries. '
                 'Files larger than 256 KiB cannot be inspected with this tool.')
 
@@ -51,7 +51,7 @@ class SourceReader:
         if type(offset) is not int or offset < 0:
             raise ValueError('Source offset must be a non-negative UTF-8 byte offset')
         if type(limit) is not int or not 4 <= limit <= MAX_PAGE_BYTES:
-            raise ValueError('Source page limit must be between 4 and 16000 UTF-8 bytes')
+            raise ValueError('Source page limit must be between 4 and 65536 UTF-8 bytes')
 
         root_fd = self._open_root()
         try:
