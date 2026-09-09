@@ -28,3 +28,4 @@ jobs:
           git diff --cached --quiet && { echo "No patch produced"; exit 1; }
           git commit -m "Protect Notebook content digests with vault HMAC"
           git push origin HEAD:feature/content-digest-privacy
+# retry after fail-closed guard correction
