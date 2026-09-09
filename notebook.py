@@ -5,6 +5,7 @@ The process lock is held for the lifetime of a Notebook (single local writer).
 """
 import fcntl
 import hashlib
+import hmac
 import json
 import os
 import sqlite3
@@ -18,7 +19,11 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
+DIGEST_PREFIX = 'hmac-sha256:'
+
+
 def digest(text):
+    """Legacy SHA-256 verifier only. New content must use Notebook.content_digest."""
     return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
 
@@ -40,6 +45,7 @@ class Notebook:
         except BlockingIOError:
             self.lock.close()
             raise RuntimeError('HumanOS already has a Notebook writer; close it first.')
+        self.integrity_key = self._load_integrity_key()
         self.db = sqlite3.connect(str(self.root / 'notebook.sqlite3'))
         self.db.row_factory = sqlite3.Row
         self.db.executescript('''
@@ -79,6 +85,50 @@ class Notebook:
         if 'scope' not in {row['name'] for row in self.db.execute('PRAGMA table_info(recovery)')}:
             with self.db:
                 self.db.execute("ALTER TABLE recovery ADD COLUMN scope TEXT NOT NULL DEFAULT 'NOTEBOOK'")
+
+    def _load_integrity_key(self):
+        """Load/create the vault-scoped HMAC key; never expose it in projections."""
+        path = self.root / 'integrity.key'
+        if path.exists():
+            key = path.read_bytes()
+            if len(key) != 32:
+                raise RuntimeError('Notebook integrity key is invalid')
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
+            return key
+        key = os.urandom(32)
+        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            with os.fdopen(fd, 'wb', closefd=True) as f:
+                f.write(key)
+                f.flush()
+                os.fsync(f.fileno())
+        except Exception:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+            raise
+        parent_fd = os.open(str(self.root), os.O_RDONLY)
+        try:
+            os.fsync(parent_fd)
+        finally:
+            os.close(parent_fd)
+        return key
+
+    def content_digest(self, text):
+        mac = hmac.new(self.integrity_key, text.encode('utf-8'), hashlib.sha256).hexdigest()
+        return DIGEST_PREFIX + mac
+
+    def digest_matches(self, stored, text):
+        if not isinstance(stored, str):
+            return False
+        if stored.startswith(DIGEST_PREFIX):
+            return hmac.compare_digest(stored, self.content_digest(text))
+        # Backward compatibility only: old vault rows used naked SHA-256.
+        return hmac.compare_digest(stored, digest(text))
 
     def close(self):
         self.db.close()
@@ -133,7 +183,7 @@ class Notebook:
         stamp = datetime.now().strftime('%Y%m%d')
         record = {'hcid': 'HCID-' + stamp + '-' + token, 'owner': owner,
                   'page': 'LN-' + stamp + '-' + token, 'binding': 'VERIFIED',
-                  'opening_hash': digest(opening), 'created': now()}
+                  'opening_hash': self.content_digest(opening), 'created': now()}
         with self.db:
             self.db.execute('INSERT INTO identities VALUES(:hcid,:owner,:page,:binding,:opening_hash,:created)', record)
         self.event(None, 'IDENTITY_AND_BINDING_CREATED', dict(record, evidence='E1: HumanOS-issued identity'))
@@ -159,7 +209,7 @@ class Notebook:
                 self.db.execute('INSERT INTO transactions VALUES(?,?,?,?,?)',
                                 (tx, hcid, user_input, 'STARTED', now()))
                 self.db.execute('INSERT INTO transcript(tx,ordinal,role,text,sha256,created) VALUES(?,?,?,?,?,?)',
-                                (tx, 0, 'HUMAN', user_input, digest(user_input), now()))
+                                (tx, 0, 'HUMAN', user_input, self.content_digest(user_input), now()))
             self.project()
             self.verify()
             return dict(self.db.execute('SELECT * FROM transactions WHERE tx=?', (tx,)).fetchone())
@@ -186,7 +236,7 @@ class Notebook:
             raise ValueError('Transcript ordinal must preserve order')
         with self.db:
             self.db.execute('INSERT INTO transcript(tx,ordinal,role,text,sha256,created) VALUES(?,?,?,?,?,?)',
-                            (tx, ordinal, role, text, digest(text), now()))
+                            (tx, ordinal, role, text, self.content_digest(text), now()))
 
     def save_task(self, tx, state):
         with self.db:
@@ -231,7 +281,7 @@ class Notebook:
 
         human = self.db.execute('SELECT * FROM transcript WHERE tx=? AND ordinal=0', (tx,)).fetchone()
         if (not human or human['role'] != 'HUMAN' or human['text'] != transaction['input'] or
-                human['sha256'] != digest(human['text'])):
+                not self.digest_matches(human['sha256'], human['text'])):
             raise RuntimeError('Failure closure requires the preserved exact human input')
         original = json.loads(encode(state)) if state else {}
         ordinal = original.get('final_ordinal', self.message_count(tx))
@@ -240,7 +290,7 @@ class Notebook:
         prior = self.db.execute('SELECT * FROM transcript WHERE tx=? AND ordinal=?', (tx, ordinal)).fetchone()
         if prior:
             if (prior['role'] != 'ASSISTANT' or prior['text'] != message or
-                    prior['sha256'] != digest(message) or ordinal != self.message_count(tx) - 1):
+                    not self.digest_matches(prior['sha256'], message) or ordinal != self.message_count(tx) - 1):
                 raise ValueError('Failure final collides with preserved transcript evidence')
         elif ordinal != self.message_count(tx):
             raise ValueError('Failure final must preserve transcript order')
@@ -260,14 +310,14 @@ class Notebook:
             with self.db:
                 if not prior:
                     self.db.execute('INSERT INTO transcript(tx,ordinal,role,text,sha256,created) VALUES(?,?,?,?,?,?)',
-                                    (tx, ordinal, 'ASSISTANT', message, digest(message), now()))
+                                    (tx, ordinal, 'ASSISTANT', message, self.content_digest(message), now()))
                 self.db.execute('INSERT OR REPLACE INTO tasks VALUES(?,?)', (tx, encode(closed)))
                 self.db.execute("INSERT INTO recovery(tx,error,created,scope) VALUES(?,?,?,'TASK')",
                                 (tx, outcome + ': ' + str(reason), now()))
                 self._append_event(tx, 'TASK_FAILURE_FINALIZED', {
                     'outcome': outcome, 'reason': str(reason), 'final_ordinal': ordinal,
-                    'final_sha256': digest(message), 'prior_phase': original.get('phase'),
-                    'prior_state_sha256': digest(encode(original)), 'pending': pending,
+                    'final_digest': self.content_digest(message), 'prior_phase': original.get('phase'),
+                    'prior_state_digest': self.content_digest(encode(original)), 'pending': pending,
                     'execution_closed': True, 'reconciliation_closed': False})
         except Exception as error:
             self.problem(tx, error, {'failure_final': message, 'failure_reason': str(reason)})
@@ -317,7 +367,7 @@ class Notebook:
         final = self.db.execute('SELECT text,role,sha256 FROM transcript WHERE tx=? AND ordinal=?',
                                 (tx, state.get('final_ordinal'))).fetchone()
         if (not final or final['role'] != 'ASSISTANT' or final['text'] != state.get('final') or
-                digest(final['text']) != final['sha256'] or
+                not self.digest_matches(final['sha256'], final['text']) or
                 (response is not None and response != final['text'])):
             raise RuntimeError('Delivery response differs from preserved final transcript')
         self.verify()
@@ -334,12 +384,13 @@ class Notebook:
             return False
         state.update(delivery='DELIVERING', delivery_attempt=uuid.uuid4().hex,
                      delivery_attempts=state.get('delivery_attempts', 0) + 1,
-                     delivery_started=now(), delivery_sha256=digest(response))
+                     delivery_started=now(), delivery_digest=self.content_digest(response))
+        state.pop('delivery_sha256', None)
         state.pop('delivery_error', None)
         with self.db:
             self.db.execute('UPDATE tasks SET state=? WHERE tx=?', (encode(state), tx))
             self._append_event(tx, 'DELIVERY_STARTED', {
-                'attempt': state['delivery_attempt'], 'sha256': state['delivery_sha256'],
+                'attempt': state['delivery_attempt'], 'content_digest': state['delivery_digest'],
                 'characters_with_terminal_newline': len(response) + 1})
         return True
 
@@ -352,7 +403,8 @@ class Notebook:
         state = self._verified_final(tx)
         if state.get('delivery') == 'WRITTEN_TO_OUTPUT_STREAM':
             return False
-        if state.get('delivery') != 'DELIVERING' or state.get('delivery_sha256') != digest(state['final']):
+        stored_delivery_digest = state.get('delivery_digest', state.get('delivery_sha256'))
+        if state.get('delivery') != 'DELIVERING' or not self.digest_matches(stored_delivery_digest, state['final']):
             raise RuntimeError('Output confirmation requires a matching durable delivery attempt')
         state.update(delivery='WRITTEN_TO_OUTPUT_STREAM', delivery_finished=now())
         state.pop('delivery_error', None)
@@ -361,7 +413,7 @@ class Notebook:
             self.db.execute("UPDATE recovery SET closed=1 WHERE tx=? AND scope='DELIVERY' AND closed=0", (tx,))
             self._append_event(tx, 'DELIVERY', {'status': state['delivery'],
                                                'attempt': state['delivery_attempt'],
-                                               'sha256': state['delivery_sha256']})
+                                               'content_digest': stored_delivery_digest})
         return True
 
     def _delivery_recovery(self, tx, error, uncertain=False):
@@ -438,7 +490,7 @@ class Notebook:
         if not verify_chain(chain):
             raise RuntimeError('Audit chain verification failed')
         for row in self.db.execute('SELECT text,sha256 FROM transcript'):
-            if digest(row['text']) != row['sha256']:
+            if not self.digest_matches(row['sha256'], row['text']):
                 raise RuntimeError('Transcript hash mismatch')
         for name, expected in self.projections().items():
             if (self.root / name).read_bytes() != expected.encode('utf-8'):
