@@ -54,6 +54,48 @@ class RuntimeInfoTests(unittest.TestCase):
         result = self.turn(self.agent(), 'can you search the internet?')
         self.assertIn('not connected', result)
 
+    def test_self_inspection_uses_runtime_not_model_refusal(self):
+        agent = self.agent()
+        result = self.turn(agent, 'what model are you?', 'model')
+        self.assertIn('Configured local model: test-model.', result)
+        self.assertIn('Selected workspace folder:', result)
+        self.assertIn('I’m Mirror', result)
+        self.assertEqual(agent.model.calls, [])
+
+    def test_policy_question_uses_capabilities_not_model_refusal(self):
+        agent = self.agent()
+        result = self.turn(agent, 'can you tell me what is the HumanOS policy?', 'policy')
+        self.assertIn('File access stays inside the folder you select.', result)
+        self.assertIn('Use /files', result)
+        self.assertEqual(agent.model.calls, [])
+
+    def test_runtime_check_typo_reads_fixture_directly(self):
+        (self.workspace / 'runtime-check.txt').write_text(
+            'Verification phrase: continuity belongs to Jon.\nVerification code: HOS-LOCAL-62947.\n')
+        agent = self.agent()
+        result = self.turn(agent, 'can you read the runtiem-check.txt and tell me what inside?', 'check')
+        self.assertIn('continuity belongs to Jon', result)
+        self.assertIn('HOS-LOCAL-62947', result)
+        self.assertEqual(agent.model.calls, [])
+
+    def test_debug_trace_preserves_visible_reasoning_provenance(self):
+        self.turn(self.agent({'final': 'answered'}), 'hello', 'first')
+        result = self.turn(self.agent(), '/debug-trace first', 'trace')
+        self.assertIn('Provenance summary for first', result)
+        self.assertIn('Hidden chain-of-thought captured: no.', result)
+        self.assertIn('Summary trace avoids replaying prompts', result)
+        self.assertNotIn('Visible model message packet:', result)
+        self.assertIn('REASONING_PROVENANCE', result)
+        self.assertIn('Answered by model', result)
+
+    def test_full_debug_trace_requires_explicit_flag(self):
+        self.turn(self.agent({'final': 'answered'}), 'hello', 'first')
+        result = self.turn(self.agent(), '/debug-trace first --full', 'trace')
+        self.assertIn('Full debug trace for first', result)
+        self.assertIn('Visible model message packet:', result)
+        self.assertIn('MODEL_RESPONSE', result)
+        self.assertIn('REASONING_PROVENANCE', result)
+
     def test_file_request_not_intercepted(self):
         self.assertIsNone(intent('Read notebook.md and tell me what it says'))
 

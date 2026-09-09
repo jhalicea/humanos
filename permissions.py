@@ -26,11 +26,13 @@ def task_scope(row, workspace, version=3):
             'input_sha256': digest(text), 'workspace': str(workspace),
             'read_paths': sorted(set(paths)) if file_read else [],
             'list_paths': ['.'] + sorted(set(paths)) if listing else [],
-            'runtime_reads': ['current_time', 'read_notebook', 'runtime_capabilities'],
+            'runtime_reads': ['current_time', 'read_notebook', 'runtime_capabilities', 'debug_trace'],
             'writes': 'EXACT_REQUEST_APPROVAL'}
     if version >= 2:
         from runtime_info import request_for
         direct = request_for(text, []) or {}
+        if direct.get('name') == 'read_file':
+            scope['read_paths'] = sorted(set(scope['read_paths'] + [direct['path']]))
         scope['source_paths'] = [direct.get('path', 'server.py')] if direct.get('name') == 'read_source' else []
         scope['scan_paths'] = [direct.get('path', '.')] if direct.get('name') in (
             'scan_files', 'find_duplicates', 'plan_organization') else []
