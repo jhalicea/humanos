@@ -1,0 +1,7 @@
+{
+  "name": "com.humanos.browser_bridge",
+  "description": "HumanOS Browser Bridge native host",
+  "path": "/ABSOLUTE/PATH/TO/browser_native_host.py",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://REPLACE_WITH_EXTENSION_ID/"]
+}
