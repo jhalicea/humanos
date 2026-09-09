@@ -71,13 +71,14 @@ class Tools:
     Each path component is opened with O_NOFOLLOW; symlinks and hardlinked files
     are rejected. Create uses O_EXCL and never overwrites user files.
     """
-    def __init__(self, workspace):
+    def __init__(self, workspace, browser=None):
         self.workspace = Path(workspace).resolve()
         if self.workspace in (Path('/'), Path.home(), Path(__file__).resolve().parent):
             raise PermissionError('Select a dedicated work folder, not your home, system root, or HumanOS source directory')
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.manager = None
         self.source = SourceReader()
+        self.browser = browser
 
     def execute(self, request, authorize, runtime=None, tx=None):
         result = {'ok': False, 'stdout': '', 'stderr': '', 'artifacts': [], 'authorization': 'DENIED'}
@@ -85,6 +86,19 @@ class Tools:
         try:
             request = validate_request(request)
             name, path = request.get('name'), request.get('path', '.')
+            if name.startswith('browser_'):
+                if self.browser is None:
+                    raise PermissionError('Browser bridge is not configured')
+                tool = name.removeprefix('browser_')
+                arguments = {key: value for key, value in request.items() if key not in ('name', 'tab_id')}
+                original_approve = self.browser.approve
+                self.browser.approve = lambda _: authorize(request)
+                try:
+                    response = self.browser.execute({'tool': tool, 'tab_id': request['tab_id'], 'arguments': arguments})
+                finally:
+                    self.browser.approve = original_approve
+                result.update(ok=response['ok'], stdout=encode(response), authorization='ALLOWED' if response['ok'] else 'DENIED')
+                return result
             if name == 'read_source':
                 if not authorize(request):
                     raise PermissionError('HumanOS policy did not authorize source inspection')
