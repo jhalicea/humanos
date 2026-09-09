@@ -38,6 +38,14 @@ REGISTRY = {item['name']: item for item in (
                parameters={'plan_id': {'type': 'string'}}, required=('plan_id',)),
     definition('undo_plan', 'Undo a specific organization plan without overwriting changed files; approval required.', 'workspace', 'organize',
                parameters={'plan_id': {'type': 'string'}}, required=('plan_id',)),
+    definition('browser_inspect', 'Inspect the browser tab explicitly selected in the HumanOS extension.', 'browser',
+               parameters={'tab_id': {'type': 'integer', 'default': 0}}),
+    definition('browser_navigate', 'Open an allowlisted HTTPS URL in the selected browser tab; approval required.', 'browser', 'browser_write',
+               parameters={'tab_id': {'type': 'integer', 'default': 0}, 'url': {'type': 'string'}}, required=('url',)),
+    definition('browser_click', 'Click one declared selector in the selected browser tab; approval required.', 'browser', 'browser_write',
+               parameters={'tab_id': {'type': 'integer', 'default': 0}, 'selector': {'type': 'string'}}, required=('selector',)),
+    definition('browser_type', 'Type into one declared browser element; approval required.', 'browser', 'browser_write',
+               parameters={'tab_id': {'type': 'integer', 'default': 0}, 'selector': {'type': 'string'}, 'text': {'type': 'string'}}, required=('selector','text')),
     definition('internet_search', 'Internet search', 'public_web', 'network_read', available=False),
     definition('drive_sync', 'Drive synchronization', 'canonical_store', 'sync', available=False),
 )}
@@ -75,7 +83,8 @@ def model_instructions():
     from notebook import encode
     lines = ['Available tools and valid JSON examples. Put arguments directly beside name; '
              'never wrap them in parameters or arguments. The registry lists tools, not workspace files.']
-    examples = {'path': 'example.txt', 'content': 'text', 'source': 'example.txt',
+    examples = {'path': 'example.txt', 'content': 'text', 'source': 'example.txt', 'tab_id': 0,
+                'url': 'https://allowed.example', 'selector': 'button', 'text': 'text',
                 'destination': 'Documents/example.txt', 'plan_id': 'ID returned by plan tool', 'offset': 0}
     for spec in describe():
         if not spec['available']:

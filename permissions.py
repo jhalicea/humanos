@@ -27,6 +27,7 @@ def task_scope(row, workspace, version=3):
             'read_paths': sorted(set(paths)) if file_read else [],
             'list_paths': ['.'] + sorted(set(paths)) if listing else [],
             'runtime_reads': ['current_time', 'read_notebook', 'runtime_capabilities'],
+            'browser_enabled': bool(re.search(r'\bbrowser\b', text, re.I)),
             'writes': 'EXACT_REQUEST_APPROVAL'}
     if version >= 2:
         from runtime_info import request_for
@@ -54,6 +55,8 @@ def validate_scope(scope, row, workspace):
 
 def allows_read(scope, request):
     name = request.get('name')
+    if name == 'browser_inspect':
+        return scope.get('browser_enabled', False)
     if name == 'read_file':
         return request.get('path') in scope['read_paths']
     if name == 'list_files':
