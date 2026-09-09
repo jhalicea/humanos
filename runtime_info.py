@@ -31,6 +31,12 @@ def intent(text):
     text = text.casefold().strip()
     if re.search(r'\b[\w-]+\.(txt|md|json|py|csv)\b', text):
         return None
+    if re.search(r'\b(what|which)\b.*\b(model|llm)\b', text):
+        return 'capabilities'
+    if re.search(r'\b(system|runtime|humanos)\b.*\b(specifications?|details|policy|rules|capabilities)\b', text):
+        return 'capabilities'
+    if re.search(r'\b(what|which)\b.*\b(files|source|code)\b.*\b(can|able|see|read|access)\b', text):
+        return 'capabilities'
     if text == '/time' or re.search(r'\b(what|current|know|tell|show)\b.*\btime\b', text):
         return 'clock'
     if text == '/notebook' or ('notebook' in text and re.search(r'\b(show|what|tell|is|read)\b', text)):
@@ -49,6 +55,11 @@ def request_for(text, history):
     commands = {'/files': 'scan_files', '/duplicates': 'find_duplicates', '/organize': 'plan_organization',
                 '/smart-organize': 'plan_contextual_organization', '/understand': 'understand_file',
                 '/organize-inbox': 'plan_inbox_organization', '/read': 'read_file', '/source': 'read_source'}
+    if words and words[0] in ('/provenance', '/debug-trace', '/trace', '/why') and len(words) <= 3:
+        full = len(words) == 3 and words[2] == '--full'
+        if len(words) == 3 and not full:
+            return None
+        return {'name': 'debug_trace', 'tx': words[1] if len(words) >= 2 else '', 'full': full}
     if words and words[0] in commands and len(words) <= 3:
         name = commands[words[0]]
         default_path = 'server.py' if name == 'read_source' else 'inbox' if name == 'plan_inbox_organization' else '.'
@@ -58,6 +69,9 @@ def request_for(text, history):
                 return None
             result['offset'] = int(words[2])
         return result
+    normalized = text.casefold().replace('runtiem-check.txt', 'runtime-check.txt')
+    if re.search(r'\b(read|show|open|inspect|what|tell)\b', normalized) and 'runtime-check.txt' in normalized:
+        return {'name': 'read_file', 'path': 'runtime-check.txt'}
     if words and words[0] in ('/apply', '/undo') and len(words) == 2:
         return {'name': 'apply_plan' if words[0] == '/apply' else 'undo_plan', 'plan_id': words[1]}
     if words and words[0] == '/move' and len(words) == 3:
@@ -184,7 +198,8 @@ def format_observation(request, observation):
     return observation['stdout']
 
 
-def execute(book, identity, tx, name, now=None):
+def execute(book, identity, tx, request, now=None, model_name=None, workspace=None):
+    name = request.get('name') if isinstance(request, dict) else request
     row = book.get_transaction(tx)
     if not row or row['hcid'] != identity['hcid'] or book.get_identity(row['hcid']) != identity or identity['binding'] != 'VERIFIED':
         raise PermissionError('Runtime query requires the verified transaction identity')
@@ -192,7 +207,12 @@ def execute(book, identity, tx, name, now=None):
         value = (now or datetime.now().astimezone()).isoformat(timespec='seconds')
         result = 'Your Mac’s local date and time is ' + value + '.'
     elif name == 'runtime_capabilities':
-        result = summary()
+        details = []
+        if model_name:
+            details.append('Configured local model: ' + model_name + '.')
+        if workspace:
+            details.append('Selected workspace folder: ' + str(workspace) + '.')
+        result = ('\n'.join(details) + '\n' if details else '') + summary()
     elif name == 'read_notebook':
         history = recent(book, identity['hcid'], tx)
         book.verify()
@@ -210,6 +230,74 @@ def execute(book, identity, tx, name, now=None):
         pending = [entry for entry in book.delivery_pending() if entry['hcid'] == identity['hcid'] and entry['tx'] != tx]
         if pending:
             result += '\nSaved answers with unconfirmed output: ' + ', '.join(entry['tx'] for entry in pending)
+    elif name == 'debug_trace':
+        result = debug_trace(book, identity, tx, request.get('tx') or tx, request.get('full', False))
     else:
         raise PermissionError('Unknown runtime query')
     return result
+
+
+def debug_trace(book, identity, current_tx, target_tx, full=False):
+    row = book.get_transaction(target_tx)
+    if not row or row['hcid'] != identity['hcid']:
+        raise PermissionError('Debug trace is limited to this verified session')
+    state = book.task(target_tx) or {}
+    events = [dict(r) for r in book.db.execute(
+        "SELECT seq,kind,payload,created FROM events WHERE tx=? ORDER BY seq", (target_tx,))]
+    lines = [
+        ('Full debug trace for ' if full else 'Provenance summary for ') + target_tx,
+        'Hidden chain-of-thought captured: no.',
+        ('Full trace includes owner-visible prompts, exposed model outputs, tool events, permissions, hashes, and summaries.'
+         if full else 'Summary trace avoids replaying prompts, model packets, and tool output. Use /debug-trace ' + target_tx + ' --full to explicitly display them.'),
+        'Input SHA-256: ' + state.get('permissions', {}).get('input_sha256', digest_or_unknown(row['input'])),
+        'Model: ' + str(state.get('model', 'not recorded')),
+        'Phase: ' + str(state.get('phase', 'not recorded')),
+    ]
+    provenance = []
+    for event in events:
+        if event['kind'] == 'REASONING_PROVENANCE':
+            try:
+                provenance.append(json.loads(event['payload']))
+            except json.JSONDecodeError:
+                provenance.append({'summary': 'Unreadable provenance event payload'})
+    if provenance:
+        lines.append('Reasoning provenance:')
+        for item in provenance:
+            lines.append('  ' + item.get('summary', 'No summary recorded.'))
+            lines.append('  model=' + str(item.get('model', 'not recorded')) +
+                         ' steps=' + str(item.get('steps', 'not recorded')) +
+                         ' direct_response=' + str(item.get('direct_response', False)))
+            attempted = item.get('attempted_reads') or []
+            if attempted:
+                lines.append('  attempted_reads=' + ', '.join(attempted))
+    if not full:
+        lines.append('Audit event kinds: ' + ', '.join(event['kind'] for event in events))
+        return '\n'.join(lines)
+    context = state.get('context') or {}
+    if context.get('records'):
+        lines.append('Context records:')
+        for record in context['records']:
+            lines.append('  ' + record.get('source', 'unknown') + ' sha256=' + record.get('sha256', 'unknown'))
+    if state.get('messages'):
+        lines.append('Visible model message packet:')
+        for index, message in enumerate(state['messages']):
+            content = message.get('content', '')
+            if len(content.encode('utf-8')) > 2000:
+                content = content[:2000] + ' [excerpt truncated]'
+            lines.append('  [' + str(index) + '] ' + message.get('role', 'unknown') + ': ' + content)
+    if events:
+        lines.append('Audit events:')
+        for event in events:
+            payload = event['payload']
+            if len(payload.encode('utf-8')) > 2000:
+                payload = payload[:2000] + ' [excerpt truncated]'
+            lines.append('  #' + str(event['seq']) + ' ' + event['kind'] + ' ' + payload)
+    return '\n'.join(lines)
+
+
+def digest_or_unknown(text):
+    try:
+        from notebook import digest
+        return digest(text)
+    except Exception:
+        return 'unknown'
