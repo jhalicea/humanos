@@ -13,6 +13,8 @@ from runtime_info import recent, request_for, execute as runtime_execute
 from capabilities import REGISTRY, validate_request, model_instructions
 from permissions import task_scope, validate_scope, allows_read
 from source_reader import SourceReader
+from audit_privacy import (context_summary, exception_summary, model_response_summary,
+                           observation_summary, request_summary)
 
 
 class Model(Protocol):
@@ -315,7 +317,7 @@ class Agent:
                 if direct:
                     state.update(phase='TOOL', pending=direct, direct_response=True)
                 self.book.save_task(tx, state)
-                self.book.event(tx, 'CONTEXT_LOADED', packet)
+                self.book.event(tx, 'CONTEXT_LOADED', context_summary(self.book, packet))
             if state['model'] != self.model.name or state['workspace'] != str(self.tools.workspace):
                 raise RuntimeError('Resume configuration differs; explicit reconciliation required')
             if state['phase'] == 'COMPLETE':
@@ -346,7 +348,7 @@ class Agent:
                     self.book.checkpoint(tx)
                     return final
                 if state['phase'] == 'TOOL':
-                    self.book.event(tx, 'TOOL_REQUEST', state['pending'])
+                    self.book.event(tx, 'TOOL_REQUEST', request_summary(self.book, state['pending']))
                     def policy(request):
                         key = digest(encode(request))
                         if key in state.get('denials', []):
@@ -355,7 +357,9 @@ class Agent:
                             allowed = key in state.get('approvals', [])
                             if request['name'] in ('apply_plan', 'undo_plan') and state['permissions'].get('plan_action') != request:
                                 allowed = False
-                                self.book.save_task_event(tx, state, 'AUTHORIZATION', {'request': request, 'allowed': False, 'reason': 'Plan execution was not explicitly requested by the human'})
+                                denied = request_summary(self.book, request)
+                                denied.update(allowed=False, reason='Plan execution was not explicitly requested by the human')
+                                self.book.save_task_event(tx, state, 'AUTHORIZATION', denied)
                                 return False
                             if not allowed and self.authorize:
                                 allowed = bool(self.authorize(request))
@@ -371,12 +375,14 @@ class Agent:
                         # and the exact write approval is durable.
                         if allowed:
                             state['phase'] = 'EXECUTING'
-                        self.book.save_task_event(tx, state, 'AUTHORIZATION', {'request': request, 'allowed': allowed,
-                            'scope_sha256': digest(encode(state['permissions']))})
+                        authorization = request_summary(self.book, request)
+                        authorization.update(allowed=allowed,
+                            scope_digest=self.book.content_digest(encode(state['permissions'])))
+                        self.book.save_task_event(tx, state, 'AUTHORIZATION', authorization)
                         return allowed
                     observation = self.tools.execute(state['pending'], policy,
                         runtime=lambda name: runtime_execute(self.book, identity, tx, name), tx=tx)
-                    self.book.event(tx, 'TOOL_RESULT', observation)
+                    self.book.event(tx, 'TOOL_RESULT', observation_summary(self.book, state['pending'], observation))
                     if state['pending'].get('name') in ('read_file', 'read_source'):
                         state.setdefault('attempted_reads', []).append(state['pending'].get('path'))
                     if not observation['ok']:
@@ -400,13 +406,13 @@ class Agent:
                 try:
                     proposal = validate(self.model.invoke(state['messages'], min(remaining, 90)))
                 except ValueError as invalid:
-                    self.book.event(tx, 'MODEL_RESPONSE_REJECTED', {'error': str(invalid)})
+                    self.book.event(tx, 'MODEL_RESPONSE_REJECTED', exception_summary(self.book, invalid))
                     state['messages'].append({'role': 'user', 'content':
                         'FORMAT ERROR. Your previous output was rejected. Emit ONLY {"tool":{"name":"read_file","path":"filename"}} '
                         'to inspect a file, or ONLY {"final":"answer"} after inspection. Do not include any other keys. ' + str(invalid)})
                     self.book.save_task(tx, state)
                     continue
-                self.book.event(tx, 'MODEL_RESPONSE', {'model': self.model.name, 'proposal': proposal})
+                self.book.event(tx, 'MODEL_RESPONSE', model_response_summary(self.book, self.model.name, proposal))
                 state['messages'].append({'role': 'assistant', 'content': encode(proposal)})
                 if 'final' in proposal:
                     missing = [p for p in state.get('required_reads', []) if p not in state.get('attempted_reads', [])]
