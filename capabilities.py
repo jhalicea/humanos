@@ -111,5 +111,6 @@ def summary():
     return ('I’m Mirror, the human-facing interface of HumanOS. I can help with conversation and planning, '
             'read files, inspect folders, understand local file context, find exact duplicates, and organize files using a reviewed plan. '
             'File access stays inside the folder you select. Duplicate checks never delete files.\n' + supported +
-            '\n' + missing + ' are not connected. Use /files, /read PATH, /duplicates, /organize, '
+            '\nHumanOS source inspection is read-only in this runtime; no source-write or self-modification tool is connected. '
+            'A model cannot grant itself that authority.\n' + missing + ' are not connected. Use /files, /read PATH, /duplicates, /organize, '
             '/understand PATH, /smart-organize, /organize-inbox, /apply PLAN-ID, /undo PLAN-ID, /source, /time, /notebook, or /recall QUERY.')
