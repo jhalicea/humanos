@@ -48,6 +48,7 @@ class WorkExecutorTests(unittest.TestCase):
 
     def test_requested_deliverable_is_owner_goal_derived(self):
         self.assertEqual(requested_deliverable('review files and create report.md', 'WORK-ABC'), 'report.md')
+        self.assertEqual(requested_deliverable('review files and create Reports/report.md', 'WORK-ABC'), 'Reports/report.md')
         self.assertEqual(requested_deliverable('review files and create a report', 'WORK-ABC'),
                          'work-report-abc.md')
         self.assertIsNone(requested_deliverable('review the files', 'WORK-ABC'))
@@ -75,7 +76,7 @@ class WorkExecutorTests(unittest.TestCase):
         progress = {'phase': 'INSPECTED', 'tools': ['scan_files', 'read_file'],
                     'scan_complete': True, 'scan_truncated': False,
                     'discovered_paths': ['a.txt', 'photo.jpg'],
-                    'inspected_paths': ['a.txt'], 'artifacts': [], 'has_response': True}
+                    'inspected_paths': ['a.txt'], 'artifact_paths': [], 'has_response': True}
         self.board.executor.sync(item, contract, progress, response_present=True, tx='tx-1')
         steps = self.board.executor.steps(item, contract)
         self.assertEqual([row['status'] for row in steps],
@@ -88,7 +89,7 @@ class WorkExecutorTests(unittest.TestCase):
         progress = {'phase': 'INSPECTED', 'tools': ['scan_files', 'read_file'],
                     'scan_complete': True, 'scan_truncated': False,
                     'discovered_paths': ['a.txt', 'b.txt'],
-                    'inspected_paths': ['a.txt'], 'artifacts': [], 'has_response': True}
+                    'inspected_paths': ['a.txt'], 'artifact_paths': [], 'has_response': True}
         self.board.executor.sync(item, contract, progress, response_present=True, tx='tx-1')
         with self.assertRaisesRegex(ValueError, 'cannot be marked done'):
             self.board.executor.require_done(item, contract, progress)
@@ -100,13 +101,13 @@ class WorkExecutorTests(unittest.TestCase):
         base = {'phase': 'INSPECTED', 'tools': ['scan_files', 'read_file'],
                 'scan_complete': True, 'scan_truncated': False,
                 'discovered_paths': ['a.txt'], 'inspected_paths': ['a.txt'],
-                'artifacts': [], 'has_response': True}
+                'artifact_paths': [], 'has_response': True}
         self.board.executor.sync(item, contract, base, response_present=True, tx='tx-1')
         self.assertEqual(self.board.executor.next_step(item, contract)['kind'], 'DELIVER')
         with self.assertRaises(ValueError):
             self.board.executor.require_done(item, contract, base)
         target = self.board.executor.next_step(item, contract)['target']
-        complete = dict(base, artifacts=[{'path': target, 'sha256': 'digest'}])
+        complete = dict(base, artifact_paths=[target])
         self.board.executor.sync(item, contract, complete, response_present=True, tx='tx-1')
         self.assertIsNone(self.board.executor.next_step(item, contract))
 
@@ -146,6 +147,32 @@ class WorkExecutorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'cannot be marked done'):
             self.board.set_status(item['work_id'], 'Jon', 'DONE')
         self.assertEqual(self.board.set_status(item['work_id'], 'Jon', 'CANCELLED')['status'], 'CANCELLED')
+
+    def test_workspace_report_waits_for_all_batches(self):
+        goal = 'review the files in my workspace and create a report'
+        base = FakeModel([{'final': 'Interim findings'}])
+        briefing = ('Work ID: WORK-ABC\nOriginal goal: ' + goal + '\n'
+                    'Verified progress JSON: {"inspected_paths": [], "artifact_paths": []}')
+        wrapped = WorkContextModel(base, briefing)
+        messages = [{'role': 'system', 'content': 'policy'}]
+        entries = [{'path': f'f{i}.txt', 'kind': 'file', 'size': i} for i in range(10)]
+        scan = json.dumps({'folder': '.', 'entries': entries, 'skipped': [], 'truncated': False})
+        messages += self._observation({'name': 'scan_files', 'path': '.'}, scan)
+        for i in range(8):
+            messages += self._observation({'name': 'read_file', 'path': f'f{i}.txt'}, f'content {i}')
+        result = wrapped.invoke(messages, 7)
+        self.assertIn('not a complete workspace review', result['final'])
+        self.assertNotIn('tool', result)
+
+    def test_step_status_tampering_fails_integrity(self):
+        item = self._work('review the files in my workspace')
+        contract = execution_contract(item['goal'])
+        first = self.board.executor.steps(item, contract)[0]
+        self.book.db.execute("UPDATE work_steps SET status='VERIFIED' WHERE work_id=? AND step_id=?",
+                             (item['work_id'], first['step_id']))
+        self.book.db.commit()
+        with self.assertRaisesRegex(RuntimeError, 'integrity'):
+            self.board.executor.steps(item, contract)
 
 
 if __name__ == '__main__':

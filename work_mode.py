@@ -367,7 +367,8 @@ class WorkContextModel:
                 '\nBase your final only on verified observations. If the inspection is bounded or incomplete, say so explicitly.'})
 
         proposal = self.model.invoke(messages, timeout)
-        if 'final' in proposal and self.deliverable:
+        incomplete = bool(checkpoint and int(checkpoint.get('remaining', 0)) > 0)
+        if 'final' in proposal and self.deliverable and not incomplete:
             return {'tool': {'name': 'create_file', 'path': self.deliverable, 'content': proposal['final']}}
         if 'final' in proposal and checkpoint:
             final = proposal['final'].rstrip()
@@ -449,6 +450,7 @@ class WorkBoard:
         work_id = 'WORK-' + uuid.uuid4().hex[:12].upper()
         stamp = now()
         goal = goal.strip()
+        requested_deliverable(goal, work_id)
         with self.book.db:
             self.book.db.execute('INSERT INTO work_items VALUES(?,?,?,?,?,?,?,?,?,?)',
                 (work_id, owner, hcid, goal, self.book.content_digest(goal), 'RUNNING', tx, 1, stamp, stamp))
