@@ -11,6 +11,13 @@ import secrets
 import time
 
 from swarm import PROFILE, STOPS
+from verify_swarm_local import preflight
+
+MODEL_ASSIGNMENT = {
+    'coord': 'llama3:latest',
+    'worker': 'llama3.2:latest',
+    'verify': 'qwen3-coder:30b',
+}
 
 
 def manifest(agent_id, model, task, capabilities, peers):
@@ -18,17 +25,18 @@ def manifest(agent_id, model, task, capabilities, peers):
             'capabilities': capabilities, 'peers': peers, 'token': secrets.token_urlsafe(32)}
 
 
-def build(root):
+def build(root, models=None):
     now = int(time.time())
+    models = dict(models or MODEL_ASSIGNMENT)
     statement = b'HumanOS local messaging-only swarm demo; no network probing authorized'
     agents = [
-        manifest('coord', 'llama3:latest',
+        manifest('coord', models['coord'],
                  'Send worker a short task through send_message, then finish after broker confirmation.',
                  ['send_message'], ['worker']),
-        manifest('worker', 'llama3.2:latest',
+        manifest('worker', models['worker'],
                  'Receive coordinator messages. Send verifier a short summary through send_message, then finish.',
                  ['receive_messages', 'send_message'], ['verify']),
-        manifest('verify', 'llama3:latest',
+        manifest('verify', models['verify'],
                  'Receive worker messages, verify that the chain used broker observations, then finish.',
                  ['receive_messages'], []),
     ]
@@ -58,6 +66,7 @@ def build(root):
         'control_state': str((Path(root) / 'control').resolve()),
         'orchestration': {
             'roles': {'coord': 'coordinator', 'worker': 'worker', 'verify': 'verifier'},
+            'model_roles': models,
             'max_rounds': 8,
             'model_timeout': 60,
         },
@@ -65,11 +74,15 @@ def build(root):
 
 
 def main():
+    model_check = preflight()
+    if not model_check['ready']:
+        print(json.dumps(model_check, indent=2, sort_keys=True))
+        return 2
     root = Path.home() / '.humanos' / 'swarm-demo' / ('run-' + time.strftime('%Y%m%d-%H%M%S'))
     root.mkdir(parents=True, mode=0o700, exist_ok=False)
     os.chmod(root, 0o700)
     config = root / 'config.json'
-    config.write_text(json.dumps(build(root), indent=2) + '\n')
+    config.write_text(json.dumps(build(root, model_check['assignment']), indent=2) + '\n')
     os.chmod(config, 0o600)
     print(config)
     return 0
