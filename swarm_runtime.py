@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from engine import OllamaModel
+from subagent_view import SubagentStatusStore, TerminalSubagentView
 from swarm import ControlPlane, PROFILE, encode
 from swarm_models import ModelRouter
 
@@ -61,12 +62,34 @@ def validate_proposal(value):
 
 
 class SwarmRuntime:
-    def __init__(self, config, model_factory=None, model_router=None):
+    def __init__(self, config, model_factory=None, model_router=None, status_callback=None):
         self.config = json.loads(encode(validate_runtime_config(config))); self.broker = self.config['broker']; self.state_dir = Path(self.config['control_state']); self.plane = ControlPlane(self.broker, self.state_dir)
         router = model_router or ModelRouter(os.environ.get('HUMANOS_ENDPOINT', 'http://127.0.0.1:11434'))
         self.models = {m['agent_id']: (model_factory(m) if model_factory else router.build(m)) for m in self.broker['agents']}
         self.tokens = {m['agent_id']: m['token'] for m in self.broker['agents']}; self.manifests = {m['agent_id']: {k: v for k, v in m.items() if k != 'token'} for m in self.broker['agents']}
         self.roles = self.config['orchestration']['roles']; self.timeout = self.config['orchestration']['model_timeout']; self.max_rounds = self.config['orchestration']['max_rounds']; self.transcript = {a: [] for a in self.models}; self.finals = {}
+        self.status_error = None
+        try:
+            self.status = SubagentStatusStore(
+                self.state_dir,
+                self.broker['envelope'].get('run_id', 'UNKNOWN'),
+                self.broker['agents'],
+                self.roles,
+                self.max_rounds,
+                on_change=status_callback,
+            )
+        except Exception as exc:
+            # Observability must not become an authority or availability boundary.
+            self.status = None
+            self.status_error = type(exc).__name__ + ': ' + str(exc)
+
+    def _status(self, method, *args):
+        if self.status is None:
+            return
+        try:
+            getattr(self.status, method)(*args)
+        except Exception as exc:
+            self.status_error = type(exc).__name__ + ': ' + str(exc)
 
     def _messages(self, agent_id, round_no):
         manifest = self.manifests[agent_id]
@@ -88,31 +111,60 @@ class SwarmRuntime:
 
     def _step(self, agent_id, round_no):
         if agent_id in self.finals: return
-        messages = self._messages(agent_id, round_no)
-        for attempt in range(2):
-            try:
-                proposal = validate_proposal(self._invoke(agent_id, messages))
-                break
-            except ValueError as exc:
-                if attempt:
-                    raise
-                messages = messages + [{'role': 'user', 'content': encode({'error': str(exc), 'required': 'Return exactly {"action":{"tool":"...","arguments":{...}}} using one allowed_actions schema. Return {"final":"non-empty text"} only after your task is complete.'})}]
-        if 'final' in proposal: self.finals[agent_id] = proposal['final']; self._record(agent_id, proposal); return
-        result = self.plane.execute(self.tokens[agent_id], proposal['action']); self._record(agent_id, proposal, result)
-        if not result.get('ok') and 'ESCALATION_REQUIRED' in result.get('error', ''): raise PermissionError(result['error'])
+        self._status('mark', agent_id, 'working', round_no, 'invoking model')
+        try:
+            messages = self._messages(agent_id, round_no)
+            for attempt in range(2):
+                try:
+                    proposal = validate_proposal(self._invoke(agent_id, messages))
+                    break
+                except ValueError as exc:
+                    if attempt:
+                        raise
+                    messages = messages + [{'role': 'user', 'content': encode({'error': str(exc), 'required': 'Return exactly {"action":{"tool":"...","arguments":{...}}} using one allowed_actions schema. Return {"final":"non-empty text"} only after your task is complete.'})}]
+            if 'final' in proposal:
+                self.finals[agent_id] = proposal['final']; self._record(agent_id, proposal)
+                self._status('mark', agent_id, 'done', round_no, 'finished')
+                return
+            result = self.plane.execute(self.tokens[agent_id], proposal['action']); self._record(agent_id, proposal, result)
+            if not result.get('ok') and 'ESCALATION_REQUIRED' in result.get('error', ''): raise PermissionError(result['error'])
+            self._status('mark', agent_id, 'working', round_no, 'broker action observed')
+        except Exception as exc:
+            self._status('mark', agent_id, 'error', round_no, 'error: ' + type(exc).__name__)
+            raise
 
     def run(self):
         order = sorted(self.models, key=lambda a: ({'coordinator': 0, 'worker': 1, 'verifier': 2}[self.roles[a]], a)); round_no = 0
+        self._status('set_overall', 'RUNNING', 0)
         try:
             for round_no in range(1, self.max_rounds + 1):
                 for agent_id in order: self._step(agent_id, round_no)
                 if all(a in self.finals for a in self.models): break
-            return {'status': 'COMPLETE' if all(a in self.finals for a in self.models) else 'ROUND_LIMIT', 'finals': dict(self.finals), 'rounds': round_no, 'ledger_records': len(self.plane.ledger.verify()), 'models': {a: self.manifests[a].get('model') for a in self.models}}
+            status = 'COMPLETE' if all(a in self.finals for a in self.models) else 'ROUND_LIMIT'
+            if status == 'ROUND_LIMIT':
+                self._status('stop_incomplete', round_no, 'round limit')
+            self._status('set_overall', status, round_no)
+            result = {'status': status, 'finals': dict(self.finals), 'rounds': round_no, 'ledger_records': len(self.plane.ledger.verify()), 'models': {a: self.manifests[a].get('model') for a in self.models}}
+            if self.status is not None:
+                result['subagent_state'] = str(self.status.path)
+            if self.status_error is not None:
+                result['subagent_status_error'] = self.status_error
+            return result
+        except Exception:
+            self._status('set_overall', 'ERROR', round_no)
+            raise
         finally: self.plane.close()
 
 
 def main():
-    parser = argparse.ArgumentParser(description='HumanOS Swarm Runtime v3'); parser.add_argument('--config', required=True); args = parser.parse_args(); result = SwarmRuntime(json.loads(Path(args.config).resolve().read_text())).run(); print(json.dumps(result, ensure_ascii=False, sort_keys=True)); return 0
+    parser = argparse.ArgumentParser(description='HumanOS Swarm Runtime v3')
+    parser.add_argument('--config', required=True)
+    parser.add_argument('--view', action='store_true', help='Render the subagent panel live in this terminal')
+    args = parser.parse_args()
+    view = TerminalSubagentView() if args.view else None
+    result = SwarmRuntime(json.loads(Path(args.config).resolve().read_text()), status_callback=view).run()
+    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    return 0
 
 
 if __name__ == '__main__': raise SystemExit(main())
