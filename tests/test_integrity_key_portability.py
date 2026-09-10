@@ -8,6 +8,7 @@ import unittest
 
 from integrity_lifecycle import IntegrityKeyError, KEY_BYTES, KEY_ID_PREFIX
 from notebook import Notebook
+from recovery_continuation import continue_recovery_ledger
 from vault_portability import (DB_FILE, MANIFEST, RECOVERY_FILE, VaultBackupError,
                                _encode, _seal_manifest, create_portable_backup,
                                restore_portable_backup, verify_portable_backup)
@@ -293,6 +294,22 @@ class PortableVaultBackupTests(unittest.TestCase):
         source = self.source_vault()
         with self.assertRaisesRegex(VaultBackupError, 'outside the source vault'):
             create_portable_backup(source, source / 'backup')
+
+
+    def test_portable_backup_v1_refuses_continued_ledger_without_leaving_bundle(self):
+        vault = self.source_vault('continued-source')
+        book = Notebook(vault)
+        try:
+            path = book.root / RECOVERY_FILE
+            path.write_bytes(b'{"tx":null}')
+            os.chmod(path, 0o600)
+            continue_recovery_ledger(book.root, book.integrity_key)
+        finally:
+            book.close()
+        bundle = self.root / 'continued-bundle'
+        with self.assertRaisesRegex(VaultBackupError, 'cannot preserve recovery continuation archives'):
+            create_portable_backup(vault, bundle)
+        self.assertFalse(bundle.exists())
 
 
 if __name__ == '__main__':

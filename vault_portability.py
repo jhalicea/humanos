@@ -18,6 +18,7 @@ import stat
 import tempfile
 
 from integrity_lifecycle import KEY_BYTES, KEY_FILE, key_id
+from recovery_continuation import verify_active_recovery_continuation
 
 FORMAT = 'humanos-portable-vault'
 VERSION = 1
@@ -232,6 +233,11 @@ def create_portable_backup(vault, destination):
     book = Notebook(vault)
     try:
         book.verify()
+        if verify_active_recovery_continuation(book.root, book.integrity_key) is not None:
+            raise VaultBackupError(
+                'Portable backup v1 cannot preserve recovery continuation archives; '
+                'use archive-aware backup/export after issue #52 is implemented'
+            )
         destination.mkdir(mode=0o700)
         os.chmod(destination, 0o700)
         db_path = destination / DB_FILE
