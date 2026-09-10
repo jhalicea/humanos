@@ -1,7 +1,7 @@
 """Vault-scoped integrity-key lifecycle for HumanOS.
 
 The key is stable vault identity. This module creates it once for a fresh vault,
-refuses silent replacement on existing state, validates owner-only file safety,
+refuses silent replacement on protected state, validates owner-only file safety,
 and binds the key identity into SQLite before recovery code may mutate state.
 """
 import hashlib
@@ -33,9 +33,7 @@ def _existing_runtime_state(root):
     if not root.exists():
         return False
     for item in root.iterdir():
-        if item.name == 'writer.lock':
-            continue
-        if item.name == KEY_FILE:
+        if item.name in ('writer.lock', KEY_FILE):
             continue
         return True
     return False
@@ -87,8 +85,50 @@ def _fsync_directory(path):
         os.close(fd)
 
 
+def _legacy_runtime_can_initialize_key(root):
+    """Return True only when existing SQLite state is provably pre-key legacy data.
+
+    A legacy database may contain historical SHA-256 rows or only an old recovery
+    table. If any runtime_meta binding or HMAC-tagged value already exists, key loss
+    is unrecoverable without the original key and we must fail closed.
+    """
+    path = Path(root) / 'notebook.sqlite3'
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        return False
+    try:
+        db = sqlite3.connect('file:' + str(path) + '?mode=ro', uri=True)
+        try:
+            if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
+                return False
+            tables = {row[0] for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'")}
+            if 'runtime_meta' in tables:
+                return False
+            if 'transcript' in tables and db.execute(
+                    'SELECT 1 FROM transcript WHERE sha256 LIKE ? LIMIT 1',
+                    (CONTENT_DIGEST_PREFIX + '%',)).fetchone():
+                return False
+            if 'identities' in tables and db.execute(
+                    'SELECT 1 FROM identities WHERE opening_hash LIKE ? LIMIT 1',
+                    (CONTENT_DIGEST_PREFIX + '%',)).fetchone():
+                return False
+            if 'events' in tables and db.execute(
+                    'SELECT 1 FROM events WHERE payload LIKE ? LIMIT 1',
+                    ('%' + CONTENT_DIGEST_PREFIX + '%',)).fetchone():
+                return False
+            return True
+        finally:
+            db.close()
+    except (sqlite3.DatabaseError, OSError):
+        return False
+
+
 def load_or_create_integrity_key(root):
-    """Load a safe key, or create one only when the runtime is genuinely fresh."""
+    """Load a safe key, create one for fresh or provably pre-key legacy state only."""
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     path = root / KEY_FILE
@@ -99,9 +139,9 @@ def load_or_create_integrity_key(root):
         exists = False
     if exists:
         return _validate_private_regular(path, expected_bytes=KEY_BYTES)
-    if _existing_runtime_state(root):
+    if _existing_runtime_state(root) and not _legacy_runtime_can_initialize_key(root):
         raise IntegrityKeyError(
-            'Notebook integrity key is missing from an existing vault; restore the original key or a verified backup. '
+            'Notebook integrity key is missing from an existing protected vault; restore the original key or a verified backup. '
             'A replacement key will not be generated.')
     key = os.urandom(KEY_BYTES)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0)
@@ -151,8 +191,8 @@ def bind_integrity_key(db, key):
 
     Existing Runtime 0.1 databases have no runtime_meta table. We first validate any
     HMAC transcript rows with the supplied key, then create the binding. Legacy-only
-    databases have no key-dependent rows, so their existing key becomes authoritative
-    for all future protected records.
+    databases have no key-dependent rows, so their existing/generated migration key
+    becomes authoritative for all future protected records.
     """
     expected = key_id(key)
     try:
