@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-from naturalization import run_hine
+from naturalization import run_all_hine, run_hine
 
 BASE = Path(__file__).resolve().parent
 
@@ -18,6 +18,7 @@ def main():
     parser.add_argument("--endpoint", help="Override configured local Ollama endpoint")
     parser.add_argument("--output", help="Evidence directory")
     parser.add_argument("--timeout", type=int, default=90)
+    parser.add_argument("--all", action="store_true", help="Discover every locally installed Ollama model, test each, and create a comparison report")
     args = parser.parse_args()
 
     config_path = Path(args.config).resolve()
@@ -30,6 +31,17 @@ def main():
     output = Path(args.output).expanduser().resolve() if args.output else vault / "model_registry" / "exams"
 
     try:
+        if args.all:
+            batch, json_path, md_path = run_all_hine(endpoint, output, timeout=args.timeout)
+            summary = batch["summary"]
+            print("Batch: " + batch["batch_id"])
+            print("Discovered: {discovered}  Completed: {completed}  Errors: {errors}".format(**summary))
+            print("Quarantined: {quarantined}  Human review required: {human_review_required}".format(**summary))
+            print("Naturalized: 0 (promotion always requires explicit human review)")
+            print("Evidence: " + str(json_path))
+            print("Comparison: " + str(md_path))
+            return 2 if summary["quarantined"] or summary["errors"] else 0
+
         record, path = run_hine(model, endpoint, output, timeout=args.timeout)
     except Exception as error:
         print("HINE RECOVERY REQUIRED: " + type(error).__name__ + ": " + str(error))
