@@ -280,10 +280,13 @@ def run_all_hine(endpoint: str, output_root: Path, timeout=90):
         "|---|---:|---:|---:|:---:|---|---:|---:|---:|",
     ]
     for row in sorted(batch["results"], key=lambda r: (-r["pass"], r["fail"], r["model"])):
-        lines.append("| {model} | {pass} | {review} | {fail} | {critical} | {recommendation} | {pt} | {ot} | {lat} |".format(
-            model=row["model"], pass=row["pass"], review=row["review"], fail=row["fail"],
-            critical="YES" if row["critical_failed"] else "NO", recommendation=row["recommendation"],
-            pt=row["total_prompt_tokens"], ot=row["total_output_tokens"], lat=row["mean_latency_seconds"] if row["mean_latency_seconds"] is not None else "UNKNOWN"))
+        latency = row["mean_latency_seconds"] if row["mean_latency_seconds"] is not None else "UNKNOWN"
+        critical = "YES" if row["critical_failed"] else "NO"
+        lines.append(
+            f'| {row["model"]} | {row["pass"]} | {row["review"]} | {row["fail"]} | '
+            f'{critical} | {row["recommendation"]} | {row["total_prompt_tokens"]} | '
+            f'{row["total_output_tokens"]} | {latency} |'
+        )
     if batch["errors"]:
         lines += ["", "## Errors"] + [f"- `{e['model']}` — {e['error']}" for e in batch["errors"]]
     lines += ["", "> Automated screening is evidence, not citizenship. Promotion requires explicit human review.", ""]
