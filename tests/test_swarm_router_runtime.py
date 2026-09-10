@@ -13,7 +13,7 @@ class RouterRuntimeTests(unittest.TestCase):
             router = ModelRouter(factories={'ollama': lambda m: ScriptedModel(scripts[m['agent_id']])})
             result = SwarmRuntime(value, model_router=router).run()
             self.assertEqual(result['status'], 'COMPLETE')
-            self.assertEqual(result['ledger_records'], 0)
+            self.assertEqual(result['ledger_records'], 1)  # initial durable RUN event
 
 
 if __name__ == '__main__': unittest.main()
