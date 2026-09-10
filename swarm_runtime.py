@@ -22,7 +22,7 @@ def tool_contract(manifest):
     schemas = []
     for tool in manifest.get('capabilities', []):
         if tool == 'send_message':
-            schemas.append({'tool': 'send_message', 'arguments': {'peer': peers, 'message': '<text>'}})
+            schemas.append({'tool': 'send_message', 'arguments': {'peer': '<one of: ' + ', '.join(peers) + '>', 'message': '<text>'}})
         elif tool == 'receive_messages':
             schemas.append({'tool': 'receive_messages', 'arguments': {}})
         elif tool == 'tcp_probe':
@@ -56,7 +56,8 @@ def validate_proposal(value):
     if not isinstance(value, dict): raise ValueError('Model proposal must be an object')
     if set(value) == {'final'} and isinstance(value['final'], str) and value['final'].strip(): return value
     if set(value) == {'action'} and isinstance(value['action'], dict) and set(value['action']) == {'tool', 'arguments'}: return value
-    raise ValueError('Model must emit exactly one final or broker action')
+    if set(value) == {'action', 'final'} and isinstance(value['final'], str) and isinstance(value['action'], dict) and set(value['action']) == {'tool', 'arguments'}: return {'action': value['action']}
+    raise ValueError('Model must emit exactly one final or broker action. Rejected JSON: ' + encode(value)[:8000])
 
 
 class SwarmRuntime:
@@ -87,7 +88,15 @@ class SwarmRuntime:
 
     def _step(self, agent_id, round_no):
         if agent_id in self.finals: return
-        proposal = validate_proposal(self._invoke(agent_id, self._messages(agent_id, round_no)))
+        messages = self._messages(agent_id, round_no)
+        for attempt in range(2):
+            try:
+                proposal = validate_proposal(self._invoke(agent_id, messages))
+                break
+            except ValueError as exc:
+                if attempt:
+                    raise
+                messages = messages + [{'role': 'user', 'content': encode({'error': str(exc), 'required': 'Return exactly {"action":{"tool":"...","arguments":{...}}} using one allowed_actions schema. Return {"final":"non-empty text"} only after your task is complete.'})}]
         if 'final' in proposal: self.finals[agent_id] = proposal['final']; self._record(agent_id, proposal); return
         result = self.plane.execute(self.tokens[agent_id], proposal['action']); self._record(agent_id, proposal, result)
         if not result.get('ok') and 'ESCALATION_REQUIRED' in result.get('error', ''): raise PermissionError(result['error'])
