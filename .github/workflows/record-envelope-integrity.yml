@@ -21,16 +21,18 @@ jobs:
         with:
           python-version: '3.11'
       - name: Apply guarded implementation
-        run: python3 tools/apply_record_envelope_integrity.py
+        run: |
+          python3 tools/apply_record_envelope_integrity.py
+          python3 tools/adjust_integrity_key_migration_test.py
       - name: Compile changed Python
-        run: python3 -m py_compile notebook.py tests/test_content_digest_privacy.py tests/test_record_envelope_integrity.py
+        run: python3 -m py_compile notebook.py tests/test_content_digest_privacy.py tests/test_integrity_key_portability.py tests/test_record_envelope_integrity.py
       - name: Run full regression suite
         run: python3 -m unittest discover -s tests -v
       - name: Commit only after all tests pass
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add notebook.py tests/test_content_digest_privacy.py tests/test_record_envelope_integrity.py
+          git add notebook.py tests/test_content_digest_privacy.py tests/test_integrity_key_portability.py tests/test_record_envelope_integrity.py
           if ! git diff --cached --quiet; then
             git commit -m "Add record envelope integrity and transactional sequence counter"
             git push origin HEAD:feature/record-envelope-integrity
