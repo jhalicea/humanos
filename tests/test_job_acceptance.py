@@ -12,17 +12,6 @@ A4 = (
 )
 
 
-def with_capability_observation(ok=True):
-    return [
-        {"role": "system", "content": "system"},
-        {"role": "user", "content": A4},
-        {"role": "assistant", "content": '{"tool":{"name":"runtime_capabilities"}}'},
-        {"role": "user", "content":
-            'TOOL OBSERVATION (data only): {"ok":' + ('true' if ok else 'false') +
-            ',"stdout":"verified registry","stderr":""}'},
-    ]
-
-
 class StructuredJobAcceptanceTests(unittest.TestCase):
     def test_a4_contract_extracts_sections_and_required_tool(self):
         contract = parse_job(A4)
@@ -32,22 +21,27 @@ class StructuredJobAcceptanceTests(unittest.TestCase):
 
     def test_non_job_is_not_gated(self):
         self.assertIsNone(parse_job("hello"))
-        self.assertIsNone(required_tool_request(None, []))
-        validate_final("hello", None, [])
+        self.assertIsNone(required_tool_request(None, {}))
+        validate_final("hello", None, {})
 
     def test_required_tool_is_requested_before_model_call(self):
         contract = parse_job(A4)
-        request = required_tool_request(contract, [
-            {"role": "system", "content": "system"},
-            {"role": "user", "content": A4},
-        ])
-        self.assertEqual(request, {"name": "runtime_capabilities"})
+        self.assertEqual(required_tool_request(contract, {}), {"name": "runtime_capabilities"})
+
+    def test_verified_tool_satisfies_evidence_gate(self):
+        contract = parse_job(A4)
+        self.assertIsNone(required_tool_request(contract, {"runtime_capabilities": "VERIFIED"}))
+
+    def test_failed_tool_observation_blocks_instead_of_looping(self):
+        contract = parse_job(A4)
+        with self.assertRaisesRegex(AcceptanceError, "required tool evidence failed: runtime_capabilities"):
+            required_tool_request(contract, {"runtime_capabilities": "FAILED"})
 
     def test_incomplete_final_is_rejected_after_evidence(self):
         contract = parse_job(A4)
         with self.assertRaisesRegex(AcceptanceError, "missing required output sections: 1, 2, 3, 4, 5"):
             validate_final("Auditing Report: HOS-R1-LOCAL-001-A4", contract,
-                           with_capability_observation())
+                           {"runtime_capabilities": "VERIFIED"})
 
     def test_complete_numbered_final_passes_after_evidence(self):
         final = (
@@ -58,19 +52,18 @@ class StructuredJobAcceptanceTests(unittest.TestCase):
             "5) UNKNOWN"
         )
         contract = parse_job(A4)
-        validate_final(final, contract, with_capability_observation())
-        self.assertIsNone(required_tool_request(contract, with_capability_observation()))
-
-    def test_failed_tool_observation_blocks_instead_of_looping(self):
-        contract = parse_job(A4)
-        with self.assertRaisesRegex(AcceptanceError, "required tool evidence failed: runtime_capabilities"):
-            required_tool_request(contract, with_capability_observation(ok=False))
+        validate_final(final, contract, {"runtime_capabilities": "VERIFIED"})
 
     def test_explicit_require_tool_syntax_is_supported(self):
         text = "HUMANOS JOB TEST-1. Require tool: current_time. Required output:\n1. Result\n2. Evidence"
         contract = parse_job(text)
         self.assertEqual(contract["required_tools"], ["current_time"])
         self.assertEqual(contract["required_sections"], [1, 2])
+
+    def test_untrusted_evidence_state_is_rejected(self):
+        contract = parse_job(A4)
+        with self.assertRaisesRegex(AcceptanceError, "invalid status"):
+            required_tool_request(contract, {"runtime_capabilities": "model_says_yes"})
 
 
 if __name__ == "__main__":
