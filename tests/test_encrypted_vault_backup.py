@@ -7,11 +7,18 @@ import struct
 import tempfile
 import unittest
 
+try:
+    import cryptography  # noqa: F401
+    HAS_CRYPTOGRAPHY = True
+except ImportError:
+    HAS_CRYPTOGRAPHY = False
+
 from notebook import Notebook
 from vault_encryption import (MAGIC, EncryptedBackupError, create_encrypted_backup,
                               main, restore_encrypted_backup, verify_encrypted_backup)
 
 
+@unittest.skipUnless(HAS_CRYPTOGRAPHY, 'optional encrypted-backup dependency is not installed')
 class EncryptedVaultBackupTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
