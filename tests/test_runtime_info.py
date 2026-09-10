@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import unittest
 import test_runtime
-from runtime_info import execute, recent, intent, request_for
+from runtime_info import execute, recent, intent, request_for, format_observation
 from server import HumanOSRuntime
 import io
 
@@ -17,6 +17,7 @@ class RuntimeInfoTests(unittest.TestCase):
         runtime.book = self.book
         runtime.deliver(tx, result, io.StringIO())
         return result
+
     def test_clock_captured_without_model(self):
         agent = self.agent()
         result = self.turn(agent, 'what time it is?')
@@ -54,6 +55,24 @@ class RuntimeInfoTests(unittest.TestCase):
         result = self.turn(self.agent(), 'can you search the internet?')
         self.assertIn('not connected', result)
 
+    def test_tools_questions_are_grounded_without_model(self):
+        for index, text in enumerate(('what tools do we have?', 'what tools you have?',
+                                      'show me the tools', 'what can you do?')):
+            with self.subTest(text=text):
+                agent = self.agent({'final': 'wrong answer'})
+                result = self.turn(agent, text, 'tools-' + str(index))
+                self.assertIn('- read_file:', result)
+                self.assertIn('- runtime_capabilities:', result)
+                self.assertNotIn('wrong answer', result)
+                self.assertEqual(agent.model.calls, [])
+
+    def test_self_modification_question_reports_runtime_boundary_without_model(self):
+        agent = self.agent({'final': 'I am philosophically unable to change.'})
+        result = self.turn(agent, 'can you edit yourself?', 'self-edit')
+        self.assertIn('no source-write or self-modification tool is connected', result)
+        self.assertIn('model cannot grant itself that authority', result)
+        self.assertEqual(agent.model.calls, [])
+
     def test_file_request_not_intercepted(self):
         self.assertIsNone(intent('Read notebook.md and tell me what it says'))
 
@@ -66,22 +85,40 @@ class RuntimeInfoTests(unittest.TestCase):
     def test_common_workspace_browse_phrases_are_direct_requests(self):
         expected = {'name': 'list_files', 'path': '.'}
         for text in ('list files', 'list folders', 'list them', 'show workspace',
-                     'show me the files', "what's in the workspace"):
+                     'show me the files', "what's in the workspace",
+                     'whats the name of the root folder you can see?',
+                     'whats the name of the folder root?'):
             with self.subTest(text=text):
                 self.assertEqual(request_for(text, []), expected)
         self.assertIsNone(request_for('do not list files', []))
         self.assertIsNone(request_for('list files in private', []))
+
+    def test_workspace_browse_followups_use_prior_human_intent_only(self):
+        expected = {'name': 'list_files', 'path': '.'}
+        history = [{'role': 'HUMAN', 'text': 'whats the name of the root folder you can see?'}]
+        self.assertEqual(request_for('whats inside?', history), expected)
+        history = [{'role': 'HUMAN', 'text': 'whats the name of the folder root?'}]
+        self.assertEqual(request_for('is there any other folder there?', history), expected)
+        unrelated = [{'role': 'HUMAN', 'text': 'tell me about Jupiter'}]
+        self.assertIsNone(request_for('whats inside?', unrelated))
 
     def test_natural_workspace_browse_is_grounded_without_model(self):
         (self.workspace / 'runtime-check.txt').write_text('proof')
         (self.workspace / 'Archive').mkdir()
         agent = self.agent({'final': 'invented stale listing'})
         result = self.turn(agent, 'show workspace', 'browse')
-        self.assertIn('Workspace contains 2 visible item(s):', result)
+        self.assertIn('Selected workspace root (relative path ".") contains 2 visible item(s):', result)
         self.assertIn('runtime-check.txt', result)
         self.assertIn('Archive', result)
         self.assertNotIn('invented stale listing', result)
         self.assertEqual(agent.model.calls, [])
+
+    def test_workspace_listing_formatter_labels_relative_root(self):
+        result = format_observation(
+            {'name': 'list_files', 'path': '.'},
+            {'ok': True, 'stdout': 'runtime-check.txt', 'stderr': '', 'artifacts': [], 'authorization': 'ALLOWED'},
+        )
+        self.assertIn('Selected workspace root (relative path ".")', result)
 
     def test_natural_listing_creates_verified_reference_frame(self):
         (self.workspace / 'runtime-check.txt').write_text('proof')
