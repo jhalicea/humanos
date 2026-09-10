@@ -13,6 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from audit import AuditEvent, hash_event, verify_chain
+from audit_privacy import assert_content_light, request_summary
 
 
 def now():
@@ -139,7 +140,8 @@ class Notebook:
             self._append_event(tx, kind, payload)
 
     def _append_event(self, tx, kind, payload):
-        """Append inside the caller's transaction when state and evidence must agree."""
+        """Append content-light evidence inside the caller's state transaction."""
+        assert_content_light(payload)
         previous = self.db.execute('SELECT seq,event_hash FROM events ORDER BY seq DESC LIMIT 1').fetchone()
         seq, prev = (previous['seq'] + 1, previous['event_hash']) if previous else (1, 'GENESIS')
         stamp = now()
@@ -317,7 +319,8 @@ class Notebook:
                 self._append_event(tx, 'TASK_FAILURE_FINALIZED', {
                     'outcome': outcome, 'reason': str(reason), 'final_ordinal': ordinal,
                     'final_digest': self.content_digest(message), 'prior_phase': original.get('phase'),
-                    'prior_state_digest': self.content_digest(encode(original)), 'pending': pending,
+                    'prior_state_digest': self.content_digest(encode(original)),
+                    'pending_request': request_summary(self, pending) if pending else None,
                     'execution_closed': True, 'reconciliation_closed': False})
         except Exception as error:
             self.problem(tx, error, {'failure_final': message, 'failure_reason': str(reason)})

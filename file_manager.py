@@ -14,6 +14,7 @@ import sys
 import time
 import uuid
 from notebook import encode, digest
+from audit_privacy import plan_summary, state_summary
 
 MAX_ENTRIES = 2000
 MAX_BYTES = 512 * 1024 * 1024
@@ -222,7 +223,7 @@ class FileManager:
                     raise RuntimeError('Idempotent plan differs from preserved evidence')
             else:
                 self.book.db.execute('INSERT INTO file_plans VALUES(?,?,?)', (plan_id, encode(plan), encode(state)))
-                self.book._append_event(tx, 'FILE_PLAN_CREATED', {'plan': plan, 'sha256': digest(encode(plan))})
+                self.book._append_event(tx, 'FILE_PLAN_CREATED', plan_summary(self.book, plan))
         return self.get_plan(plan_id)
 
     def _load(self, plan_id):
@@ -233,13 +234,24 @@ class FileManager:
         plan, state = json.loads(row[0]), json.loads(row[1])
         if plan['workspace'] != self._identity(): raise PermissionError('Plan belongs to a different workspace identity')
         event = self.book.db.execute("SELECT payload FROM events WHERE kind='FILE_PLAN_CREATED' AND payload LIKE ?", ('%'+plan_id+'%',)).fetchone()
-        if not event or json.loads(event[0])['sha256'] != digest(encode(plan)):
+        if not event:
+            raise RuntimeError('Saved plan differs from its audit evidence')
+        creation = json.loads(event[0])
+        if 'plan_digest' in creation:
+            if creation['plan_digest'] != self.book.content_digest(encode(plan)):
+                raise RuntimeError('Saved plan differs from its audit evidence')
+        elif creation.get('sha256') != digest(encode(plan)):
+            # Legacy Runtime 0.1 event compatibility; old append-only rows are not rewritten.
             raise RuntimeError('Saved plan differs from its audit evidence')
         events = self.book.db.execute("SELECT payload FROM events WHERE kind LIKE 'FILE_%' AND payload LIKE ? ORDER BY seq DESC", ('%'+plan_id+'%',))
         for event in events:
             payload = json.loads(event[0])
-            if payload.get('plan_id') == plan_id and 'state' in payload:
-                if payload['state'] != state:
+            if payload.get('plan_id') == plan_id and ('state_digest' in payload or 'state' in payload):
+                if 'state_digest' in payload:
+                    if payload['state_digest'] != self.book.content_digest(encode(state)):
+                        raise RuntimeError('Saved plan progress differs from its audit evidence')
+                elif payload['state'] != state:
+                    # Legacy Runtime 0.1 event compatibility.
                     raise RuntimeError('Saved plan progress differs from its audit evidence')
                 break
         else:
@@ -294,7 +306,7 @@ class FileManager:
     def _save(self, plan, state, event):
         with self.book.db:
             self.book.db.execute('UPDATE file_plans SET state=? WHERE plan_id=?', (encode(state), plan['plan_id']))
-            self.book._append_event(None, event, {'plan_id': plan['plan_id'], 'state': state})
+            self.book._append_event(None, event, state_summary(self.book, plan['plan_id'], state))
 
     def _matches(self, path, proof, budget=None):
         try: return self._snapshot(path, budget) == proof

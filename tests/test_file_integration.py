@@ -210,9 +210,10 @@ class FileIntegrationTests(unittest.TestCase):
         (self.workspace / 'unrelated.bin').write_bytes(b'x' * len(payload))
         before = {path.name: path.read_bytes() for path in self.workspace.iterdir()}
         final = self.turn(self.agent(), '/duplicates')
-        report = json.loads(self.events('turn', 'TOOL_RESULT')[0]['stdout'])
-        self.assertEqual(len(report['groups']), 1)
-        self.assertEqual(set(report['groups'][0]['files']), {'one.png', 'different-name.bin'})
+        audit = self.events('turn', 'TOOL_RESULT')[0]
+        self.assertNotIn('stdout', audit)
+        self.assertIn('stdout_digest', audit)
+        self.assertIn('1 duplicate group(s)', final)
         self.assertIn('one.png', final)
         self.assertIn('different-name.bin', final)
         self.assertEqual({path.name: path.read_bytes() for path in self.workspace.iterdir()}, before)
