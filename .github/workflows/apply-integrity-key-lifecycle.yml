@@ -28,4 +28,4 @@ jobs:
           git diff --cached --quiet && { echo "No Notebook patch produced"; exit 1; }
           git commit -m "Bind integrity key before Notebook recovery"
           git push origin HEAD:feature/integrity-key-portable-backup
-# retry after legacy-vault and staged-tamper compatibility fixes
+# retry after WAL-sidecar tamper test fix
