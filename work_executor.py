@@ -25,6 +25,9 @@ def requested_deliverable(goal, work_id):
         return None
     if not re.search(r'\b(report|summary|brief|notes?|document|deliverable|recommendations?)\b', text, re.I):
         return None
+    unsafe = re.search(r'\b(?:create|write|save|produce|generate|make)\b[^\n]{0,100}?(?:\.\./|/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.(?:md|txt))', text, re.I)
+    if unsafe:
+        raise PermissionError('Requested work deliverable path is outside the selected workspace')
     explicit = re.search(
         r'\b(?:create|write|save|produce|generate|make)\b[^\n]{0,100}?'
         r'([A-Za-z0-9_-]+(?:/[A-Za-z0-9_.-]+)*\.(?:md|txt))\b', text, re.I)
