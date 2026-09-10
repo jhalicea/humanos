@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import select
 import sys
 import uuid
 from pathlib import Path
@@ -13,6 +14,63 @@ from terminal_ui import choose_reference
 from work_mode import WorkBoard, WorkContextModel, parse_work_command
 
 BASE = Path(__file__).resolve().parent
+PASTE_COMMAND = ':paste'
+PASTE_SEND_COMMAND = '/send'
+PASTE_GRACE_SECONDS = 0.04
+
+
+def _terminal_line(line):
+    """Remove only the terminal line ending; preserve visible payload whitespace."""
+    if line.endswith('\n'):
+        line = line[:-1]
+    if line.endswith('\r'):
+        line = line[:-1]
+    return line
+
+
+def read_human_input(prompt='HUMAN: ', input_fn=input, stdin=None, output=None,
+                     select_fn=select.select, paste_wait=PASTE_GRACE_SECONDS):
+    """Read one exact HumanOS turn, including multiline terminal paste payloads.
+
+    Normal one-line prompts are unchanged. A burst of already-buffered terminal
+    lines is collected as one turn. ``:paste`` enters deterministic explicit
+    paste mode; only ``/send`` on its own line ends that capture.
+    """
+    stdin = stdin or sys.stdin
+    output = output or sys.stderr
+    first = input_fn(prompt)
+
+    if first == PASTE_COMMAND:
+        output.write('Paste mode — finish with /send on its own line.\n')
+        output.flush()
+        lines = []
+        while True:
+            line = input_fn('')
+            if line == PASTE_SEND_COMMAND:
+                return '\n'.join(lines)
+            lines.append(line)
+
+    if not getattr(stdin, 'isatty', lambda: False)():
+        return first
+
+    try:
+        ready, _, _ = select_fn([stdin], [], [], paste_wait)
+    except (OSError, TypeError, ValueError):
+        return first
+    if not ready:
+        return first
+
+    lines = [first]
+    while ready:
+        line = stdin.readline()
+        if line == '':
+            break
+        lines.append(_terminal_line(line))
+        try:
+            ready, _, _ = select_fn([stdin], [], [], 0)
+        except (OSError, TypeError, ValueError):
+            break
+    return '\n'.join(lines)
 
 
 class HumanOSRuntime:
@@ -177,7 +235,7 @@ class HumanOSRuntime:
         while True:
             active_work = None
             try:
-                text = args.message if args.message is not None else input('HUMAN: ')
+                text = args.message if args.message is not None else read_human_input(input_fn=input)
                 if text.lower() in ('exit', 'quit') and args.message is None:
                     return
                 # Do not strip whitespace from visible input.
