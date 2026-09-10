@@ -2,6 +2,9 @@
 from copy import deepcopy
 
 
+HUMAN_ONLY = frozenset({'recall_notebook'})
+
+
 def definition(name, description, scope, effect='read', parameters=None, required=(), available=True):
     return {'name': name, 'description': description, 'scope': scope, 'effect': effect,
             'available': available, 'parameters': {'type': 'object', 'properties': parameters or {},
@@ -17,6 +20,8 @@ REGISTRY = {item['name']: item for item in (
                'workspace', 'create', {'path': {'type': 'string'}, 'content': {'type': 'string'}}, ('path', 'content')),
     definition('current_time', 'Read the Mac local date/time and UTC offset.', 'local_clock'),
     definition('read_notebook', 'Read verified counts and a bounded transcript excerpt from the bound session.', 'current_session'),
+    definition('recall_notebook', 'Search bounded authoritative Life Notebook transcript evidence across the owner’s sessions. Human-direct only.', 'notebook_global',
+               parameters={'query': {'type': 'string'}}, required=('query',)),
     definition('runtime_capabilities', 'Report this runtime capability registry.', 'runtime'),
     definition('read_source', 'Read allowlisted HumanOS source code, separate from workspace files.', 'source',
                parameters={'path': {'type': 'string', 'default': 'server.py'}, 'offset': {'type': 'integer', 'default': 0}}),
@@ -87,6 +92,8 @@ def model_instructions():
                 'url': 'https://allowed.example', 'selector': 'button', 'text': 'text',
                 'destination': 'Documents/example.txt', 'plan_id': 'ID returned by plan tool', 'offset': 0}
     for spec in describe():
+        if spec['name'] in HUMAN_ONLY:
+            continue
         if not spec['available']:
             lines.append(spec['name'] + ': unavailable; no executor connected.')
             continue
@@ -105,4 +112,4 @@ def summary():
             'read files, inspect folders, understand local file context, find exact duplicates, and organize files using a reviewed plan. '
             'File access stays inside the folder you select. Duplicate checks never delete files.\n' + supported +
             '\n' + missing + ' are not connected. Use /files, /read PATH, /duplicates, /organize, '
-            '/understand PATH, /smart-organize, /organize-inbox, /apply PLAN-ID, /undo PLAN-ID, /source, /time, or /notebook.')
+            '/understand PATH, /smart-organize, /organize-inbox, /apply PLAN-ID, /undo PLAN-ID, /source, /time, /notebook, or /recall QUERY.')
