@@ -38,10 +38,38 @@ def intent(text):
     normalized = _normalized(text)
     if re.search(r'\b[\w-]+\.(txt|md|json|py|csv)\b', text):
         return None
-    if text == '/time' or re.search(r'\b(what|current|know|tell|show)\b.*\btime\b', text):
+
+    # Slash commands are explicit and remain deterministic regardless of length.
+    if text == '/time':
         return 'clock'
-    if text == '/notebook' or ('notebook' in text and re.search(r'\b(show|what|tell|is|read)\b', text)):
+    if text == '/notebook':
         return 'notebook'
+    if text == '/capabilities':
+        return 'capabilities'
+
+    # Direct host routing is a convenience for concise, unambiguous questions.
+    # Long/compound task packets must reach the model instead of being hijacked
+    # merely because they mention words such as "notebook", "time", or
+    # "capabilities" inside constraints or acceptance criteria.
+    if '\n' in text or len(normalized) > 240:
+        return None
+
+    if re.search(r'\b(what|current|know|tell|show)\b.*\btime\b', text):
+        return 'clock'
+
+    notebook_patterns = (
+        r'is (?:this|our|the) (?:conversation|chat|session) (?:in|saved (?:in|to)) (?:the )?(?:life )?notebook',
+        r'(?:show|read|open)(?: me)? (?:the |my |our )?(?:life )?notebook',
+        r'what(?: is|\'s) (?:in )?(?:the |my |our )?(?:life )?notebook',
+        r'tell me (?:what is|what\'s) in (?:the |my |our )?(?:life )?notebook',
+    )
+    negative_notebook = re.search(
+        r"\b(?:do not|don't|don’t|never|avoid|without)\b.{0,80}\b(?:read_?notebook|notebook)\b",
+        normalized,
+    )
+    if not negative_notebook and any(re.fullmatch(pattern, normalized) for pattern in notebook_patterns):
+        return 'notebook'
+
     capability_patterns = (
         r'what tools (?:do )?(?:we|you) have',
         r'which tools (?:do )?(?:we|you) have',
@@ -54,7 +82,7 @@ def intent(text):
     )
     if any(re.fullmatch(pattern, normalized) for pattern in capability_patterns):
         return 'capabilities'
-    if (text == '/capabilities' or 'search the internet' in text or
+    if ('search the internet' in text or
         (re.search(r'\b(can you|are you able|what can you|what do you need|why not)\b', text) and
          re.search(r'\b(file|files|folder|folders|organize|duplicates|do that)\b', text))):
         return 'capabilities'
