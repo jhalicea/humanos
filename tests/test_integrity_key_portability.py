@@ -71,25 +71,57 @@ class IntegrityKeyLifecycleTests(unittest.TestCase):
         self.assertEqual(after, before)
 
     def test_legacy_metadata_migration_validates_hmac_rows_before_binding(self):
-        vault = self.populated()
-        db_path = vault / 'runtime' / 'notebook.sqlite3'
-        with sqlite3.connect(db_path) as db:
-            db.execute('DROP TABLE runtime_meta')
-            db.commit()
+        import hashlib
+        import hmac
+
+        def make_legacy(name, key):
+            vault = self.root / name
+            runtime = vault / 'runtime'
+            runtime.mkdir(parents=True, mode=0o700)
+            key_path = runtime / 'integrity.key'
+            key_path.write_bytes(key)
+            os.chmod(key_path, 0o600)
+            db_path = runtime / 'notebook.sqlite3'
+            with sqlite3.connect(db_path) as db:
+                db.executescript("""
+                    CREATE TABLE identities(
+                      hcid TEXT PRIMARY KEY, owner TEXT NOT NULL, page TEXT UNIQUE NOT NULL,
+                      binding TEXT NOT NULL, opening_hash TEXT NOT NULL, created TEXT NOT NULL);
+                    CREATE TABLE transactions(
+                      tx TEXT PRIMARY KEY, hcid TEXT NOT NULL REFERENCES identities(hcid),
+                      input TEXT NOT NULL, status TEXT NOT NULL, created TEXT NOT NULL);
+                    CREATE TABLE transcript(
+                      seq INTEGER PRIMARY KEY AUTOINCREMENT, tx TEXT NOT NULL REFERENCES transactions(tx),
+                      ordinal INTEGER NOT NULL, role TEXT NOT NULL, text TEXT NOT NULL,
+                      sha256 TEXT NOT NULL, created TEXT NOT NULL, UNIQUE(tx,ordinal));
+                """)
+                text = 'protected human text'
+                digest = 'hmac-sha256:' + hmac.new(key, text.encode('utf-8'), hashlib.sha256).hexdigest()
+                db.execute('INSERT INTO identities VALUES(?,?,?,?,?,?)',
+                           ('hcid', 'Jon', 'page', 'VERIFIED', 'legacy-opening', 'legacy-time'))
+                db.execute('INSERT INTO transactions VALUES(?,?,?,?,?)',
+                           ('tx', 'hcid', text, 'STARTED', 'legacy-time'))
+                db.execute('INSERT INTO transcript(tx,ordinal,role,text,sha256,created) VALUES(?,?,?,?,?,?)',
+                           ('tx', 0, 'HUMAN', text, digest, 'legacy-time'))
+            return vault
+
+        key = b'K' * KEY_BYTES
+        vault = make_legacy('legacy-valid', key)
         book = Notebook(vault)
         try:
             self.assertTrue(book.db.execute(
                 "SELECT value FROM runtime_meta WHERE key='integrity_key_id'").fetchone()[0].startswith(KEY_ID_PREFIX))
+            book.project()
+            self.assertTrue(book.verify())
         finally:
             book.close()
-        with sqlite3.connect(db_path) as db:
-            db.execute('DROP TABLE runtime_meta')
-            db.commit()
-        key_path = vault / 'runtime' / 'integrity.key'
+
+        wrong = make_legacy('legacy-wrong', key)
+        key_path = wrong / 'runtime' / 'integrity.key'
         key_path.write_bytes(b'Y' * KEY_BYTES)
         os.chmod(key_path, 0o600)
         with self.assertRaisesRegex(IntegrityKeyError, 'does not match existing protected transcript'):
-            Notebook(vault)
+            Notebook(wrong)
 
     def test_symlink_hardlink_and_group_readable_keys_fail_closed(self):
         exposed = self.populated('exposed')
@@ -225,12 +257,26 @@ class PortableVaultBackupTests(unittest.TestCase):
         _, bundle = self.backup('semantic-tamper')
         db_path = bundle / DB_FILE
         with sqlite3.connect(db_path) as db:
-            # Avoid WAL sidecars: they are correctly rejected as unauthenticated extras,
-            # but this test needs to reach the deeper semantic Notebook verifier.
-            db.execute('PRAGMA journal_mode=DELETE')
+            # Force all committed tamper state into the main database so this test
+            # reaches the deeper semantic Notebook verifier rather than stopping on
+            # an unauthenticated WAL sidecar.
+            mode = db.execute('PRAGMA journal_mode=DELETE').fetchone()[0]
+            self.assertEqual(str(mode).lower(), 'delete')
             db.execute('DROP TRIGGER transcript_no_update')
             db.execute("UPDATE transcript SET text='attacker changed plaintext' WHERE tx='tx' AND ordinal=0")
             db.commit()
+
+        # SQLite 3.51 on macOS may leave the WAL shared-memory index behind even
+        # after a successful switch to DELETE mode. It contains no committed
+        # database state once the connection is closed. Remove only that transient
+        # index; a WAL or rollback journal here would be meaningful and is a test
+        # failure rather than something to discard.
+        shm_path = Path(str(db_path) + '-shm')
+        if shm_path.exists():
+            shm_path.unlink()
+        self.assertFalse(Path(str(db_path) + '-wal').exists())
+        self.assertFalse(Path(str(db_path) + '-journal').exists())
+
         key = (bundle / 'integrity.key').read_bytes()
         files = {DB_FILE: db_path.read_bytes(), 'integrity.key': key,
                  RECOVERY_FILE: (bundle / RECOVERY_FILE).read_bytes()}
