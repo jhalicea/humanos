@@ -52,7 +52,7 @@ class IntegrityKeyLifecycleTests(unittest.TestCase):
         vault = self.populated()
         key_path = vault / 'runtime' / 'integrity.key'
         key_path.unlink()
-        with self.assertRaisesRegex(IntegrityKeyError, 'missing from an existing vault'):
+        with self.assertRaisesRegex(IntegrityKeyError, 'missing from an existing protected vault'):
             Notebook(vault)
         self.assertFalse(key_path.exists())
 
@@ -92,14 +92,12 @@ class IntegrityKeyLifecycleTests(unittest.TestCase):
             Notebook(vault)
 
     def test_symlink_hardlink_and_group_readable_keys_fail_closed(self):
-        # Permission exposure.
         exposed = self.populated('exposed')
         exposed_key = exposed / 'runtime' / 'integrity.key'
         os.chmod(exposed_key, 0o644)
         with self.assertRaisesRegex(IntegrityKeyError, 'permissions are unsafe'):
             Notebook(exposed)
 
-        # Symlink substitution.
         linked = self.populated('symlink')
         linked_key = linked / 'runtime' / 'integrity.key'
         outside = self.root / 'outside.key'
@@ -110,7 +108,6 @@ class IntegrityKeyLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(IntegrityKeyError, 'ordinary non-linked'):
             Notebook(linked)
 
-        # Hardlink substitution.
         hard = self.populated('hardlink')
         hard_key = hard / 'runtime' / 'integrity.key'
         preserved = self.root / 'preserved.key'
@@ -133,7 +130,6 @@ class PortableVaultBackupTests(unittest.TestCase):
         book = Notebook(vault)
         ident = book.bind('Jon', 'portable opening')
         book.start(ident['hcid'], 'tx', 'portable exact human text')
-        # Independent fallback is canonical recovery evidence and must travel too.
         fallback = book.root / RECOVERY_FILE
         fallback.write_text(json.dumps({'tx': 'orphan', 'error': 'retained fallback', 'payload': None}) + '\n',
                             encoding='utf-8')
@@ -229,6 +225,8 @@ class PortableVaultBackupTests(unittest.TestCase):
         _, bundle = self.backup('semantic-tamper')
         db_path = bundle / DB_FILE
         with sqlite3.connect(db_path) as db:
+            # Simulate an attacker with direct DB access bypassing application triggers.
+            db.execute('DROP TRIGGER transcript_no_update')
             db.execute("UPDATE transcript SET text='attacker changed plaintext' WHERE tx='tx' AND ordinal=0")
             db.commit()
         key = (bundle / 'integrity.key').read_bytes()
