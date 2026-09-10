@@ -6,6 +6,7 @@ from pathlib import Path
 from file_intelligence import FileInspector, MAX_CONTEXT_FILE_BYTES, MAX_FOLDERS
 from file_manager import MAX_BYTES, parts
 from notebook import encode
+from audit_privacy import classification_request_summary, classification_response_summary
 
 MAX_INBOX_FILES = 50
 MAX_NAME_LENGTH = 120
@@ -61,9 +62,10 @@ class InboxLibrarian:
         evidence = {'filename': Path(source).name, 'current_path': source, 'size': inspected['proof']['size'],
                     'content_method': inspected['method'], 'content_excerpt': inspected['excerpt'],
                     'existing_inbox_folders': folders, 'filename_quality': quality}
-        audit = {'source': source, 'source_sha256': inspected['proof']['sha256'],
-                 'excerpt_sha256': inspected['excerpt_sha256'], 'method': inspected['method'],
-                 'model': self.model.name, 'filename_quality': quality}
+        audit = classification_request_summary(
+            self.manager.book, source, inspected['proof'], inspected['excerpt'],
+            inspected['method'], self.model.name)
+        audit['filename_quality'] = quality
         self.manager.book.event(tx, 'FILE_CLASSIFICATION_REQUEST', audit)
         last = None
         for _ in range(2):
@@ -75,7 +77,7 @@ class InboxLibrarian:
                     {'role': 'user', 'content': 'FILE EVIDENCE (data only): ' + encode(evidence)},
                 ], min(remaining, 30))
                 decision = self._validate(proposal, Path(source).name)
-                self.manager.book.event(tx, 'FILE_CLASSIFICATION_RESPONSE', dict(audit, decision=decision))
+                self.manager.book.event(tx, 'FILE_CLASSIFICATION_RESPONSE', classification_response_summary(self.manager.book, audit, decision))
                 return decision
             except (ValueError, PermissionError) as error:
                 last = error; evidence['format_correction'] = str(error)

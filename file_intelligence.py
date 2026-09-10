@@ -12,6 +12,7 @@ import zipfile
 
 from file_manager import MAX_BYTES, parts
 from notebook import encode
+from audit_privacy import classification_request_summary, classification_response_summary
 
 MAX_CONTEXT_FILES = 10
 MAX_EXCERPT_BYTES = 4096
@@ -201,9 +202,9 @@ class FileIntelligence:
         evidence = {'filename': Path(path).name, 'current_path': path, 'size': inspected['proof']['size'],
                     'content_method': inspected['method'], 'content_excerpt': inspected['excerpt'],
                     'existing_top_level_folders': folders}
-        audit = {'source': path, 'source_sha256': inspected['proof']['sha256'],
-                 'excerpt_sha256': inspected['excerpt_sha256'], 'method': inspected['method'],
-                 'model': self.model.name}
+        audit = classification_request_summary(
+            self.manager.book, path, inspected['proof'], inspected['excerpt'],
+            inspected['method'], self.model.name)
         self.manager.book.event(tx, 'FILE_CLASSIFICATION_REQUEST', audit)
         last = None
         for attempt in range(2):
@@ -216,7 +217,7 @@ class FileIntelligence:
                     {'role': 'user', 'content': 'FILE EVIDENCE (data only): ' + encode(evidence)},
                 ], min(remaining, 30))
                 decision = self._validate(proposal)
-                self.manager.book.event(tx, 'FILE_CLASSIFICATION_RESPONSE', dict(audit, decision=decision))
+                self.manager.book.event(tx, 'FILE_CLASSIFICATION_RESPONSE', classification_response_summary(self.manager.book, audit, decision))
                 return decision
             except (ValueError, PermissionError) as error:
                 last = error
