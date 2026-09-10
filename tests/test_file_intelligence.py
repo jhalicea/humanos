@@ -263,15 +263,15 @@ class ContextualAgentTests(unittest.TestCase):
         approved = []
         model = Classifier(decision('Finance/Taxes'))
         preview = self.agent(model).run('preview', self.identity['hcid'], '/smart-organize')
-        plan = json.loads(self.book.db.execute(
-            "SELECT payload FROM events WHERE tx='preview' AND kind='FILE_PLAN_CREATED'").fetchone()[0])['plan']
+        plan_id = json.loads(self.book.db.execute(
+            "SELECT payload FROM events WHERE tx='preview' AND kind='FILE_PLAN_CREATED'").fetchone()[0])['plan_id']
         self.assertIn('2026 tax payment', model.calls[0][0][1]['content'])
         self.assertIn('Finance/Taxes', preview)
         self.assertTrue((self.workspace / 'receipt.txt').exists())
         apply_model = Classifier()
         apply = self.agent(apply_model, lambda request: approved.append(request) or True)
-        apply.run('apply', self.identity['hcid'], '/apply ' + plan['plan_id'])
-        self.assertEqual(approved, [{'name': 'apply_plan', 'plan_id': plan['plan_id']}])
+        apply.run('apply', self.identity['hcid'], '/apply ' + plan_id)
+        self.assertEqual(approved, [{'name': 'apply_plan', 'plan_id': plan_id}])
         self.assertTrue((self.workspace / 'Finance/Taxes/receipt.txt').exists())
 
     def test_model_cannot_context_scan_after_greeting(self):
