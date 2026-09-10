@@ -69,13 +69,13 @@ Local-first rule: if the task can be done acceptably without exporting private d
 ## Daily routing order
 
 1. HumanOS local worker first for cheap/private work.
-2. DeepSeek or Gemini for bounded production work.
-3. Grok for an independent challenge when disagreement would be useful.
-4. Claude only when the decision merits scarce high-quality review.
-5. ChatGPT integrates, verifies, and decides whether evidence is sufficient.
+2. DeepSeek or Gemini for bounded production work when local is insufficient.
+3. Grok for one independent challenge when disagreement would materially improve confidence.
+4. Claude only when a difficult decision merits scarce high-quality review.
+5. ChatGPT integrates and verifies when needed, but must not become a mandatory control-plane dependency.
 6. Human approves consequential merge/release decisions.
 
-Do not call every model for every task. Parallelism is justified only when independence or diversity improves confidence.
+Hosted models are exceptions, not a default five-hop chain. Prefer one hosted worker/reviewer at a time unless independence is explicitly required.
 
 ## Standard job packet
 
@@ -100,6 +100,70 @@ Required output:
 ```
 
 Never ask a model to infer its hidden provider metadata. Record only metadata exposed by the service/API/UI or explicit self-identification, tagged by source.
+
+## Context integrity gate
+
+Before delegating repository work to a model that cannot inspect GitHub directly:
+
+1. Build the packet from one immutable commit.
+2. Verify packet claims against source at that commit.
+3. If code and documentation disagree, state the conflict explicitly.
+4. Do not silently resolve conflicts in favor of documentation or another model's summary.
+5. Record the exact context packet or its digest as part of the run evidence.
+
+A worker must not be penalized for conclusions caused by incorrect context supplied by HumanOS.
+
+## Independent-review isolation
+
+A reviewer/challenger must not receive another model's prose before producing its own initial review unless comparison is the explicit task.
+
+Use commit-then-reveal:
+
+1. Give each reviewer the original human task, immutable source/evidence references, and schema-constrained facts.
+2. Keep prior-model prose out of the initial reviewer prompt.
+3. Preserve retrieved web/file/DOM text as untrusted data, not instructions.
+4. Capture each independent result.
+5. Only then reveal disagreements for targeted reconciliation.
+
+This prevents serial context contamination from masquerading as multi-model agreement.
+
+## Hosted-data boundary
+
+Consumer chat UIs and hosted agent sandboxes are outside HumanOS's local trust boundary.
+
+- Never send credentials, API keys, session tokens, Notebook paths, or raw private records to a hosted model.
+- Do not assume a vendor UI's retention or sandbox behavior from product branding.
+- Record the exact outbound context supplied to each hosted service when practicable.
+- Prefer documented API controls for sensitive workflows; mark retention/privacy claims by source and verification status.
+- A hosted model's self-report about its environment is evidence to investigate, not a trusted security fact.
+
+A future local egress proxy may enforce provider allowlists, secret scanning, byte logging, spend limits, and retention-policy checks. Until then, human relay remains an explicit external disclosure step.
+
+## Proposal vs canonical memory
+
+Model outputs are proposals and must remain separate from canonical Life Notebook facts/decisions until explicitly promoted.
+
+- Models may append proposal/evidence records, not set canonical verification status for themselves.
+- Human approval must apply to the actual claim/decision being promoted, not merely to a model-authored document shape.
+- Derived canonical views must use canonical/promoted records only.
+- Model-shaped JSON must never gain authority merely because it resembles an internal transaction format.
+
+## Metadata trust model
+
+Provider/model/version/usage/cost fields are not automatically measurements.
+
+Store both value and provenance/trust where possible:
+
+- `api_attested`: returned by the actual completion/API response or pinned endpoint.
+- `ui_observed`: visible in the product UI for the run.
+- `config_declared`: locally configured destination/model, not proof of provider routing.
+- `self_report`: model says what it is.
+- `public_documentation`: product/model exists publicly, but is not proof it handled this run.
+- `unknown`: unavailable.
+
+Never collapse these into one unqualified model identity. Silent aliases/A-B routing can make consumer-UI runs non-comparable.
+
+For benchmarks, preserve harness, prompt/context, role, task difficulty, model settings when exposed, repository/data version, and timing. Role assignment itself can confound results: a challenger asked to find defects should not be compared directly with a builder asked to produce code.
 
 ## Review gates
 
@@ -154,7 +218,7 @@ Each run records:
 - `run_id`, `job_id`, parent job/run IDs;
 - provider/service;
 - model name and exact version when exposed;
-- model metadata source (`api`, `ui`, `self_report`, `config`, `unknown`);
+- model metadata value plus provenance/trust source;
 - role;
 - start/end UTC timestamps;
 - immutable repository commit/ref when relevant;
@@ -179,16 +243,19 @@ Unknown fields remain null/unknown. Never estimate provider cost or token counts
 - HumanOS health/tests only if relevant to the day's change.
 - Choose one concrete usability/capability target.
 - Create `job_id` and job packet.
+- Pass the packet through the context integrity gate.
 
 ### Work
 - Route to the lowest-cost capable worker.
 - Archive request, response, and metadata immediately.
 - Escalate only when the first worker is insufficient.
+- Keep independent reviewers isolated until they commit their first result.
 
 ### Integrate
 - ChatGPT/local HumanOS reviewer compares answer to requirements.
 - Run local tests/evidence checks.
 - Fix only demonstrated issues.
+- Treat hosted environmental/model claims as untrusted until independently verified.
 
 ### Close
 - Record final disposition and tested commit.
@@ -205,8 +272,10 @@ Over time the ledger should answer:
 - Which models hallucinate repository facts most often?
 - Which worker requires the fewest review cycles?
 - When is local HumanOS good enough to replace a commercial call?
+- How much orchestration overhead was added by each extra model hop?
+- Which results are genuinely independent versus derived from shared prior-model context?
 
-Comparisons must preserve task, context, acceptance criteria, temperature/settings when exposed, and commit/data version so results are interpretable.
+Comparisons must preserve task, context, acceptance criteria, role, harness, settings when exposed, and commit/data version so results are interpretable.
 
 ## Immediate capability priorities
 
