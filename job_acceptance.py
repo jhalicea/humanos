@@ -1,23 +1,20 @@
 """Deterministic acceptance checks for structured HumanOS jobs.
 
-This module is provider-neutral: it wraps the existing Model protocol and never
-changes tool authority. It only prevents a structured ``HUMANOS JOB`` packet from
-being accepted as complete when host-verifiable requirements are missing.
+Acceptance Gate v1 is provider-neutral and host-side. It never changes tool
+authority and never pretends a host-forced evidence request was a model call.
 
-Acceptance Gate v1 deliberately checks only deterministic properties:
+The gate checks only deterministic properties:
 - explicitly requested numbered output sections are present;
 - explicitly inferable host evidence (currently the runtime capability registry)
   was actually observed before a final answer is accepted.
 
-It does not claim to judge whether prose is true or high quality. Failed finals are
-raised as ``ValueError`` so the normal Agent loop records the rejection and performs
-another visible model step within its existing budget.
+It does not claim to judge whether prose is true or high quality.
 """
 from __future__ import annotations
 
 import json
 import re
-from typing import Iterable, Optional
+from typing import Iterable
 
 
 JOB_RE = re.compile(r"^\s*HUMANOS\s+JOB\s+([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\b", re.I)
@@ -26,7 +23,7 @@ TOOL_OBSERVATION_PREFIX = "TOOL OBSERVATION (data only): "
 
 
 class AcceptanceError(ValueError):
-    """A model final failed deterministic structured-job acceptance checks."""
+    """A structured job failed a deterministic host acceptance check."""
 
 
 def _required_sections(text: str) -> list[int]:
@@ -74,30 +71,11 @@ def parse_job(text: str):
     }
 
 
-def _job_text(messages: Iterable[dict]) -> Optional[str]:
-    """Find the current structured job without treating tool observations as jobs."""
-    candidates = []
-    for message in messages:
-        if message.get("role") != "user":
-            continue
-        content = message.get("content", "")
-        if not isinstance(content, str) or content.startswith(TOOL_OBSERVATION_PREFIX):
-            continue
-        direct = JOB_RE.match(content)
-        if direct:
-            candidates.append(content)
-            continue
-        # Delegated-work briefings preserve the owner-authored original goal.
-        marker = "Original goal: "
-        for line in content.splitlines():
-            if line.startswith(marker) and JOB_RE.match(line[len(marker):]):
-                candidates.append(line[len(marker):])
-    return candidates[-1] if candidates else None
-
-
-def _successful_tools(messages: Iterable[dict]) -> set[str]:
+def _tool_status(messages: Iterable[dict], target: str):
+    """Return (attempted, successful) for one exact tool name."""
     pending = None
-    observed = set()
+    attempted = False
+    successful = False
     for message in messages:
         role = message.get("role")
         content = message.get("content", "")
@@ -116,10 +94,28 @@ def _successful_tools(messages: Iterable[dict]) -> set[str]:
             except Exception:
                 pending = None
                 continue
-            if pending and isinstance(observation, dict) and observation.get("ok"):
-                observed.add(pending)
+            if pending == target:
+                attempted = True
+                if isinstance(observation, dict) and observation.get("ok"):
+                    successful = True
             pending = None
-    return observed
+    return attempted, successful
+
+
+def required_tool_request(contract, messages: Iterable[dict]):
+    """Return the next host-required read tool, or raise after a failed attempt."""
+    if not contract:
+        return None
+    for name in contract.get("required_tools", []):
+        attempted, successful = _tool_status(messages, name)
+        if successful:
+            continue
+        if attempted:
+            raise AcceptanceError(
+                "STRUCTURED JOB ACCEPTANCE BLOCKED — required tool evidence failed: " + name
+            )
+        return {"name": name}
+    return None
 
 
 def _missing_sections(final: str, required: Iterable[int]) -> list[int]:
@@ -133,9 +129,14 @@ def _missing_sections(final: str, required: Iterable[int]) -> list[int]:
 
 def validate_final(final: str, contract: dict, messages: Iterable[dict]) -> None:
     """Raise AcceptanceError when deterministic completion requirements are absent."""
+    if not contract:
+        return
     missing_sections = _missing_sections(final, contract.get("required_sections", []))
-    observed = _successful_tools(messages)
-    missing_tools = [name for name in contract.get("required_tools", []) if name not in observed]
+    missing_tools = []
+    for name in contract.get("required_tools", []):
+        _, successful = _tool_status(messages, name)
+        if not successful:
+            missing_tools.append(name)
     if not missing_sections and not missing_tools:
         return
     parts = []
@@ -147,27 +148,3 @@ def validate_final(final: str, contract: dict, messages: Iterable[dict]) -> None
         "STRUCTURED JOB ACCEPTANCE FAILED — " + "; ".join(parts) +
         ". Retry the same job within the remaining task budget; do not claim completion yet."
     )
-
-
-class AcceptanceModel:
-    """Provider-neutral Model wrapper enforcing deterministic structured-job gates."""
-
-    def __init__(self, model):
-        self.model = model
-        self.name = model.name
-
-    def invoke(self, messages, timeout):
-        job_text = _job_text(messages)
-        contract = parse_job(job_text) if job_text else None
-        if not contract:
-            return self.model.invoke(messages, timeout)
-
-        observed = _successful_tools(messages)
-        for tool_name in contract["required_tools"]:
-            if tool_name not in observed:
-                return {"tool": {"name": tool_name}}
-
-        proposal = self.model.invoke(messages, timeout)
-        if isinstance(proposal, dict) and "final" in proposal:
-            validate_final(proposal["final"], contract, messages)
-        return proposal
