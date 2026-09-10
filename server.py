@@ -155,7 +155,7 @@ class HumanOSRuntime:
             item = work.by_tx(args.resume) if work is not None else None
             agent = self._work_agent(item) if item else self.agent
             agent.authorize = lambda request: self.authorize(args.resume, request)
-            response = agent.run(args.resume)
+            response = agent.run(args.resume, work_binding=work.binding_for_tx(args.resume) if item else None)
             if item:
                 self._finish_work(item, args.resume, response)
             self.deliver(args.resume, response)
@@ -210,7 +210,7 @@ class HumanOSRuntime:
                         print('Work accepted: ' + active_work['work_id'] + ' | RUNNING', file=sys.stderr)
                         agent = self._work_agent(active_work)
                         agent.authorize = lambda request: self.authorize(tx, request)
-                        response = agent.run(tx)
+                        response = agent.run(tx, work_binding=self.work.binding_for_tx(tx))
                         self._finish_work(active_work, tx, response)
                         active_work = None
                         self.deliver(tx, response)
@@ -229,7 +229,7 @@ class HumanOSRuntime:
                             print('Work continuing: ' + active_work['work_id'] + ' | RUNNING', file=sys.stderr)
                             agent = self._work_agent(active_work)
                             agent.authorize = lambda request: self.authorize(tx, request)
-                            response = agent.run(tx)
+                            response = agent.run(tx, work_binding=self.work.binding_for_tx(tx))
                             self._finish_work(active_work, tx, response)
                             active_work = None
                             self.deliver(tx, response)

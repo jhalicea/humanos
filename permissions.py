@@ -40,18 +40,23 @@ def task_scope(row, workspace, version=4, reference_binding=None, work_binding=N
     file_read = bool(re.search(r'\b(read|open|inspect|show|view|cat)\b', text, re.I))
     listing = bool(re.search(r'\b(list|files|workspace|folder|directory)\b', text, re.I))
     delegated_review = False
+    delegated_file_review = False
     if version >= 6 and work_binding:
-        delegated_review = bool(
-            re.search(r'\b(review|analyse|analyze|audit|inspect|check|assess|summari[sz]e|understand)\w*\b', text, re.I)
-            and re.search(r'\b(files?|workspace|folders?|director(?:y|ies))\b', text, re.I))
+        from work_mode import execution_contract
+        contract = execution_contract(work_binding['goal'])
+        delegated_review = contract.get('kind') == 'workspace_review'
+        delegated_file_review = contract.get('kind') == 'file_review'
         if delegated_review:
             file_read = True
             listing = True
+        if delegated_file_review:
+            file_read = True
+            paths.extend(contract.get('required_paths', []))
 
     # A filename mentioned in an exclusion is not consent. Mixed/negative
     # requests require a simpler affirmative request instead of guessing scope.
     if re.search(r"\b(not|never|avoid|except|without|exclude|excluding|don't|don’t)\b", text, re.I):
-        file_read = listing = delegated_review = False
+        file_read = listing = delegated_review = delegated_file_review = False
 
     scope = {'version': version, 'tx': row['tx'], 'hcid': row['hcid'],
             'input_sha256': digest(row['input']), 'workspace': str(workspace),

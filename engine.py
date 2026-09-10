@@ -290,7 +290,7 @@ class Agent:
         from inbox_librarian import InboxLibrarian
         self.tools.librarian = InboxLibrarian(self.tools.manager, model)
 
-    def run(self, tx, hcid=None, user_input=None, context=(), reference_binding=None):
+    def run(self, tx, hcid=None, user_input=None, context=(), reference_binding=None, work_binding=None):
         if user_input is not None:
             self.book.start(hcid, tx, user_input)
         row = self.book.get_transaction(tx)
@@ -305,6 +305,9 @@ class Agent:
         began = time.monotonic()
         try:
             if not state:
+                if work_binding is not None:
+                    from work_mode import validate_work_binding
+                    validate_work_binding(self.book, work_binding, row['hcid'], row['input'])
                 packet = load_context(self.core, context)
                 history = recent(self.book, row['hcid'], tx)
                 resolution = resolve_reference(self.book, row['hcid'], tx, row['input'], self.tools.workspace)
@@ -322,9 +325,9 @@ class Agent:
                                       {'role': 'user', 'content': row['input']}],
                          'context': packet, 'workspace': str(self.tools.workspace),
                          'permissions': task_scope(row, self.tools.workspace,
-                                                   version=5 if reference_binding else 4,
-                                                   reference_binding=reference_binding),
-                         'reference_binding': reference_binding, 'approvals': []}
+                                                   version=6 if work_binding else (5 if reference_binding else 4),
+                                                   reference_binding=reference_binding, work_binding=work_binding),
+                         'reference_binding': reference_binding, 'work_binding': work_binding, 'approvals': []}
                 if reference_binding is not None:
                     self.book.event(tx, 'REFERENCE_BOUND', {
                         'path': reference_binding['path'], 'source_tx': reference_binding['source_tx'],
@@ -339,6 +342,8 @@ class Agent:
                     state.update(phase='TOOL', pending=direct, direct_response=True)
                 self.book.save_task(tx, state)
                 self.book.event(tx, 'CONTEXT_LOADED', context_summary(self.book, packet))
+            if work_binding is not None and state.get('work_binding') != work_binding:
+                raise PermissionError('Delegated work binding differs from preserved task state')
             if state['model'] != self.model.name or state['workspace'] != str(self.tools.workspace):
                 raise RuntimeError('Resume configuration differs; explicit reconciliation required')
             if state['phase'] == 'COMPLETE':
