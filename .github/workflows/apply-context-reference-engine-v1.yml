@@ -23,8 +23,25 @@ jobs:
       - name: Compile
         run: python -m compileall -q .
       - name: Run regression suite
-        run: python -m unittest discover -s tests -v
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          python -m unittest discover -s tests -v 2>&1 | tee CONTEXT_REFERENCE_TEST_FAILURE.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Preserve failure evidence
+        if: steps.tests.outputs.status != '0'
+        run: |
+          git config user.name "HumanOS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add CONTEXT_REFERENCE_TEST_FAILURE.log
+          git commit -m "Record Context Reference Engine test failure"
+          git push
+          exit 1
       - name: Commit verified implementation
+        if: steps.tests.outputs.status == '0'
         run: |
           git config user.name "HumanOS Build Bot"
           git config user.email "actions@users.noreply.github.com"
