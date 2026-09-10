@@ -74,8 +74,14 @@ class HumanOSRuntime:
             plan = self.tools.manager.get_plan(request['plan_id'])
             prompt = ('Review file changes in ' + str(self.tools.workspace) + ':\n' +
                       format_plan(plan, undo=request['name'] == 'undo_plan') + '\nApprove ' + request['name'] + '? [yes/no]')
+        elif request['name'] == 'create_file':
+            content = request.get('content', '')
+            preview = content[:1200] + ('…' if len(content) > 1200 else '')
+            prompt = ('Approve creating workspace file ' + request['path'] + ' (' +
+                      str(len(content.encode('utf-8'))) + ' bytes)?\nPreview:\n' + preview + '\n[yes/no]')
         else:
-            prompt = 'Approve creating this workspace file? ' + json.dumps(request, ensure_ascii=False) + ' [yes/no]'
+            safe = {key: value for key, value in request.items() if key != 'text'}
+            prompt = 'Approve ' + request['name'] + '? ' + json.dumps(safe, ensure_ascii=False) + ' [yes/no]'
         n = self.book.message_count(tx)
         self.book.append(tx, n, 'ASSISTANT', prompt)
         self.book.project()
@@ -160,9 +166,11 @@ class HumanOSRuntime:
                 self._finish_work(item, args.resume, response)
             self.deliver(args.resume, response)
             return
-        if any((self.book.task(t['tx']) or {}).get('phase') != 'EXTERNAL_CAPTURE_PENDING' for t in self.pending):
-            print('Unfinished work or unconfirmed output exists; use --status and --resume TX-ID. '
-                  'Resuming uncertain output can repeat text, but does not rerun completed tools.', file=sys.stderr)
+        execution_pending = [t for t in self.pending if t.get('recovery_kind') != 'DELIVERY' and
+                             (self.book.task(t['tx']) or {}).get('phase') != 'EXTERNAL_CAPTURE_PENDING']
+        if execution_pending:
+            print(str(len(execution_pending)) + ' unfinished execution transaction(s) need attention; use --status and --resume TX-ID. '
+                  'Completed tools are not replayed blindly.', file=sys.stderr)
         binding = None
         if self.tools.manager.pending():
             print('A file plan needs review; use --status for its ID and folder. No moves were replayed on startup.', file=sys.stderr)

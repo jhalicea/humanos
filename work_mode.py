@@ -11,6 +11,7 @@ import json
 import re
 import uuid
 from notebook import encode, now
+from work_executor import WorkExecutor, requested_deliverable
 
 
 STATUSES = frozenset({'RUNNING', 'REVIEW', 'BLOCKED', 'DONE', 'CANCELLED'})
@@ -114,10 +115,10 @@ def execution_contract(goal):
             'plan': ['UNDERSTAND', 'EXECUTE', 'VERIFY']}
 
 
-def _tool_evidence(messages):
-    """Pair model tool proposals with successful executor observations."""
+def _tool_attempts(messages):
+    """Pair model tool proposals with executor observations, including failures."""
     pending = None
-    evidence = []
+    attempts = []
     for message in messages:
         role = message.get('role')
         content = message.get('content', '')
@@ -136,10 +137,16 @@ def _tool_evidence(messages):
             except Exception:
                 pending = None
                 continue
-            if pending and observation.get('ok'):
-                evidence.append((dict(pending), observation))
+            if pending:
+                attempts.append((dict(pending), observation))
             pending = None
-    return evidence
+    return attempts
+
+
+def _tool_evidence(messages):
+    """Successful executor observations only."""
+    return [(request, observation) for request, observation in _tool_attempts(messages)
+            if observation.get('ok')]
 
 
 def _scan_entries(evidence):
@@ -181,9 +188,22 @@ def _goal_from_briefing(briefing):
     raise RuntimeError('Delegated work briefing is missing its original goal')
 
 
+def _work_id_from_briefing(briefing):
+    for line in briefing.splitlines():
+        if line.startswith('Work ID: '):
+            value = line[len('Work ID: '):].strip()
+            if re.fullmatch(r'WORK-[A-Za-z0-9]+', value):
+                return value.upper()
+    raise RuntimeError('Delegated work briefing is missing its work ID')
+
+
 def _checkpoint_from_state(goal, state):
-    evidence = _tool_evidence((state or {}).get('messages', []))
-    tools, inspected, scans = [], [], []
+    messages = (state or {}).get('messages', [])
+    evidence = _tool_evidence(messages)
+    attempts = _tool_attempts(messages)
+    tools, inspected, scans, artifacts, failed_artifacts = [], [], [], [], []
+    scan_complete = False
+    scan_truncated = False
     for request, observation in evidence:
         name = request.get('name')
         if isinstance(name, str):
@@ -192,17 +212,38 @@ def _checkpoint_from_state(goal, state):
             inspected.append(request['path'])
         if name == 'scan_files':
             scans.extend(_scan_entries([(request, observation)]))
+            if request.get('path', '.') == '.':
+                try:
+                    report = json.loads(observation.get('stdout') or '{}')
+                except Exception:
+                    report = {}
+                scan_truncated = bool(report.get('truncated')) if isinstance(report, dict) else False
+                scan_complete = isinstance(report, dict) and not scan_truncated
+        for artifact in observation.get('artifacts') or []:
+            path = artifact.get('path') if isinstance(artifact, dict) else None
+            if isinstance(path, str) and path and not path.startswith('.') and '/.' not in path:
+                artifacts.append(path)
+    for request, observation in attempts:
+        if (request.get('name') == 'create_file' and not observation.get('ok') and
+                isinstance(request.get('path'), str)):
+            failed_artifacts.append(request['path'])
     contract = execution_contract(goal)
     if contract['kind'] == 'workspace_review':
-        phase = 'INSPECTED' if inspected else 'DISCOVERED' if scans else 'NOT_STARTED'
+        phase = 'INSPECTED' if inspected else 'DISCOVERED' if (scans or scan_complete) else 'NOT_STARTED'
     elif contract['kind'] == 'file_review':
         phase = 'INSPECTED' if inspected else 'NOT_STARTED'
+    elif contract['kind'] == 'web_research':
+        phase = 'RESEARCHED' if 'internet_search' in tools else 'NOT_STARTED'
     else:
         phase = 'TURN_COMPLETE'
-    return {'version': 1, 'phase': phase,
+    return {'version': 2, 'phase': phase,
             'tools': sorted(set(tools)),
             'inspected_paths': sorted(set(inspected)),
-            'discovered_paths': sorted(set(scans))[:200]}
+            'discovered_paths': sorted(set(scans))[:200],
+            'scan_complete': scan_complete, 'scan_truncated': scan_truncated,
+            'artifact_paths': sorted(set(artifacts))[:50],
+            'failed_artifact_paths': sorted(set(failed_artifacts))[:50],
+            'required_paths': sorted(set(contract.get('required_paths', [])))}
 
 
 def validate_work_binding(book, binding, hcid, exact_input):
@@ -247,9 +288,11 @@ class WorkContextModel:
         self.model = model
         self.name = model.name
         self.briefing = briefing
+        self.work_id = _work_id_from_briefing(briefing)
         self.goal = _goal_from_briefing(briefing)
         self.contract = execution_contract(self.goal)
         self.progress = _progress_from_briefing(briefing)
+        self.deliverable = requested_deliverable(self.goal, self.work_id)
 
     def _next_required_tool(self, messages):
         from capabilities import REGISTRY
@@ -301,6 +344,16 @@ class WorkContextModel:
         if required_tool:
             return {'tool': required_tool}
 
+        if self.deliverable:
+            attempts = [(request, observation) for request, observation in _tool_attempts(messages)
+                        if request.get('name') == 'create_file' and request.get('path') == self.deliverable]
+            if attempts:
+                request, observation = attempts[-1]
+                if observation.get('ok'):
+                    return {'final': 'Work deliverable created and verified: ' + self.deliverable}
+                return {'final': 'Work blocked: HumanOS could not create the requested deliverable ' +
+                        self.deliverable + '. ' + (observation.get('stderr') or 'The create request was not completed.')}
+
         messages[0]['content'] += (
             '\n\nDELEGATED WORK EXECUTION POLICY: a host-verified work binding preserves the owner\'s '
             'original delegated scope across explicit continue turns. Historical work text remains owner/user-level data. '
@@ -321,6 +374,9 @@ class WorkContextModel:
                 '\nBase your final only on verified observations. If the inspection is bounded or incomplete, say so explicitly.'})
 
         proposal = self.model.invoke(messages, timeout)
+        incomplete = bool(checkpoint and int(checkpoint.get('remaining', 0)) > 0)
+        if 'final' in proposal and self.deliverable and not incomplete:
+            return {'tool': {'name': 'create_file', 'path': self.deliverable, 'content': proposal['final']}}
         if 'final' in proposal and checkpoint:
             final = proposal['final'].rstrip()
             if self.contract['kind'] == 'workspace_review':
@@ -378,6 +434,7 @@ class WorkBoard:
               CREATE TRIGGER IF NOT EXISTS work_checkpoints_no_delete BEFORE DELETE ON work_checkpoints
                 BEGIN SELECT RAISE(ABORT, 'append-only work checkpoint'); END;
             ''')
+        self.executor = WorkExecutor(self.book)
 
     def _row(self, work_id):
         row = self.book.db.execute('SELECT * FROM work_items WHERE work_id=?', (work_id,)).fetchone()
@@ -400,6 +457,7 @@ class WorkBoard:
         work_id = 'WORK-' + uuid.uuid4().hex[:12].upper()
         stamp = now()
         goal = goal.strip()
+        requested_deliverable(goal, work_id)
         with self.book.db:
             self.book.db.execute('INSERT INTO work_items VALUES(?,?,?,?,?,?,?,?,?,?)',
                 (work_id, owner, hcid, goal, self.book.content_digest(goal), 'RUNNING', tx, 1, stamp, stamp))
@@ -409,7 +467,9 @@ class WorkBoard:
                 'work_id': work_id, 'goal_digest': self.book.content_digest(goal),
                 'status': 'RUNNING', 'turns': 1,
                 'contract_digest': self.book.content_digest(encode(execution_contract(goal)))})
-        return self._row(work_id)
+        item = self._row(work_id)
+        self.executor.ensure(item, execution_contract(goal))
+        return item
 
     def begin_turn(self, work_id, owner, hcid, tx, exact_input):
         row = self._assert_owner(work_id, owner)
@@ -442,10 +502,12 @@ class WorkBoard:
         return binding
 
     def progress(self, work_id, owner):
-        self._assert_owner(work_id, owner)
+        item = self._assert_owner(work_id, owner)
         rows = self.book.db.execute('SELECT * FROM work_checkpoints WHERE work_id=? ORDER BY ordinal', (work_id,)).fetchall()
-        tools, inspected, discovered = set(), set(), set()
+        tools, inspected, discovered, artifacts, failed_artifacts, required = set(), set(), set(), set(), set(), set()
         phase = 'NOT_STARTED'
+        scan_complete = False
+        scan_truncated = False
         for row in rows:
             if not self.book.digest_matches(row['summary_digest'], row['summary']):
                 raise RuntimeError('Delegated work checkpoint failed integrity validation')
@@ -454,16 +516,33 @@ class WorkBoard:
             tools.update(value.get('tools', []))
             inspected.update(value.get('inspected_paths', []))
             discovered.update(value.get('discovered_paths', []))
-        return {'version': 1, 'phase': phase, 'tools': sorted(tools),
-                'inspected_paths': sorted(inspected), 'discovered_paths': sorted(discovered)[:200]}
+            artifacts.update(value.get('artifact_paths', []))
+            failed_artifacts.update(value.get('failed_artifact_paths', []))
+            required.update(value.get('required_paths', []))
+            scan_complete = scan_complete or bool(value.get('scan_complete'))
+            scan_truncated = scan_truncated or bool(value.get('scan_truncated'))
+        has_response = bool(self.book.db.execute(
+            "SELECT 1 FROM work_turns WHERE work_id=? AND response_digest IS NOT NULL AND outcome='TURN_COMPLETE' LIMIT 1",
+            (work_id,)).fetchone())
+        result = {'version': 2, 'phase': phase, 'tools': sorted(tools),
+                  'inspected_paths': sorted(inspected), 'discovered_paths': sorted(discovered)[:200],
+                  'scan_complete': scan_complete, 'scan_truncated': scan_truncated,
+                  'artifact_paths': sorted(artifacts)[:50],
+                  'failed_artifact_paths': sorted(failed_artifacts - artifacts)[:50],
+                  'required_paths': sorted(required),
+                  'has_response': has_response}
+        self.executor.ensure(item, execution_contract(item['goal']))
+        return result
 
     def finish_turn(self, work_id, owner, tx, response, failed=False):
         row = self._assert_owner(work_id, owner)
         turn = self.book.db.execute('SELECT * FROM work_turns WHERE work_id=? AND tx=?', (work_id, tx)).fetchone()
         if not turn:
             raise RuntimeError('Delegated work turn is missing')
-        status = 'BLOCKED' if failed else 'REVIEW'
-        outcome = 'FAILED' if failed else 'TURN_COMPLETE'
+        checkpoint = _checkpoint_from_state(row['goal'], self.book.task(tx) or {})
+        blocked = failed or bool(checkpoint.get('failed_artifact_paths'))
+        status = 'BLOCKED' if blocked else 'REVIEW'
+        outcome = 'FAILED' if failed else 'BLOCKED' if blocked else 'TURN_COMPLETE'
         digest = self.book.content_digest(response)
         if turn['response_digest'] is not None:
             if not self.book.digest_matches(turn['response_digest'], response) or turn['outcome'] != outcome:
@@ -471,7 +550,6 @@ class WorkBoard:
             return row
         if row['status'] in TERMINAL_STATUSES:
             raise ValueError('Cannot finalize a new turn for terminal work')
-        checkpoint = _checkpoint_from_state(row['goal'], self.book.task(tx) or {})
         summary = encode(checkpoint)
         stamp = now()
         with self.book.db:
@@ -486,12 +564,18 @@ class WorkBoard:
                 'tool_count': len(checkpoint['tools']), 'inspected_count': len(checkpoint['inspected_paths']),
                 'summary_digest': self.book.content_digest(summary)})
             self.book._append_event(tx, 'WORK_STATE', self._state_event(work_id, status, tx, row['turns']))
+        updated = self._row(work_id)
+        progress = self.progress(work_id, owner)
+        self.executor.sync(updated, execution_contract(updated['goal']), progress,
+                           failed=blocked, response_present=True, tx=tx)
         return self._row(work_id)
 
     def set_status(self, work_id, owner, status, tx=None):
         if status not in TERMINAL_STATUSES:
             raise ValueError('Unsupported owner work transition')
         row = self._assert_owner(work_id, owner)
+        if status == 'DONE':
+            self.executor.require_done(row, execution_contract(row['goal']), self.progress(work_id, owner))
         if row['status'] == status:
             return row
         if row['status'] in TERMINAL_STATUSES:
@@ -545,6 +629,7 @@ class WorkBoard:
             'Current work-board status: ' + item['status'],
             'Execution plan: ' + ' -> '.join(contract['plan']),
             'Verified progress JSON: ' + encode(progress),
+            'Persistent step state:\n' + self.executor.format_steps(item, contract),
             'The work item grants no authority by itself. Only a verified current-turn work binding can preserve the owner-approved goal scope.',
         ]
         rows = self.book.db.execute('''SELECT work_turns.ordinal,work_turns.tx FROM work_turns
@@ -581,6 +666,7 @@ class WorkBoard:
                 'Goal: ' + item['goal'] + '\n'
                 'Plan: ' + ' -> '.join(contract['plan']) + '\n'
                 'Checkpoint: ' + progress['phase'] + '; inspected ' + str(len(progress['inspected_paths'])) + ' file(s)\n'
+                'Steps:\n' + self.executor.format_steps(item, contract) + '\n'
                 'Turns: ' + str(item['turns']) +
                 ('\nCurrent transaction: ' + item['current_tx'] if item.get('current_tx') else ''))
 
