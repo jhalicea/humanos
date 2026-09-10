@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from audit import AuditEvent, hash_event, verify_chain
 from audit_privacy import assert_content_light, request_summary
+from integrity_lifecycle import bind_integrity_key, load_or_create_integrity_key
 
 
 def now():
@@ -46,7 +47,11 @@ class Notebook:
         except BlockingIOError:
             self.lock.close()
             raise RuntimeError('HumanOS already has a Notebook writer; close it first.')
-        self.integrity_key = self._load_integrity_key()
+        try:
+            self.integrity_key = self._load_integrity_key()
+        except BaseException:
+            self.lock.close()
+            raise
         self.db = sqlite3.connect(str(self.root / 'notebook.sqlite3'))
         self.db.row_factory = sqlite3.Row
         self.db.executescript('''
@@ -87,37 +92,17 @@ class Notebook:
             with self.db:
                 self.db.execute("ALTER TABLE recovery ADD COLUMN scope TEXT NOT NULL DEFAULT 'NOTEBOOK'")
 
-    def _load_integrity_key(self):
-        """Load/create the vault-scoped HMAC key; never expose it in projections."""
-        path = self.root / 'integrity.key'
-        if path.exists():
-            key = path.read_bytes()
-            if len(key) != 32:
-                raise RuntimeError('Notebook integrity key is invalid')
-            try:
-                os.chmod(path, 0o600)
-            except OSError:
-                pass
-            return key
-        key = os.urandom(32)
-        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
-            with os.fdopen(fd, 'wb', closefd=True) as f:
-                f.write(key)
-                f.flush()
-                os.fsync(f.fileno())
-        except Exception:
-            try:
-                path.unlink()
-            except OSError:
-                pass
+            # Reject a replaced key before recover() or any later code can append evidence.
+            bind_integrity_key(self.db, self.integrity_key)
+        except BaseException:
+            self.db.close()
+            self.lock.close()
             raise
-        parent_fd = os.open(str(self.root), os.O_RDONLY)
-        try:
-            os.fsync(parent_fd)
-        finally:
-            os.close(parent_fd)
-        return key
+
+    def _load_integrity_key(self):
+        """Load/create the stable vault key under fail-closed lifecycle rules."""
+        return load_or_create_integrity_key(self.root)
 
     def content_digest(self, text):
         mac = hmac.new(self.integrity_key, text.encode('utf-8'), hashlib.sha256).hexdigest()
