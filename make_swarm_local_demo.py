@@ -12,13 +12,19 @@ import time
 
 from swarm import PROFILE, STOPS
 
+MODEL_ASSIGNMENT = {
+    'coord': 'llama3:latest',
+    'worker': 'llama3.2:latest',
+    'verify': 'qwen3-coder:30b',
+}
+
 
 def manifest(agent_id, model, task, capabilities, peers):
     return {'agent_id': agent_id, 'model': model, 'version': 'local-demo', 'task': task,
             'capabilities': capabilities, 'peers': peers, 'token': secrets.token_urlsafe(32)}
 
 
-def build(root):
+def build(root, models=None):
     now = int(time.time())
     statement = b'HumanOS local messaging-only swarm demo; no network probing authorized'
     agents = [
@@ -28,7 +34,7 @@ def build(root):
         manifest('worker', 'llama3.2:latest',
                  'Receive coordinator messages. Send verifier a short summary through send_message, then finish.',
                  ['receive_messages', 'send_message'], ['verify']),
-        manifest('verify', 'llama3:latest',
+        manifest('verify', (models or MODEL_ASSIGNMENT)['verify'],
                  'Receive worker messages, verify that the chain used broker observations, then finish.',
                  ['receive_messages'], []),
     ]
@@ -58,6 +64,7 @@ def build(root):
         'control_state': str((Path(root) / 'control').resolve()),
         'orchestration': {
             'roles': {'coord': 'coordinator', 'worker': 'worker', 'verify': 'verifier'},
+            'model_roles': dict(models or MODEL_ASSIGNMENT),
             'max_rounds': 8,
             'model_timeout': 60,
         },

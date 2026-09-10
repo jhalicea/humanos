@@ -1,10 +1,10 @@
 {
   "NOTE": "Template only. Replace tokens, authorization provenance, timestamps, absolute control_state, and authorized lab target before use. Do not use against systems you do not own or have explicit permission to test.",
-  "models_expected_locally": ["llama3:latest", "llama3.2:latest"],
+  "models_expected_locally": ["llama3:latest", "llama3.2:latest", "qwen3-coder:30b"],
   "assignment": {
     "coord": "llama3:latest",
     "worker": "llama3.2:latest",
-    "verify": "llama3:latest"
+    "verify": "qwen3-coder:30b"
   },
-  "design": "Coordinator and verifier use the larger local model; worker uses the smaller model. All actions remain broker-mediated by AUTHORIZED_RED_TEAM_SWARM."
+  "design": "Coordinator, worker, and verifier use distinct local models. All actions remain broker-mediated by AUTHORIZED_RED_TEAM_SWARM."
 }
