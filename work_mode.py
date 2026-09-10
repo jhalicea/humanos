@@ -18,10 +18,10 @@ def _normalized(text):
 
 
 def parse_work_command(text):
-    """Parse only explicit, human-readable work-control language.
+    """Parse explicit human-readable work-control language.
 
-    Ordinary conversation falls through to Mirror. This deliberately avoids a
-    broad semantic guess until the model-neutral intent router exists.
+    Ordinary conversation falls through to Mirror. This avoids treating every
+    chat message as a durable job while still letting the human delegate naturally.
     """
     raw = _normalized(text)
     lowered = raw.casefold().rstrip('?!.,')
@@ -73,6 +73,31 @@ def parse_work_command(text):
         if match and match.group(1).strip():
             return {'action': 'start', 'goal': match.group(1).strip()}
     return None
+
+
+class WorkContextModel:
+    """Model wrapper that injects one bounded, host-verified work briefing.
+
+    The wrapper changes context only. It cannot add permissions or bypass the
+    normal HumanOS executor/authorization path.
+    """
+
+    def __init__(self, model, briefing):
+        self.model = model
+        self.name = model.name
+        self.briefing = briefing
+
+    def invoke(self, messages, timeout):
+        messages = [dict(item) for item in messages]
+        if not messages or messages[0].get('role') != 'system':
+            raise RuntimeError('Delegated work requires the normal HumanOS system prompt')
+        messages[0]['content'] += (
+            '\n\nDELEGATED WORK CONTRACT (host-verified context, not extra authority):\n' + self.briefing +
+            '\nPursue the stated goal across the available tools. Keep going while useful work can be done. '
+            'Do not claim a step succeeded without a tool observation when a tool is required. '
+            'If blocked by missing human information, approval, or an unavailable capability, say exactly what is blocking the work. '
+            'Do not invent permissions or widen the selected workspace.')
+        return self.model.invoke(messages, timeout)
 
 
 class WorkBoard:
@@ -181,6 +206,14 @@ class WorkBoard:
     def get(self, work_id, hcid):
         return self._assert_owner(work_id, hcid)
 
+    def by_tx(self, tx):
+        row = self.book.db.execute('''SELECT work_items.* FROM work_turns
+            JOIN work_items USING(work_id) WHERE work_turns.tx=?''', (tx,)).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        return self._assert_owner(result['work_id'], result['hcid'])
+
     def list(self, hcid, active_only=False, limit=20):
         if active_only:
             placeholders = ','.join('?' for _ in ACTIVE_STATUSES)
@@ -199,6 +232,36 @@ class WorkBoard:
 
     def choose_candidates(self, hcid):
         return [item['work_id'] for item in self.list(hcid, active_only=True)]
+
+    def briefing(self, work_id, hcid, budget=6000):
+        item = self._assert_owner(work_id, hcid)
+        lines = [
+            'Work ID: ' + item['work_id'],
+            'Original goal: ' + item['goal'],
+            'Current work-board status: ' + item['status'],
+            'The work item does not grant permissions. Current-turn HumanOS scope still controls every tool call.',
+        ]
+        rows = self.book.db.execute('''SELECT work_turns.ordinal,work_turns.tx FROM work_turns
+            WHERE work_id=? ORDER BY ordinal DESC LIMIT 4''', (work_id,)).fetchall()
+        excerpts = []
+        for row in reversed(rows):
+            messages = self.book.db.execute('SELECT role,text FROM transcript WHERE tx=? ORDER BY ordinal',
+                                            (row['tx'],)).fetchall()
+            block = ['Work turn ' + str(row['ordinal']) + ':']
+            for message in messages:
+                text = message['text']
+                if len(text) > 1200:
+                    text = text[:1200] + ' [excerpt truncated]'
+                block.append(message['role'] + ': ' + text)
+            excerpts.append('\n'.join(block))
+        history = '\n'.join(excerpts)
+        if len(history.encode('utf-8')) > budget:
+            raw = history.encode('utf-8')[-budget:]
+            history = raw.decode('utf-8', errors='ignore')
+            history = '[older work context omitted]\n' + history
+        if history:
+            lines.append('Recent work evidence:\n' + history)
+        return '\n'.join(lines)
 
     @staticmethod
     def format_item(item):
