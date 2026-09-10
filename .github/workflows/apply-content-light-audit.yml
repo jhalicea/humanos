@@ -1,0 +1,30 @@
+name: Apply content-light audit ledger patch
+on:
+  push:
+    branches: [feature/content-light-audit-ledger-v2]
+    paths: [.github/workflows/apply-content-light-audit.yml]
+permissions:
+  contents: write
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Apply fail-closed audit migration
+        run: python tools/apply_content_light_audit.py
+      - name: Run full regression suite before commit
+        run: python -m unittest discover -s tests -v
+      - name: Commit tested source patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add notebook.py engine.py file_manager.py file_intelligence.py tests/test_file_intelligence.py tests/test_audit_content_light.py
+          git diff --cached --quiet && { echo "No patch produced"; exit 1; }
+          git commit -m "Enforce content-light append-only audit events"
+          git push origin HEAD:feature/content-light-audit-ledger-v2
