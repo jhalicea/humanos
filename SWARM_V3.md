@@ -6,11 +6,13 @@ Status: candidate implementation. CI verifies routing and governance invariants;
 
 For the models previously observed on Jon's Mac:
 
-- coordinator: `llama3:latest` (Llama 3 8B)
-- worker: `llama3.2:latest` (Llama 3.2 3B)
+- coordinator: `llama3:latest`
+- worker: `llama3.2:latest`
 - verifier: `llama3:latest`
 
-Each agent may select its own model in its broker manifest using `provider: ollama`, `model`, and optionally a loopback `endpoint`. Remote Ollama endpoints are rejected. Other providers require an explicitly installed adapter factory; provider choice never grants authority.
+The existing broker manifest remains strict and unchanged: `agent_id`, `model`, `version`, `task`, `capabilities`, `peers`, and `token`. This is intentional. v3 supports different local model names per agent while all agents use the trusted loopback Ollama endpoint. Provider or endpoint fields are not accepted in broker manifests because model-routing metadata must never silently mutate the authorization schema.
+
+`ModelRouter` keeps a narrow adapter seam for future provider-neutral work, but any external/commercial provider configuration requires a separately reviewed schema and must not be smuggled into the broker manifest.
 
 ## Verification order
 
