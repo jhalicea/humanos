@@ -174,6 +174,51 @@ class WorkExecutorTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'integrity'):
             self.board.executor.steps(item, contract)
 
+    def test_checkpoint_artifact_drives_deliverable_verified_and_done(self):
+        goal = 'review the files in my workspace and create a report'
+        item = self._work(goal)
+        target = self.board.executor.next_step(item, execution_contract(goal))
+        self.assertEqual(target['kind'], 'DISCOVER')
+        scan = json.dumps({'folder': '.', 'entries': [
+            {'path': 'a.txt', 'kind': 'file', 'size': 1}], 'skipped': [], 'truncated': False})
+        messages = []
+        messages += self._observation({'name': 'scan_files', 'path': '.'}, scan)
+        messages += self._observation({'name': 'read_file', 'path': 'a.txt'}, 'A')
+        report = requested_deliverable(goal, item['work_id'])
+        messages += self._observation(
+            {'name': 'create_file', 'path': report, 'content': 'Verified report'},
+            'Created ' + report, artifacts=[{'path': report, 'sha256': 'digest'}])
+        self.book.save_task('tx-1', {'messages': messages})
+        updated = self.board.finish_turn(item['work_id'], 'Jon', 'tx-1', 'Work deliverable created and verified: ' + report)
+        self.assertEqual(updated['status'], 'REVIEW')
+        progress = self.board.progress(item['work_id'], 'Jon')
+        self.assertIn(report, progress['artifact_paths'])
+        self.assertIsNone(self.board.executor.next_step(updated, execution_contract(goal)))
+        self.assertEqual(self.board.set_status(item['work_id'], 'Jon', 'DONE')['status'], 'DONE')
+
+    def test_failed_deliverable_persists_blocked_job_and_step(self):
+        goal = 'review the files in my workspace and create a report'
+        item = self._work(goal)
+        scan = json.dumps({'folder': '.', 'entries': [
+            {'path': 'a.txt', 'kind': 'file', 'size': 1}], 'skipped': [], 'truncated': False})
+        messages = []
+        messages += self._observation({'name': 'scan_files', 'path': '.'}, scan)
+        messages += self._observation({'name': 'read_file', 'path': 'a.txt'}, 'A')
+        report = requested_deliverable(goal, item['work_id'])
+        messages += self._observation({'name': 'create_file', 'path': report, 'content': 'Verified report'},
+                                      '', ok=False, error='PermissionError: denied')
+        self.book.save_task('tx-1', {'messages': messages})
+        updated = self.board.finish_turn(item['work_id'], 'Jon', 'tx-1',
+                                         'Work blocked: HumanOS could not create the requested deliverable ' + report + '.')
+        self.assertEqual(updated['status'], 'BLOCKED')
+        steps = self.board.executor.steps(updated, execution_contract(goal))
+        by_kind = {row['kind']: row['status'] for row in steps}
+        self.assertEqual(by_kind['SYNTHESIZE'], 'VERIFIED')
+        self.assertEqual(by_kind['DELIVER'], 'BLOCKED')
+        self.assertEqual(by_kind['VERIFY'], 'BLOCKED')
+        with self.assertRaises(ValueError):
+            self.board.set_status(item['work_id'], 'Jon', 'DONE')
+
 
 if __name__ == '__main__':
     unittest.main()
