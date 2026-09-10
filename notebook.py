@@ -16,6 +16,7 @@ from pathlib import Path
 from audit import AuditEvent, hash_event, verify_chain
 from audit_privacy import assert_content_light, request_summary
 from integrity_lifecycle import bind_integrity_key, load_or_create_integrity_key
+from recovery_ledger import parse_recovery_file, validate_recovery_appendable_bytes
 
 
 def now():
@@ -437,13 +438,41 @@ class Notebook:
                         (seq, tx, kind, encode(payload), stamp, prev,
                          hash_event(seq, kind, tx or '', body, prev)))
 
+    def _append_recovery_record(self, record):
+        """Append one physical UTF-8 JSON record only after validating existing evidence."""
+        path = self.root / 'recovery.jsonl'
+        data = (encode(record) + '\n').encode('utf-8')
+        flags = os.O_RDWR | os.O_APPEND | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0)
+        fd = os.open(str(path), flags, 0o600)
+        try:
+            size = os.fstat(fd).st_size
+            existing = bytearray()
+            if size:
+                os.lseek(fd, 0, os.SEEK_SET)
+                while len(existing) < size:
+                    block = os.read(fd, min(1024 * 1024, size - len(existing)))
+                    if not block:
+                        break
+                    existing.extend(block)
+                if len(existing) != size:
+                    raise OSError('short recovery ledger read during append validation')
+                validate_recovery_appendable_bytes(bytes(existing))
+                if os.fstat(fd).st_size != size:
+                    raise RuntimeError('Recovery ledger changed while validating append boundary')
+            offset = 0
+            while offset < len(data):
+                count = os.write(fd, data[offset:])
+                if count <= 0:
+                    raise OSError('short recovery ledger write')
+                offset += count
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
     def problem(self, tx, error, payload=None):
         # Independent fsynced fallback retains the exact input even if SQLite fails.
         record = {'tx': tx, 'error': str(error), 'payload': payload, 'created': now()}
-        with open(self.root / 'recovery.jsonl', 'a', encoding='utf-8') as f:
-            f.write(encode(record) + '\n')
-            f.flush()
-            os.fsync(f.fileno())
+        self._append_recovery_record(record)
         with self.db:
             self.db.execute('INSERT INTO recovery(tx,error,created) VALUES(?,?,?)',
                             (tx, str(error), now()))
@@ -703,7 +732,7 @@ class Notebook:
                                                'content_digest': stored_delivery_digest})
         return True
 
-    def _delivery_recovery(self, tx, error, uncertain=False):
+    def _delivery_recovery(self, tx, error, uncertain=False, fallback_already_recorded=False):
         state = self.task(tx)
         if not state or state.get('phase') != 'COMPLETE':
             raise RuntimeError('Delivery recovery requires a saved final response')
@@ -718,10 +747,8 @@ class Notebook:
         # The fallback survives a failure while updating SQLite task/recovery state.
         record = {'tx': tx, 'scope': 'DELIVERY', 'error': str(error),
                   'payload': {'delivery': delivery, 'attempt': state.get('delivery_attempt')}, 'created': now()}
-        with open(self.root / 'recovery.jsonl', 'a', encoding='utf-8') as f:
-            f.write(encode(record) + '\n')
-            f.flush()
-            os.fsync(f.fileno())
+        if not fallback_already_recorded:
+            self._append_recovery_record(record)
         state.update(delivery=delivery, delivery_error=str(error))
         with self.db:
             self.db.execute('UPDATE tasks SET state=? WHERE tx=?', (encode(state), tx))
@@ -840,28 +867,53 @@ class Notebook:
                     self.event(row['tx'], 'RESUME_REQUIRED', payload)
         fallback = self.root / 'recovery.jsonl'
         delivery_fallback = {}
+        recovery_ledger_sealed = False
         if fallback.exists():
-            for line in fallback.read_text(encoding='utf-8').splitlines():
-                record = json.loads(line)
+            parsed = parse_recovery_file(fallback)
+            recovery_ledger_sealed = bool(parsed.anomaly or parsed.quarantine)
+            for kind, notice in (
+                    ('RECOVERY_UNTERMINATED_RECORD', parsed.anomaly),
+                    ('RECOVERY_CRASH_TAIL_QUARANTINED', parsed.quarantine)):
+                if notice:
+                    keys = ('source_path', 'tail_offset_bytes', 'tail_length_bytes',
+                            'tail_sha256', 'classification')
+                    payload = {key: notice[key] for key in keys if key in notice}
+                    encoded_payload = encode(payload)
+                    prior_notice = self.db.execute(
+                        'SELECT 1 FROM events WHERE kind=? AND payload=? LIMIT 1',
+                        (kind, encoded_payload),
+                    ).fetchone()
+                    if not prior_notice:
+                        self.event(None, kind, payload)
+            for record in parsed.records:
                 payload = record.get('payload')
                 tx = record.get('tx')
                 if tx and record.get('scope') == 'DELIVERY' and isinstance(payload, dict):
-                    delivery_fallback[tx] = record
+                    delivery_fallback[(tx, payload.get('attempt'))] = record
                 if tx and isinstance(payload, dict) and payload.get('role') == 'HUMAN' and not self.get_transaction(tx):
                     self.start(payload['hcid'], tx, payload['text'])
                     self.event(tx, 'FALLBACK_INPUT_RECOVERED', {'source': str(fallback)})
         for delivery in self.delivery_pending():
-            record = delivery_fallback.get(delivery['tx'])
-            if record and record['payload'].get('attempt') == delivery.get('delivery_attempt'):
+            attempt = delivery.get('delivery_attempt')
+            record = delivery_fallback.get((delivery['tx'], attempt))
+            if record:
                 # A failed SQLite update must not discard the specific output
                 # failure already retained in the independent recovery ledger.
                 delivery['delivery_error'] = record['error']
                 if record['payload'].get('delivery') == 'OUTPUT_UNCERTAIN':
                     delivery['delivery'] = 'OUTPUT_UNCERTAIN'
+            elif recovery_ledger_sealed:
+                # The preserved tail seals this fallback file. Without already-recorded
+                # matching delivery evidence, leave the pending delivery visible rather
+                # than mutating the ledger or failing the whole recovery pass.
+                continue
             uncertain = delivery['delivery'] in ('DELIVERING', 'OUTPUT_UNCERTAIN')
             error = delivery.get('delivery_error') or (
                 'Process ended during output; terminal delivery is uncertain' if uncertain else
                 'Final answer saved and checkpointed; output has not been confirmed')
-            self._delivery_recovery(delivery['tx'], error, uncertain=uncertain)
+            self._delivery_recovery(
+                delivery['tx'], error, uncertain=uncertain,
+                fallback_already_recorded=record is not None,
+            )
         return ([dict(r) for r in self.db.execute("SELECT * FROM transactions WHERE status!='CHECKPOINTED'")]
                 + self.delivery_pending())
