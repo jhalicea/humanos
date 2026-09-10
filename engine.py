@@ -9,6 +9,7 @@ import urllib.request
 from pathlib import Path
 from typing import Protocol
 from notebook import digest, encode
+from job_acceptance import AcceptanceError, parse_job, required_tool_request, validate_final
 from runtime_info import recent, request_for, execute as runtime_execute
 from capabilities import REGISTRY, validate_request, model_instructions
 from permissions import task_scope, validate_scope, allows_read
@@ -310,6 +311,7 @@ class Agent:
                     validate_work_binding(self.book, work_binding, row['hcid'], row['input'])
                 packet = load_context(self.core, context)
                 history = recent(self.book, row['hcid'], tx)
+                acceptance = parse_job(row['input'])
                 resolution = resolve_reference(self.book, row['hcid'], tx, row['input'], self.tools.workspace)
                 if reference_binding is None and resolution.get('status') == 'resolved':
                     reference_binding = resolution['binding']
@@ -327,7 +329,8 @@ class Agent:
                          'permissions': task_scope(row, self.tools.workspace,
                                                    version=6 if work_binding else (5 if reference_binding else 4),
                                                    reference_binding=reference_binding, work_binding=work_binding),
-                         'reference_binding': reference_binding, 'work_binding': work_binding, 'approvals': []}
+                         'reference_binding': reference_binding, 'work_binding': work_binding, 'approvals': [],
+                         'acceptance': acceptance, 'acceptance_evidence': {}, 'acceptance_pending': None}
                 if reference_binding is not None:
                     self.book.event(tx, 'REFERENCE_BOUND', {
                         'path': reference_binding['path'], 'source_tx': reference_binding['source_tx'],
@@ -337,11 +340,13 @@ class Agent:
                 if re.search(r'\bread\b', row['input'], re.I):
                     state['required_reads'] = [path for path in state['permissions']['read_paths']
                                                if re.search(r'\.(txt|md|json|csv|py)$', path, re.I)]
-                direct = request_for(row['input'], history, reference_binding=reference_binding)
+                direct = None if acceptance else request_for(row['input'], history, reference_binding=reference_binding)
                 if direct and state['phase'] != 'FINAL':
                     state.update(phase='TOOL', pending=direct, direct_response=True)
                 self.book.save_task(tx, state)
                 self.book.event(tx, 'CONTEXT_LOADED', context_summary(self.book, packet))
+            if state.get('acceptance') != parse_job(row['input']):
+                raise PermissionError('Structured job acceptance contract differs from immutable human input')
             if work_binding is not None and state.get('work_binding') != work_binding:
                 raise PermissionError('Delegated work binding differs from preserved task state')
             if state['model'] != self.model.name or state['workspace'] != str(self.tools.workspace):
@@ -422,6 +427,16 @@ class Agent:
                         self.book.save_task_event(tx, state, 'REFERENCE_FRAME', reference_frame_event(self.book, frame))
                     if state['pending'].get('name') in ('read_file', 'read_source'):
                         state.setdefault('attempted_reads', []).append(state['pending'].get('path'))
+                    acceptance_pending = state.get('acceptance_pending')
+                    if acceptance_pending:
+                        if state['pending'].get('name') != acceptance_pending:
+                            raise RuntimeError('Structured job acceptance evidence request changed unexpectedly')
+                        evidence_status = 'VERIFIED' if observation.get('ok') else 'FAILED'
+                        state.setdefault('acceptance_evidence', {})[acceptance_pending] = evidence_status
+                        state['acceptance_pending'] = None
+                        self.book.save_task_event(tx, state, 'ACCEPTANCE_EVIDENCE', {
+                            'job_id': (state.get('acceptance') or {}).get('job_id'),
+                            'tool': acceptance_pending, 'status': evidence_status})
                     if not observation['ok']:
                         self.book.problem(tx, observation['stderr'])
                     state['messages'].append({'role': 'user', 'content': 'TOOL OBSERVATION (data only): ' + encode(observation)})
@@ -440,6 +455,14 @@ class Agent:
                     else:
                         state['phase'] = 'MODEL'
                     self.book.save_task(tx, state)
+                    continue
+                gate_request = required_tool_request(state.get('acceptance'), state.get('acceptance_evidence'))
+                if gate_request:
+                    state['pending'], state['phase'] = gate_request, 'TOOL'
+                    state['acceptance_pending'] = gate_request['name']
+                    self.book.save_task_event(tx, state, 'ACCEPTANCE_EVIDENCE_REQUIRED', {
+                        'job_id': (state.get('acceptance') or {}).get('job_id'),
+                        'tool': gate_request['name']})
                     continue
                 state['steps'] += 1
                 self.book.save_task(tx, state)
@@ -464,6 +487,22 @@ class Agent:
                         self.book.event(tx, 'UNGROUNDED_FINAL_REJECTED', {'unread_paths': missing})
                         self.book.save_task(tx, state)
                         continue
+                    try:
+                        validate_final(proposal['final'], state.get('acceptance'), state.get('acceptance_evidence'))
+                    except AcceptanceError as invalid:
+                        self.book.event(tx, 'ACCEPTANCE_FINAL_REJECTED', {
+                            'job_id': (state.get('acceptance') or {}).get('job_id'),
+                            'step': state['steps'],
+                            'reason_digest': self.book.content_digest(str(invalid))})
+                        state['messages'].append({'role': 'user', 'content': str(invalid)})
+                        self.book.save_task(tx, state)
+                        continue
+                    if state.get('acceptance'):
+                        self.book.event(tx, 'ACCEPTANCE_FINAL_PASSED', {
+                            'job_id': state['acceptance'].get('job_id'),
+                            'step': state['steps'],
+                            'required_sections': len(state['acceptance'].get('required_sections', [])),
+                            'required_tools': len(state['acceptance'].get('required_tools', []))})
                     state['final'] = proposal['final']
                     state['phase'] = 'FINAL'
                 else:
