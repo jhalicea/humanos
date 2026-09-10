@@ -101,3 +101,5 @@ new = """            if self.contract['kind'] == 'workspace_review':
                               'Use continue that work for the next verified batch.')
 """
 replace('work_mode.py', old, new)
+
+# Retry marker: focused tests now run with tests/ on PYTHONPATH.
