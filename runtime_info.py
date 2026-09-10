@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 from capabilities import summary
 from notebook_recall import format_recall, search_notebook
+from references import simple_reference_read
 
 
 def recent(book, hcid, exclude_tx, limit=12, budget=8000):
@@ -42,11 +43,13 @@ def intent(text):
         return 'capabilities'
 
 
-def request_for(text, history):
+def request_for(text, history, reference_binding=None):
     try:
         words = shlex.split(text)
     except ValueError:
         words = []
+    if reference_binding and simple_reference_read(text):
+        return {'name': 'read_file', 'path': reference_binding['path']}
     if re.match(r'^\s*/recall(?:\s|$)', text):
         if not words or words[0] != '/recall':
             return {'name': 'recall_notebook', 'query': ''}
@@ -138,6 +141,9 @@ def format_plan(report, undo=False):
 def format_observation(request, observation):
     if not observation['ok']:
         error = observation['stderr']
+        if observation.get('authorization') == 'DENIED':
+            return ('HumanOS did not authorize that exact request in this turn. '
+                    'This does not mean the workspace is read-only. Name the file explicitly or choose from the verified candidates.')
         if 'FileNotFoundError' in error:
             return ('I could not find ' + request.get('path', 'that file') + ' in the selected folder. '
                     'Use /files to see its contents. HumanOS source code is separate: use /source server.py.')

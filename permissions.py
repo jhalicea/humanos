@@ -2,9 +2,10 @@
 import re
 import shlex
 from notebook import digest
+from references import validate_reference_binding
 
 
-def task_scope(row, workspace, version=4):
+def task_scope(row, workspace, version=4, reference_binding=None):
     text = row['input']
     try:
         tokens = shlex.split(text)
@@ -14,8 +15,11 @@ def task_scope(row, workspace, version=4):
     for index, token in enumerate(tokens):
         value = token.strip('.,!?;:`\"\'')
         previous = tokens[index - 1].casefold() if index else ''
-        if value and ('.' in value or '/' in value or previous in ('read', 'open', 'inspect', 'view', 'cat')):
+        deictic = value.casefold() in ('it', 'that', 'this', 'file', 'one', 'the')
+        if value and not deictic and ('.' in value or '/' in value or previous in ('read', 'open', 'inspect', 'view', 'cat')):
             paths.append(value)
+    if version >= 5 and reference_binding:
+        paths.append(reference_binding['path'])
     file_read = bool(re.search(r'\b(read|open|inspect|show|view|cat)\b', text, re.I))
     listing = bool(re.search(r'\b(list|files|workspace|folder|directory)\b', text, re.I))
     # A filename mentioned in an exclusion is not consent. Mixed/negative
@@ -31,7 +35,7 @@ def task_scope(row, workspace, version=4):
             'writes': 'EXACT_REQUEST_APPROVAL'}
     if version >= 2:
         from runtime_info import request_for
-        direct = request_for(text, []) or {}
+        direct = request_for(text, [], reference_binding=reference_binding) or {}
         scope['source_paths'] = [direct.get('path', 'server.py')] if direct.get('name') == 'read_source' else []
         scope['scan_paths'] = [direct.get('path', '.')] if direct.get('name') in (
             'scan_files', 'find_duplicates', 'plan_organization') else []
@@ -42,15 +46,22 @@ def task_scope(row, workspace, version=4):
             'understand_file', 'plan_contextual_organization', 'plan_inbox_organization') else []
     if version >= 4:
         scope['recall_request'] = direct if direct.get('name') == 'recall_notebook' else None
+    if version >= 5:
+        scope['reference_binding'] = reference_binding
     return scope
 
 
-def validate_scope(scope, row, workspace):
+def validate_scope(scope, row, workspace, book=None):
     # The source input remains immutable. Reject altered/unsupported saved policy;
     # do not silently widen a task when implementation defaults change.
-    if scope.get('version') not in (1, 2, 3, 4):
+    if scope.get('version') not in (1, 2, 3, 4, 5):
         raise PermissionError('Unsupported saved task policy version')
-    expected = task_scope(row, workspace, scope['version'])
+    reference_binding = scope.get('reference_binding') if scope.get('version', 0) >= 5 else None
+    if reference_binding:
+        if book is None:
+            raise PermissionError('Reference-bound scope requires Notebook verification')
+        validate_reference_binding(book, reference_binding, row['hcid'], row['input'])
+    expected = task_scope(row, workspace, scope['version'], reference_binding=reference_binding)
     if scope != expected:
         raise PermissionError('Saved task permission scope differs; explicit reconciliation required')
 
