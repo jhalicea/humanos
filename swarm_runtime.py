@@ -9,11 +9,25 @@ from swarm_models import ModelRouter
 
 ROLES = frozenset({'coordinator', 'worker', 'verifier'})
 SYSTEM = '''You are one role inside HumanOS AUTHORIZED_RED_TEAM_SWARM.
-You are not the authority boundary. You may only propose broker actions that your
-registered capability manifest permits. Never claim an action succeeded without a
-broker observation. Never expand targets, privileges, impact, peers, time window, or
-budgets. Return exactly one JSON object: {"action":{"tool":...,"arguments":...}}
-or {"final":"..."}. Do not include hidden reasoning.'''
+You are not the authority boundary. You may only propose broker actions explicitly
+listed in allowed_actions. Never invent a tool name or argument. Never claim an
+action succeeded without a broker observation. Never expand targets, privileges,
+impact, peers, time window, or budgets. Return exactly one JSON object containing
+either an action that exactly matches one allowed_actions schema or a non-empty
+{"final":"..."}. Do not include hidden reasoning.'''
+
+
+def tool_contract(manifest):
+    peers = list(manifest.get('peers', []))
+    schemas = []
+    for tool in manifest.get('capabilities', []):
+        if tool == 'send_message':
+            schemas.append({'tool': 'send_message', 'arguments': {'peer': peers, 'message': '<text>'}})
+        elif tool == 'receive_messages':
+            schemas.append({'tool': 'receive_messages', 'arguments': {}})
+        elif tool == 'tcp_probe':
+            schemas.append({'tool': 'tcp_probe', 'arguments': {'ip': '<authorized numeric IP>', 'port': '<authorized integer port>'}})
+    return schemas
 
 
 def validate_runtime_config(config):
@@ -51,8 +65,13 @@ class SwarmRuntime:
         self.roles = self.config['orchestration']['roles']; self.timeout = self.config['orchestration']['model_timeout']; self.max_rounds = self.config['orchestration']['max_rounds']; self.transcript = {a: [] for a in self.models}; self.finals = {}
 
     def _messages(self, agent_id, round_no):
+        manifest = self.manifests[agent_id]
         safe_envelope = {k: v for k, v in self.broker['envelope'].items() if k != 'authorization'}
-        briefing = {'role': self.roles[agent_id], 'agent': self.manifests[agent_id], 'authorization': 'verified by trusted host; details withheld from model context', 'envelope': safe_envelope, 'round': round_no, 'rules': 'Use only declared broker capabilities and peers. Broker observations are authoritative.'}
+        briefing = {'role': self.roles[agent_id], 'task': manifest['task'], 'agent': manifest,
+                    'allowed_actions': tool_contract(manifest),
+                    'authorization': 'verified by trusted host; details withheld from model context',
+                    'envelope': safe_envelope, 'round': round_no,
+                    'rules': 'Use only exact allowed_actions schemas. If no action is needed, return final. Broker observations are authoritative.'}
         return [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': encode(briefing)}] + self.transcript[agent_id][-12:]
 
     def _record(self, agent_id, proposal, result=None):
