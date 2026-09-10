@@ -330,6 +330,8 @@ class Agent:
                                                    version=6 if work_binding else (5 if reference_binding else 4),
                                                    reference_binding=reference_binding, work_binding=work_binding),
                          'reference_binding': reference_binding, 'work_binding': work_binding, 'approvals': [],
+                         # This contract is derived only from immutable human input. Host-side
+                         # evidence forcing never increments the model call counter.
                          'acceptance': acceptance, 'acceptance_evidence': {}, 'acceptance_pending': None}
                 if reference_binding is not None:
                     self.book.event(tx, 'REFERENCE_BOUND', {
