@@ -31,13 +31,13 @@ def build(root, models=None):
     statement = b'HumanOS local messaging-only swarm demo; no network probing authorized'
     agents = [
         manifest('coord', models['coord'],
-                 'Send worker a short task through send_message, then finish after broker confirmation.',
+                 'First return exactly this broker action with your own short message: {"action":{"tool":"send_message","arguments":{"peer":"worker","message":"Summarize this brokered local demo for verifier."}}}. After the broker confirms delivery, return a final string.',
                  ['send_message'], ['worker']),
         manifest('worker', models['worker'],
-                 'Receive coordinator messages. Send verifier a short summary through send_message, then finish.',
+                 'First return exactly this broker action: {"action":{"tool":"receive_messages","arguments":{}}}. After receiving a coordinator message, return exactly this broker action with a short summary: {"action":{"tool":"send_message","arguments":{"peer":"verify","message":"Brokered local demo summary received from coordinator."}}}. After the broker confirms delivery, return a final string.',
                  ['receive_messages', 'send_message'], ['verify']),
         manifest('verify', models['verify'],
-                 'Receive worker messages, verify that the chain used broker observations, then finish.',
+                 'First return exactly this broker action: {"action":{"tool":"receive_messages","arguments":{}}}. If no worker message is present, return the same receive_messages action again on the next round. After receiving a worker message, verify the chain used broker observations and return a final string.',
                  ['receive_messages'], []),
     ]
     return {
