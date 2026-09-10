@@ -24,7 +24,7 @@ jobs:
       - name: Compile
         run: python -m py_compile engine.py server.py permissions.py work_mode.py
       - name: Run focused tests
-        run: python -m unittest tests.test_work_mode tests.test_runtime_info tests.test_file_intelligence
+        run: PYTHONPATH=tests:. python -m unittest tests.test_work_mode tests.test_runtime_info tests.test_file_intelligence
       - name: Commit patched runtime
         run: |
           if git diff --quiet; then exit 0; fi
