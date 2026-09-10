@@ -14,13 +14,15 @@ class LocalDemoTests(unittest.TestCase):
                 self.assertNotIn('tcp_probe', agent['capabilities'])
             self.assertEqual(value['orchestration']['roles'], {'coord': 'coordinator', 'worker': 'worker', 'verify': 'verifier'})
 
-    def test_demo_uses_two_local_model_assignments(self):
+    def test_demo_uses_three_distinct_local_model_assignments(self):
         with tempfile.TemporaryDirectory() as root:
             value = build(Path(root))
             models = {a['agent_id']: a['model'] for a in value['broker']['agents']}
             self.assertEqual(models['coord'], 'llama3:latest')
             self.assertEqual(models['worker'], 'llama3.2:latest')
-            self.assertEqual(models['verify'], 'llama3:latest')
+            self.assertEqual(models['verify'], 'qwen3-coder:30b')
+            self.assertEqual(len(set(models.values())), 3)
+            self.assertEqual(value['orchestration']['model_roles'], models)
 
 
 if __name__ == '__main__': unittest.main()

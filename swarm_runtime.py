@@ -36,10 +36,12 @@ def validate_runtime_config(config):
     if not isinstance(broker, dict) or broker.get('profile') != PROFILE: raise ValueError('Runtime v3 requires AUTHORIZED_RED_TEAM_SWARM broker config')
     if not Path(config['control_state']).is_absolute(): raise ValueError('control_state must be absolute')
     orchestration = config['orchestration']
-    if not isinstance(orchestration, dict) or set(orchestration) != {'roles', 'max_rounds', 'model_timeout'}: raise ValueError('orchestration requires roles, max_rounds, model_timeout')
+    if not isinstance(orchestration, dict) or not {'roles', 'max_rounds', 'model_timeout'} <= set(orchestration) or set(orchestration) - {'roles', 'model_roles', 'max_rounds', 'model_timeout'}: raise ValueError('orchestration requires roles, max_rounds, model_timeout and optional model_roles')
     if type(orchestration['max_rounds']) is not int or not 1 <= orchestration['max_rounds'] <= 50: raise ValueError('max_rounds must be 1..50')
     if type(orchestration['model_timeout']) not in (int, float) or not 1 <= orchestration['model_timeout'] <= 120: raise ValueError('model_timeout must be 1..120 seconds')
-    manifests = {m['agent_id']: m for m in broker.get('agents', [])}; roles = orchestration['roles']
+    manifests = {m['agent_id']: m for m in broker.get('agents', [])}; roles = orchestration['roles']; model_roles = orchestration.get('model_roles', {agent_id: manifest.get('model') for agent_id, manifest in manifests.items()})
+    if set(model_roles) != set(manifests) or any(not isinstance(name, str) or not name for name in model_roles.values()): raise ValueError('model_roles must assign one model to every agent')
+    if any(manifests[agent_id].get('model') != model for agent_id, model in model_roles.items()): raise ValueError('model_roles must match broker model manifests')
     if not isinstance(roles, dict) or set(roles) != set(manifests): raise ValueError('Every broker agent requires exactly one orchestration role')
     counts = {role: 0 for role in ROLES}
     for agent_id, role in roles.items():
