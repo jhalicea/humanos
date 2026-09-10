@@ -1,0 +1,36 @@
+name: HumanOS record envelope patch gate
+
+on:
+  push:
+    branches: [feature/record-envelope-integrity-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: feature/record-envelope-integrity-v1
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Apply bounded record envelope patch
+        run: python3 tools/apply_record_envelope_patch.py
+      - name: Run full regression suite
+        run: python3 -m unittest discover -s tests -v
+      - name: Commit only after the full suite passes
+        run: |
+          rm -f tools/apply_record_envelope_patch.py .github/workflows/record-envelope-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add notebook.py record_integrity.py tests/test_record_integrity.py tools/apply_record_envelope_patch.py .github/workflows/record-envelope-patch.yml
+          if ! git diff --cached --quiet; then
+            git commit -m "Bind transcript metadata with record envelope integrity"
+            git push origin HEAD:feature/record-envelope-integrity-v1
+          fi
