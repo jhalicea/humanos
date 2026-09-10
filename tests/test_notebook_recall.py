@@ -83,7 +83,8 @@ class NotebookRecallTests(unittest.TestCase):
         self.assertEqual(self.book.task('tx-recall')['permissions']['version'], 4)
 
     def test_model_cannot_invoke_unsolicited_global_recall(self):
-        self.complete(self.first, 'tx-secret', 'private marker', 'HISTORICAL-PRIVATE-PAYLOAD-88341')
+        private_page = self.book.bind('Jon', 'separate private page')
+        self.complete(private_page, 'tx-secret', 'private marker', 'HISTORICAL-PRIVATE-PAYLOAD-88341')
         agent, model = self.agent(
             {'tool': {'name': 'recall_notebook', 'query': 'private marker'}},
             {'final': 'Recall was denied.'})
