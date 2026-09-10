@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Iterable
+from typing import Iterable, Optional
 
 
 JOB_RE = re.compile(r"^\s*HUMANOS\s+JOB\s+([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\b", re.I)
@@ -74,7 +74,7 @@ def parse_job(text: str):
     }
 
 
-def _job_text(messages: Iterable[dict]) -> str | None:
+def _job_text(messages: Iterable[dict]) -> Optional[str]:
     """Find the current structured job without treating tool observations as jobs."""
     candidates = []
     for message in messages:
