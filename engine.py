@@ -380,6 +380,13 @@ class Agent:
                         if key in state.get('denials', []):
                             allowed = False
                         elif request['name'] in ('create_file', 'apply_plan', 'undo_plan'):
+                            if (request['name'] == 'create_file' and state['permissions'].get('version', 0) >= 6 and
+                                    request.get('path') not in state['permissions'].get('create_paths', [])):
+                                allowed = False
+                                denied = request_summary(self.book, request)
+                                denied.update(allowed=False, reason='Delegated work did not authorize creating this path')
+                                self.book.save_task_event(tx, state, 'AUTHORIZATION', denied)
+                                return False
                             allowed = key in state.get('approvals', [])
                             if request['name'] in ('apply_plan', 'undo_plan') and state['permissions'].get('plan_action') != request:
                                 allowed = False

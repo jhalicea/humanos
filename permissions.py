@@ -82,6 +82,9 @@ def task_scope(row, workspace, version=4, reference_binding=None, work_binding=N
         scope['reference_binding'] = reference_binding
     if version >= 6:
         scope['work_binding'] = work_binding
+        from work_executor import requested_deliverable
+        deliverable = requested_deliverable(work_binding['goal'], work_binding['work_id']) if work_binding else None
+        scope['create_paths'] = [deliverable] if deliverable else []
         scope['read_tree_paths'] = ['.'] if delegated_review else []
         if delegated_review and '.' not in scope.get('scan_paths', []):
             scope.setdefault('scan_paths', []).append('.')
