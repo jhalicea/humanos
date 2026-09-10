@@ -16,7 +16,7 @@ from work_mode import WorkBoard, WorkContextModel, parse_work_command
 BASE = Path(__file__).resolve().parent
 PASTE_COMMAND = ':paste'
 PASTE_SEND_COMMAND = '/send'
-PASTE_GRACE_SECONDS = 0.04
+PASTE_GRACE_SECONDS = 0.08
 
 
 def _terminal_line(line):
@@ -32,9 +32,10 @@ def read_human_input(prompt='HUMAN: ', input_fn=input, stdin=None, output=None,
                      select_fn=select.select, paste_wait=PASTE_GRACE_SECONDS):
     """Read one exact HumanOS turn, including multiline terminal paste payloads.
 
-    Normal one-line prompts are unchanged. A burst of already-buffered terminal
-    lines is collected as one turn. ``:paste`` enters deterministic explicit
-    paste mode; only ``/send`` on its own line ends that capture.
+    Normal one-line prompts are unchanged. A burst of terminal lines is collected
+    as one turn, allowing a short inter-line arrival gap instead of requiring every
+    pasted byte to be buffered at once. ``:paste`` remains the deterministic
+    explicit mode; only ``/send`` on its own line ends that capture.
     """
     stdin = stdin or sys.stdin
     output = output or sys.stderr
@@ -67,7 +68,7 @@ def read_human_input(prompt='HUMAN: ', input_fn=input, stdin=None, output=None,
             break
         lines.append(_terminal_line(line))
         try:
-            ready, _, _ = select_fn([stdin], [], [], 0)
+            ready, _, _ = select_fn([stdin], [], [], paste_wait)
         except (OSError, TypeError, ValueError):
             break
     return '\n'.join(lines)
