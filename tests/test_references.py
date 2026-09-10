@@ -84,3 +84,55 @@ class ConversationalReferenceTests(unittest.TestCase):
         )
         self.assertIn("did not authorize that exact request", message)
         self.assertIn("does not mean the workspace is read-only", message)
+
+
+class ContextReferencePlanTests(unittest.TestCase):
+    setUp = test_runtime.RuntimeTests.setUp
+    tearDown = test_runtime.RuntimeTests.tearDown
+    agent = test_runtime.RuntimeTests.agent
+    turn = test_runtime.RuntimeTests.turn
+
+    def _plan(self):
+        (self.workspace / "a.txt").write_text("a")
+        agent = self.agent(
+            {"tool": {"name": "plan_move", "source": "a.txt", "destination": "Archive/a.txt"}},
+            {"final": "Plan ready."},
+        )
+        self.turn(agent, "/move a.txt Archive/a.txt", tx="plan-tx")
+        frame = self.book.task("plan-tx").get("reference_frame")
+        self.assertEqual(frame["kind"], "plan")
+        self.assertEqual(len(frame["paths"]), 1)
+        return frame["paths"][0]
+
+    def test_do_it_binds_recent_verified_plan(self):
+        plan_id = self._plan()
+        resolution = resolve_reference(self.book, self.binding["hcid"], "apply-tx", "do it", self.workspace)
+        self.assertEqual(resolution["status"], "resolved")
+        self.assertEqual(resolution["binding"]["kind"], "plan")
+        self.assertEqual(resolution["binding"]["path"], plan_id)
+
+    def test_do_it_becomes_exact_apply_plan_request(self):
+        plan_id = self._plan()
+        resolution = resolve_reference(self.book, self.binding["hcid"], "apply-tx", "do it", self.workspace)
+        from runtime_info import request_for
+        request = request_for("do it", [], reference_binding=resolution["binding"])
+        self.assertEqual(request, {"name": "apply_plan", "plan_id": plan_id})
+
+    def test_plan_binding_cannot_be_retyped_as_file_authority(self):
+        self._plan()
+        resolution = resolve_reference(self.book, self.binding["hcid"], "apply-tx", "do it", self.workspace)
+        binding = dict(resolution["binding"])
+        binding["kind"] = "file"
+        from references import validate_reference_binding
+        with self.assertRaisesRegex(PermissionError, "kind"):
+            validate_reference_binding(self.book, binding, self.binding["hcid"], "read that file")
+
+
+class ContextReferenceExplicitAuthorityTests(unittest.TestCase):
+    setUp = test_runtime.RuntimeTests.setUp
+    tearDown = test_runtime.RuntimeTests.tearDown
+
+    def test_explicit_apply_command_is_never_reference_resolved(self):
+        from references import reference_intent
+        self.assertIsNone(reference_intent('/apply PLAN-EXACT-123'))
+        self.assertIsNone(reference_intent('/undo PLAN-EXACT-123'))

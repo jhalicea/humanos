@@ -18,7 +18,7 @@ def task_scope(row, workspace, version=4, reference_binding=None):
         deictic = value.casefold() in ('it', 'that', 'this', 'file', 'one', 'the')
         if value and not deictic and ('.' in value or '/' in value or previous in ('read', 'open', 'inspect', 'view', 'cat')):
             paths.append(value)
-    if version >= 5 and reference_binding:
+    if version >= 5 and reference_binding and reference_binding.get('kind', 'file') == 'file':
         paths.append(reference_binding['path'])
     file_read = bool(re.search(r'\b(read|open|inspect|show|view|cat)\b', text, re.I))
     listing = bool(re.search(r'\b(list|files|workspace|folder|directory)\b', text, re.I))
