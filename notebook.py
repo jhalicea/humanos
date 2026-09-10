@@ -10,6 +10,7 @@ import json
 import os
 import sqlite3
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from audit import AuditEvent, hash_event, verify_chain
@@ -22,6 +23,17 @@ def now():
 
 
 DIGEST_PREFIX = 'hmac-sha256:'
+RECORD_INTEGRITY_PREFIX = 'hmac-sha256-record-v1:'
+RECORD_INTEGRITY_VERSION = 1
+RECORD_INTEGRITY_POLICY = 'required-v1'
+RECORD_INTEGRITY_DOMAIN = b'HumanOS transcript record envelope v1\x00'
+RECORD_POLICY_PREFIX = 'hmac-sha256-policy-v1:'
+RECORD_POLICY_DOMAIN = b'HumanOS transcript record policy v1\x00'
+REQUIRED_RECORD_TRIGGERS = {
+    'transcript_require_record_integrity',
+    'transcript_seq_monotonic',
+    'transcript_seq_matches_counter',
+}
 
 
 def digest(text):
@@ -58,6 +70,7 @@ class Notebook:
           PRAGMA journal_mode=WAL;
           PRAGMA synchronous=FULL;
           PRAGMA foreign_keys=ON;
+          PRAGMA busy_timeout=5000;
           CREATE TABLE IF NOT EXISTS identities(
             hcid TEXT PRIMARY KEY, owner TEXT NOT NULL, page TEXT UNIQUE NOT NULL,
             binding TEXT NOT NULL, opening_hash TEXT NOT NULL, created TEXT NOT NULL);
@@ -95,6 +108,10 @@ class Notebook:
         try:
             # Reject a replaced key before recover() or any later code can append evidence.
             bind_integrity_key(self.db, self.integrity_key)
+            self._migrate_record_integrity()
+            self._record_trigger_snapshot_at_start = self._record_trigger_snapshot()
+            if self._record_trigger_snapshot_at_start is None:
+                raise RuntimeError('Record integrity enforcement trigger set is incomplete after startup')
         except BaseException:
             self.db.close()
             self.lock.close()
@@ -115,6 +132,291 @@ class Notebook:
             return hmac.compare_digest(stored, self.content_digest(text))
         # Backward compatibility only: old vault rows used naked SHA-256.
         return hmac.compare_digest(stored, digest(text))
+
+    @contextmanager
+    def _immediate(self):
+        """One SQLite write transaction with the write lock acquired up front."""
+        if self.db.in_transaction:
+            raise RuntimeError('Nested HumanOS write transaction is not allowed')
+        self.db.execute('BEGIN IMMEDIATE')
+        try:
+            yield
+        except BaseException:
+            self.db.rollback()
+            raise
+        else:
+            self.db.commit()
+
+    def _meta(self, key):
+        row = self.db.execute('SELECT value FROM runtime_meta WHERE key=?', (key,)).fetchone()
+        return row[0] if row else None
+
+    def _canonical(self, value):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+
+    def _record_policy_proof(self, activation_seq, legacy_row_count, integrity_key_id):
+        payload = {
+            'policy': RECORD_INTEGRITY_POLICY,
+            'record_integrity_version': RECORD_INTEGRITY_VERSION,
+            'activation_seq': int(activation_seq),
+            'legacy_row_count': int(legacy_row_count),
+            'integrity_key_id': integrity_key_id,
+        }
+        mac = hmac.new(
+            self.integrity_key,
+            RECORD_POLICY_DOMAIN + self._canonical(payload).encode('utf-8'),
+            hashlib.sha256,
+        ).hexdigest()
+        return RECORD_POLICY_PREFIX + mac
+
+    def _record_integrity(self, seq, tx, ordinal, role, content_digest, created):
+        envelope = {
+            'record_type': 'TRANSCRIPT',
+            'record_integrity_version': RECORD_INTEGRITY_VERSION,
+            'seq': int(seq),
+            'tx': tx,
+            'ordinal': int(ordinal),
+            'role': role,
+            'content_digest': content_digest,
+            'created': created,
+        }
+        mac = hmac.new(
+            self.integrity_key,
+            RECORD_INTEGRITY_DOMAIN + self._canonical(envelope).encode('utf-8'),
+            hashlib.sha256,
+        ).hexdigest()
+        return RECORD_INTEGRITY_PREFIX + mac
+
+    def _create_record_integrity_triggers(self):
+        self.db.execute("""CREATE TRIGGER IF NOT EXISTS transcript_require_record_integrity
+            BEFORE INSERT ON transcript
+            WHEN (
+                 NEW.record_integrity IS NULL
+                 OR NEW.record_integrity_version IS NULL
+                 OR NEW.record_integrity_version != 1
+                 OR length(NEW.record_integrity) != 86
+                 OR NEW.record_integrity NOT LIKE 'hmac-sha256-record-v1:%'
+             )
+            BEGIN
+                SELECT RAISE(ABORT, 'HumanOS Security Violation: transcript record envelope required');
+            END""")
+        self.db.execute("""CREATE TRIGGER IF NOT EXISTS transcript_seq_monotonic
+            BEFORE INSERT ON transcript
+            WHEN NEW.seq <= (SELECT COALESCE(MAX(seq), 0) FROM transcript)
+            BEGIN
+                SELECT RAISE(ABORT, 'HumanOS Security Violation: transcript seq not monotonic');
+            END""")
+        self.db.execute("""CREATE TRIGGER IF NOT EXISTS transcript_seq_matches_counter
+            BEFORE INSERT ON transcript
+            WHEN (SELECT COUNT(*) FROM transcript_sequence WHERE id=1) != 1
+              OR NEW.seq != (SELECT next_seq - 1 FROM transcript_sequence WHERE id=1)
+            BEGIN
+                SELECT RAISE(ABORT, 'HumanOS Security Violation: transcript seq does not match reserved counter');
+            END""")
+
+    def _record_trigger_snapshot(self):
+        names = tuple(sorted(REQUIRED_RECORD_TRIGGERS))
+        placeholders = ','.join('?' for _ in names)
+        rows = list(self.db.execute(
+            "SELECT name,sql FROM sqlite_master WHERE type='trigger' AND name IN ("
+            + placeholders + ') ORDER BY name', names
+        ))
+        if len(rows) != len(names):
+            return None
+        return tuple((row['name'], row['sql']) for row in rows)
+
+    def _verify_policy(self):
+        policy = self._meta('record_integrity_policy')
+        activation = self._meta('record_integrity_activation_seq')
+        legacy_count = self._meta('record_integrity_legacy_row_count')
+        proof = self._meta('record_integrity_policy_proof')
+        key_identity = self._meta('integrity_key_id')
+        if (policy != RECORD_INTEGRITY_POLICY or activation is None or legacy_count is None
+                or proof is None or key_identity is None):
+            raise RuntimeError('Record integrity policy metadata is missing or downgraded')
+        try:
+            activation_seq = int(activation)
+            legacy_row_count = int(legacy_count)
+        except (TypeError, ValueError) as error:
+            raise RuntimeError('Record integrity activation boundary or legacy row count is invalid') from error
+        if activation_seq < 0 or legacy_row_count < 0 or legacy_row_count > activation_seq:
+            raise RuntimeError('Record integrity activation boundary or legacy row count is invalid')
+        expected = self._record_policy_proof(activation_seq, legacy_row_count, key_identity)
+        if not isinstance(proof, str) or not hmac.compare_digest(proof, expected):
+            raise RuntimeError('Record integrity policy authentication failed')
+        return activation_seq
+
+    def _verify_record_integrity(self, row, activation_seq):
+        stored = row['record_integrity']
+        version = row['record_integrity_version']
+        required = row['seq'] > activation_seq
+        if stored is None and version is None:
+            if required:
+                raise RuntimeError('Transcript record envelope missing after activation boundary')
+            return 'CONTENT_VERIFIED_METADATA_LEGACY'
+        if stored is None or version is None:
+            raise RuntimeError('Transcript record integrity is partial')
+        if version != RECORD_INTEGRITY_VERSION:
+            raise RuntimeError('Unsupported transcript record integrity version')
+        if (not isinstance(stored, str) or not stored.startswith(RECORD_INTEGRITY_PREFIX)
+                or len(stored) != len(RECORD_INTEGRITY_PREFIX) + 64):
+            raise RuntimeError('Transcript record integrity encoding is invalid')
+        expected = self._record_integrity(
+            row['seq'], row['tx'], row['ordinal'], row['role'], row['sha256'], row['created']
+        )
+        if not hmac.compare_digest(stored, expected):
+            raise RuntimeError('Transcript record integrity mismatch')
+        return 'ENVELOPE_VERIFIED'
+
+    def _verify_record_state(self, require_triggers=True):
+        activation_seq = self._verify_policy()
+        tables = {row[0] for row in self.db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )}
+        if 'transcript_sequence' not in tables:
+            raise RuntimeError('Transcript sequence counter table is missing')
+        counter_rows = list(self.db.execute('SELECT id,next_seq FROM transcript_sequence'))
+        if len(counter_rows) != 1 or counter_rows[0]['id'] != 1:
+            raise RuntimeError('Transcript sequence counter row is missing or invalid')
+        next_seq = counter_rows[0]['next_seq']
+        if isinstance(next_seq, bool) or not isinstance(next_seq, int) or next_seq < 1:
+            raise RuntimeError('Transcript sequence counter value is invalid')
+        max_seq = self.db.execute('SELECT COALESCE(MAX(seq),0) FROM transcript').fetchone()[0]
+        if next_seq != max_seq + 1:
+            raise RuntimeError('Transcript sequence continuity mismatch')
+        if max_seq < activation_seq:
+            raise RuntimeError('Transcript sequence is below authenticated activation boundary')
+        expected_legacy_count = int(self._meta('record_integrity_legacy_row_count'))
+        actual_legacy_count = self.db.execute(
+            'SELECT COUNT(*) FROM transcript WHERE seq <= ?', (activation_seq,)
+        ).fetchone()[0]
+        if actual_legacy_count != expected_legacy_count:
+            raise RuntimeError('Legacy transcript row count mismatch')
+        post_count = self.db.execute(
+            'SELECT COUNT(*) FROM transcript WHERE seq > ?', (activation_seq,)
+        ).fetchone()[0]
+        if post_count != max_seq - activation_seq:
+            raise RuntimeError('Transcript sequence gap detected after activation boundary')
+        for row in self.db.execute('SELECT * FROM transcript ORDER BY seq'):
+            if not self.digest_matches(row['sha256'], row['text']):
+                raise RuntimeError('Transcript hash mismatch')
+            self._verify_record_integrity(row, activation_seq)
+        if require_triggers:
+            triggers = {row[0] for row in self.db.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger'"
+            )}
+            missing = REQUIRED_RECORD_TRIGGERS - triggers
+            if missing:
+                raise RuntimeError('Record integrity enforcement trigger missing: ' + ','.join(sorted(missing)))
+        return True
+
+    def _migrate_record_integrity(self):
+        columns = {row['name'] for row in self.db.execute('PRAGMA table_info(transcript)')}
+        have_integrity = 'record_integrity' in columns
+        have_version = 'record_integrity_version' in columns
+        if have_integrity != have_version:
+            raise RuntimeError('Partial record integrity schema detected')
+
+        policy = self._meta('record_integrity_policy')
+        if not have_integrity:
+            if policy is not None:
+                raise RuntimeError('Record integrity policy exists without required schema')
+            with self._immediate():
+                self.db.execute('ALTER TABLE transcript ADD COLUMN record_integrity TEXT')
+                self.db.execute('ALTER TABLE transcript ADD COLUMN record_integrity_version INTEGER')
+                self.db.execute("""CREATE TABLE transcript_sequence(
+                    id INTEGER PRIMARY KEY CHECK(id=1),
+                    next_seq INTEGER NOT NULL CHECK(next_seq >= 1)
+                )""")
+                activation_seq = self.db.execute(
+                    'SELECT COALESCE(MAX(seq),0) FROM transcript'
+                ).fetchone()[0]
+                legacy_row_count = self.db.execute(
+                    'SELECT COUNT(*) FROM transcript WHERE seq <= ?', (activation_seq,)
+                ).fetchone()[0]
+                self.db.execute(
+                    'INSERT INTO transcript_sequence(id,next_seq) VALUES(1,?)',
+                    (activation_seq + 1,),
+                )
+                key_identity = self._meta('integrity_key_id')
+                proof = self._record_policy_proof(activation_seq, legacy_row_count, key_identity)
+                self.db.execute(
+                    'INSERT INTO runtime_meta(key,value) VALUES(?,?)',
+                    ('record_integrity_policy', RECORD_INTEGRITY_POLICY),
+                )
+                self.db.execute(
+                    'INSERT INTO runtime_meta(key,value) VALUES(?,?)',
+                    ('record_integrity_activation_seq', str(activation_seq)),
+                )
+                self.db.execute(
+                    'INSERT INTO runtime_meta(key,value) VALUES(?,?)',
+                    ('record_integrity_legacy_row_count', str(legacy_row_count)),
+                )
+                self.db.execute(
+                    'INSERT INTO runtime_meta(key,value) VALUES(?,?)',
+                    ('record_integrity_policy_proof', proof),
+                )
+                self._create_record_integrity_triggers()
+            return
+
+        # Existing upgraded state must be internally valid before canonical
+        # enforcement triggers are restored. Replacing same-name/no-op triggers
+        # prevents a stale or substituted definition surviving a clean restart.
+        self._verify_record_state(require_triggers=False)
+        with self._immediate():
+            for trigger_name in sorted(REQUIRED_RECORD_TRIGGERS):
+                self.db.execute('DROP TRIGGER IF EXISTS ' + trigger_name)
+            self._create_record_integrity_triggers()
+        self._verify_record_state(require_triggers=True)
+
+    def _assert_record_write_boundary(self):
+        """O(1) fail-closed guard for mutable enforcement state before append."""
+        if not self.db.in_transaction:
+            raise RuntimeError('Record integrity write-boundary check requires an active transaction')
+        self._verify_policy()
+        expected_triggers = getattr(self, '_record_trigger_snapshot_at_start', None)
+        current_triggers = self._record_trigger_snapshot()
+        if expected_triggers is None or current_triggers != expected_triggers:
+            raise RuntimeError('Record integrity enforcement trigger definition changed after Notebook startup')
+        counter_rows = list(self.db.execute('SELECT id,next_seq FROM transcript_sequence'))
+        if len(counter_rows) != 1 or counter_rows[0]['id'] != 1:
+            raise RuntimeError('Transcript sequence counter row is missing or invalid before write')
+        next_seq = counter_rows[0]['next_seq']
+        if isinstance(next_seq, bool) or not isinstance(next_seq, int) or next_seq < 1:
+            raise RuntimeError('Transcript sequence counter value is invalid before write')
+        max_seq = self.db.execute('SELECT COALESCE(MAX(seq),0) FROM transcript').fetchone()[0]
+        if next_seq != max_seq + 1:
+            raise RuntimeError('Transcript sequence continuity mismatch before write')
+
+    def _reserve_transcript_seq(self):
+        if not self.db.in_transaction:
+            raise RuntimeError('Transcript sequence allocation requires an active transaction')
+        self._assert_record_write_boundary()
+        changed = self.db.execute(
+            'UPDATE transcript_sequence SET next_seq = next_seq + 1 WHERE id=1'
+        ).rowcount
+        if changed != 1:
+            raise RuntimeError('Transcript sequence counter allocation failed')
+        row = self.db.execute(
+            'SELECT next_seq - 1 FROM transcript_sequence WHERE id=1'
+        ).fetchone()
+        if row is None:
+            raise RuntimeError('Transcript sequence counter row is missing')
+        return row[0]
+
+    def _insert_transcript(self, tx, ordinal, role, text):
+        seq = self._reserve_transcript_seq()
+        stamp = now()
+        content_digest = self.content_digest(text)
+        record_integrity = self._record_integrity(
+            seq, tx, ordinal, role, content_digest, stamp
+        )
+        self.db.execute("""INSERT INTO transcript(
+            seq,tx,ordinal,role,text,sha256,created,record_integrity,record_integrity_version
+        ) VALUES(?,?,?,?,?,?,?,?,?)""", (
+            seq, tx, ordinal, role, text, content_digest, stamp,
+            record_integrity, RECORD_INTEGRITY_VERSION,
+        ))
 
     def close(self):
         self.db.close()
@@ -192,11 +494,10 @@ class Notebook:
             # Transcript sequence still records the order in which messages are
             # actually captured, including a late response to an older turn.
             self.verify()
-            with self.db:
+            with self._immediate():
                 self.db.execute('INSERT INTO transactions VALUES(?,?,?,?,?)',
                                 (tx, hcid, user_input, 'STARTED', now()))
-                self.db.execute('INSERT INTO transcript(tx,ordinal,role,text,sha256,created) VALUES(?,?,?,?,?,?)',
-                                (tx, 0, 'HUMAN', user_input, self.content_digest(user_input), now()))
+                self._insert_transcript(tx, 0, 'HUMAN', user_input)
             self.project()
             self.verify()
             return dict(self.db.execute('SELECT * FROM transactions WHERE tx=?', (tx,)).fetchone())
@@ -221,9 +522,8 @@ class Notebook:
         expected = self.db.execute('SELECT COUNT(*) FROM transcript WHERE tx=?', (tx,)).fetchone()[0]
         if ordinal != expected:
             raise ValueError('Transcript ordinal must preserve order')
-        with self.db:
-            self.db.execute('INSERT INTO transcript(tx,ordinal,role,text,sha256,created) VALUES(?,?,?,?,?,?)',
-                            (tx, ordinal, role, text, self.content_digest(text), now()))
+        with self._immediate():
+            self._insert_transcript(tx, ordinal, role, text)
 
     def save_task(self, tx, state):
         with self.db:
@@ -294,10 +594,9 @@ class Notebook:
                       failure_finalized=True, failure_reason=str(reason), failure_closed_at=now(),
                       failure_snapshot=original, failure_transaction_status=transaction['status'])
         try:
-            with self.db:
+            with self._immediate():
                 if not prior:
-                    self.db.execute('INSERT INTO transcript(tx,ordinal,role,text,sha256,created) VALUES(?,?,?,?,?,?)',
-                                    (tx, ordinal, 'ASSISTANT', message, self.content_digest(message), now()))
+                    self._insert_transcript(tx, ordinal, 'ASSISTANT', message)
                 self.db.execute('INSERT OR REPLACE INTO tasks VALUES(?,?)', (tx, encode(closed)))
                 self.db.execute("INSERT INTO recovery(tx,error,created,scope) VALUES(?,?,?,'TASK')",
                                 (tx, outcome + ': ' + str(reason), now()))
@@ -477,9 +776,7 @@ class Notebook:
                  for r in self.db.execute('SELECT * FROM events ORDER BY seq')]
         if not verify_chain(chain):
             raise RuntimeError('Audit chain verification failed')
-        for row in self.db.execute('SELECT text,sha256 FROM transcript'):
-            if not self.digest_matches(row['sha256'], row['text']):
-                raise RuntimeError('Transcript hash mismatch')
+        self._verify_record_state(require_triggers=True)
         for name, expected in self.projections().items():
             if (self.root / name).read_bytes() != expected.encode('utf-8'):
                 raise RuntimeError('Notebook readback mismatch: ' + name)
