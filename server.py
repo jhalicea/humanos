@@ -7,8 +7,10 @@ import uuid
 from pathlib import Path
 from notebook import Notebook
 from engine import Agent, OllamaModel, Tools, load_context
+from permissions import task_scope
 from references import bind_choice, resolve_reference
 from terminal_ui import choose_reference
+from work_mode import WorkBoard, WorkContextModel, parse_work_command
 
 BASE = Path(__file__).resolve().parent
 
@@ -34,6 +36,15 @@ class HumanOSRuntime:
         self.agent = Agent(self.book, self.adapter, self.tools, self.core_path,
                            max_steps=config.get('max_steps', 6), max_seconds=config.get('max_seconds', 180),
                            finalize_on_error=True)
+        self.work = WorkBoard(self.book)
+        self.work_max_steps = config.get('work_max_steps', 12)
+        self.work_max_seconds = config.get('work_max_seconds', 600)
+        if (not isinstance(self.work_max_steps, int) or isinstance(self.work_max_steps, bool) or
+                not 1 <= self.work_max_steps <= 40):
+            raise ValueError('work_max_steps must be an integer from 1 to 40')
+        if (not isinstance(self.work_max_seconds, int) or isinstance(self.work_max_seconds, bool) or
+                not 30 <= self.work_max_seconds <= 3600):
+            raise ValueError('work_max_seconds must be an integer from 30 to 3600')
 
     def load_system_context(self):
         return load_context(self.core_path, [])
@@ -75,6 +86,57 @@ class HumanOSRuntime:
         self.book.verify()
         return answer == 'yes'
 
+    def _host_final(self, tx, hcid, text, response):
+        """Capture deterministic host UI answers with normal Notebook durability."""
+        self.book.start(hcid, tx, text)
+        state = self.book.task(tx)
+        if state and state.get('phase') == 'COMPLETE':
+            self.book.checkpoint(tx)
+            return state['final']
+        if state:
+            raise RuntimeError('Host-control transaction already has unfinished task state')
+        row = self.book.get_transaction(tx)
+        state = {'phase': 'FINAL', 'steps': 0, 'elapsed': 0, 'model': self.adapter.name,
+                 'messages': [], 'context': {'host_direct': 'WORK_CONTROL'},
+                 'workspace': str(self.tools.workspace),
+                 'permissions': task_scope(row, self.tools.workspace),
+                 'reference_binding': None, 'approvals': [], 'final': response,
+                 'final_ordinal': self.book.message_count(tx)}
+        self.book.save_task(tx, state)
+        self.book.append(tx, state['final_ordinal'], 'ASSISTANT', response)
+        state['phase'] = 'COMPLETE'
+        state['delivery'] = 'PREPARED_NOT_CONFIRMED'
+        self.book.save_task(tx, state)
+        self.book.event(tx, 'HOST_FINAL_CAPTURED', {
+            'kind': 'WORK_CONTROL', 'final_digest': self.book.content_digest(response)})
+        self.book.checkpoint(tx)
+        return response
+
+    def _work_agent(self, item):
+        briefing = self.work.briefing(item['work_id'], item['owner'])
+        model = WorkContextModel(self.adapter, briefing)
+        return Agent(self.book, model, self.tools, self.core_path,
+                     max_steps=self.work_max_steps, max_seconds=self.work_max_seconds,
+                     finalize_on_error=True)
+
+    def _choose_work(self, owner, requested=None, prompt='Which work item do you mean?', interactive=True):
+        if requested:
+            self.work.get(requested, owner)
+            return requested
+        candidates = self.work.choose_candidates(owner)
+        if len(candidates) == 1:
+            return candidates[0]
+        if len(candidates) > 1 and interactive and sys.stdin.isatty():
+            return choose_reference(candidates, prompt=prompt)
+        return None
+
+    def _finish_work(self, item, tx, response):
+        state = self.book.task(tx) or {}
+        failed = bool(state.get('failure_finalized') or state.get('outcome') in ('FAILED', 'NEEDS_RECONCILIATION'))
+        updated = self.work.finish_turn(item['work_id'], item['owner'], tx, response, failed=failed)
+        print('Work: ' + updated['work_id'] + ' | ' + updated['status'], file=sys.stderr)
+        return updated
+
     def run(self, args):
         if args.status:
             self.book.verify()
@@ -89,8 +151,12 @@ class HumanOSRuntime:
             self.deliver(tx, final)
             return
         if args.resume:
-            self.agent.authorize = lambda request: self.authorize(args.resume, request)
-            response = self.agent.run(args.resume)
+            item = self.work.by_tx(args.resume)
+            agent = self._work_agent(item) if item else self.agent
+            agent.authorize = lambda request: self.authorize(args.resume, request)
+            response = agent.run(args.resume)
+            if item:
+                self._finish_work(item, args.resume, response)
             self.deliver(args.resume, response)
             return
         if any((self.book.task(t['tx']) or {}).get('phase') != 'EXTERNAL_CAPTURE_PENDING' for t in self.pending):
@@ -100,6 +166,7 @@ class HumanOSRuntime:
         if self.tools.manager.pending():
             print('A file plan needs review; use --status for its ID and folder. No moves were replayed on startup.', file=sys.stderr)
         while True:
+            active_work = None
             try:
                 text = args.message if args.message is not None else input('HUMAN: ')
                 if text.lower() in ('exit', 'quit') and args.message is None:
@@ -111,6 +178,63 @@ class HumanOSRuntime:
                     print('Life Notebook page: ' + binding['page'], file=sys.stderr)
                 tx = args.tx or 'TX-' + uuid.uuid4().hex
                 print('Transaction: ' + tx, file=sys.stderr)
+                owner = binding['owner']
+                work_command = parse_work_command(text)
+                if work_command:
+                    action = work_command['action']
+                    if action == 'list':
+                        response = self._host_final(tx, binding['hcid'], text, self.work.format_list(owner))
+                        self.deliver(tx, response)
+                    elif action == 'status':
+                        item = self.work.get(work_command['work_id'], owner)
+                        response = self._host_final(tx, binding['hcid'], text, self.work.format_item(item))
+                        self.deliver(tx, response)
+                    elif action in ('cancel', 'done'):
+                        work_id = self._choose_work(owner, work_command.get('work_id'),
+                                                   prompt='Which work item should I ' + action + '?',
+                                                   interactive=args.message is None)
+                        if work_id is None:
+                            message = (self.work.format_list(owner) + '\nChoose a WORK-ID explicitly.'
+                                       if self.work.choose_candidates(owner) else 'There is no active delegated work to ' + action + '.')
+                            response = self._host_final(tx, binding['hcid'], text, message)
+                        else:
+                            status = 'CANCELLED' if action == 'cancel' else 'DONE'
+                            item = self.work.set_status(work_id, owner, status, tx=tx)
+                            response = self._host_final(tx, binding['hcid'], text, self.work.format_item(item))
+                        self.deliver(tx, response)
+                    elif action == 'start':
+                        self.book.start(binding['hcid'], tx, text)
+                        active_work = self.work.create(owner, binding['hcid'], work_command['goal'], tx, text)
+                        print('Work accepted: ' + active_work['work_id'] + ' | RUNNING', file=sys.stderr)
+                        agent = self._work_agent(active_work)
+                        agent.authorize = lambda request: self.authorize(tx, request)
+                        response = agent.run(tx)
+                        self._finish_work(active_work, tx, response)
+                        active_work = None
+                        self.deliver(tx, response)
+                    else:  # continue
+                        work_id = self._choose_work(owner, work_command.get('work_id'),
+                                                   prompt='Which work item should I continue?',
+                                                   interactive=args.message is None)
+                        if work_id is None:
+                            message = (self.work.format_list(owner) + '\nChoose a WORK-ID explicitly.'
+                                       if self.work.choose_candidates(owner) else 'There is no active delegated work to continue.')
+                            response = self._host_final(tx, binding['hcid'], text, message)
+                            self.deliver(tx, response)
+                        else:
+                            self.book.start(binding['hcid'], tx, text)
+                            active_work = self.work.begin_turn(work_id, owner, binding['hcid'], tx, text)
+                            print('Work continuing: ' + active_work['work_id'] + ' | RUNNING', file=sys.stderr)
+                            agent = self._work_agent(active_work)
+                            agent.authorize = lambda request: self.authorize(tx, request)
+                            response = agent.run(tx)
+                            self._finish_work(active_work, tx, response)
+                            active_work = None
+                            self.deliver(tx, response)
+                    if args.message is not None:
+                        return
+                    continue
+
                 self.agent.authorize = lambda request: self.authorize(tx, request)
                 reference_binding = None
                 resolution = resolve_reference(self.book, binding['hcid'], tx, text, self.tools.workspace)
@@ -133,6 +257,12 @@ class HumanOSRuntime:
                 print('\nStopped. Any unfinished transaction remains recoverable.', file=sys.stderr)
                 return
             except Exception as error:
+                if active_work:
+                    try:
+                        self.work.finish_turn(active_work['work_id'], active_work['owner'], tx,
+                                              'Runtime error: ' + str(error), failed=True)
+                    except Exception:
+                        pass
                 if args.message is not None:
                     raise
                 print('HumanOS needs attention: ' + str(error) + '\nYou can continue chatting. To manage an older task, exit and use --close-task TX-ID or --resume TX-ID.', file=sys.stderr)
