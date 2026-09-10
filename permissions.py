@@ -4,7 +4,7 @@ import shlex
 from notebook import digest
 
 
-def task_scope(row, workspace, version=3):
+def task_scope(row, workspace, version=4):
     text = row['input']
     try:
         tokens = shlex.split(text)
@@ -40,13 +40,15 @@ def task_scope(row, workspace, version=3):
     if version >= 3:
         scope['contextual_paths'] = [direct.get('path', '.')] if direct.get('name') in (
             'understand_file', 'plan_contextual_organization', 'plan_inbox_organization') else []
+    if version >= 4:
+        scope['recall_request'] = direct if direct.get('name') == 'recall_notebook' else None
     return scope
 
 
 def validate_scope(scope, row, workspace):
     # The source input remains immutable. Reject altered/unsupported saved policy;
     # do not silently widen a task when implementation defaults change.
-    if scope.get('version') not in (1, 2, 3):
+    if scope.get('version') not in (1, 2, 3, 4):
         raise PermissionError('Unsupported saved task policy version')
     expected = task_scope(row, workspace, scope['version'])
     if scope != expected:
@@ -69,4 +71,6 @@ def allows_read(scope, request):
         return request == scope.get('move_request')
     if name in ('understand_file', 'plan_contextual_organization', 'plan_inbox_organization'):
         return request.get('path', '.') in scope.get('contextual_paths', [])
+    if name == 'recall_notebook':
+        return scope.get('version', 0) >= 4 and request == scope.get('recall_request')
     return name in scope['runtime_reads']
