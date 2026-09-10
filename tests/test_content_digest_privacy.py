@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import sqlite3
 import stat
 import tempfile
 import unittest
@@ -69,16 +70,39 @@ class ContentDigestPrivacyTests(unittest.TestCase):
             book.close()
 
     def test_legacy_sha256_transcript_remains_verifiable(self):
-        book = self.new_book()
+        vault = Path(self.tmp.name) / 'legacy-vault'
+        runtime = vault / 'runtime'
+        runtime.mkdir(parents=True, mode=0o700)
+        db = sqlite3.connect(runtime / 'notebook.sqlite3')
         try:
-            ident = book.bind('Jon', 'opening')
+            db.executescript("""
+                CREATE TABLE identities(
+                  hcid TEXT PRIMARY KEY, owner TEXT NOT NULL, page TEXT UNIQUE NOT NULL,
+                  binding TEXT NOT NULL, opening_hash TEXT NOT NULL, created TEXT NOT NULL);
+                CREATE TABLE transactions(
+                  tx TEXT PRIMARY KEY, hcid TEXT NOT NULL REFERENCES identities(hcid),
+                  input TEXT NOT NULL, status TEXT NOT NULL, created TEXT NOT NULL);
+                CREATE TABLE transcript(
+                  seq INTEGER PRIMARY KEY AUTOINCREMENT, tx TEXT NOT NULL REFERENCES transactions(tx),
+                  ordinal INTEGER NOT NULL, role TEXT NOT NULL, text TEXT NOT NULL,
+                  sha256 TEXT NOT NULL, created TEXT NOT NULL, UNIQUE(tx,ordinal));
+            """)
             text = 'legacy row'
-            with book.db:
-                book.db.execute('INSERT INTO transactions VALUES(?,?,?,?,?)',
-                                ('legacy', ident['hcid'], text, 'STARTED', 'legacy-time'))
-                book.db.execute('INSERT INTO transcript(tx,ordinal,role,text,sha256,created) VALUES(?,?,?,?,?,?)',
-                                ('legacy', 0, 'HUMAN', text, digest(text), 'legacy-time'))
+            db.execute('INSERT INTO identities VALUES(?,?,?,?,?,?)',
+                       ('legacy-hcid', 'Jon', 'legacy-page', 'VERIFIED', digest('opening'), 'legacy-time'))
+            db.execute('INSERT INTO transactions VALUES(?,?,?,?,?)',
+                       ('legacy', 'legacy-hcid', text, 'STARTED', 'legacy-time'))
+            db.execute('INSERT INTO transcript(tx,ordinal,role,text,sha256,created) VALUES(?,?,?,?,?,?)',
+                       ('legacy', 0, 'HUMAN', text, digest(text), 'legacy-time'))
+            db.commit()
+        finally:
+            db.close()
+        book = Notebook(vault)
+        try:
             book.project()
+            row = book.db.execute("SELECT * FROM transcript WHERE tx='legacy'").fetchone()
+            self.assertIsNone(row['record_integrity'])
+            self.assertIsNone(row['record_integrity_version'])
             self.assertTrue(book.verify())
         finally:
             book.close()
