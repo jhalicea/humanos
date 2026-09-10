@@ -17,6 +17,7 @@ from audit import AuditEvent, hash_event, verify_chain
 from audit_privacy import assert_content_light, request_summary
 from integrity_lifecycle import bind_integrity_key, load_or_create_integrity_key
 from recovery_ledger import parse_recovery_file, validate_recovery_appendable_bytes
+from recovery_continuation import verify_active_recovery_continuation
 
 
 def now():
@@ -113,6 +114,7 @@ class Notebook:
             self._record_trigger_snapshot_at_start = self._record_trigger_snapshot()
             if self._record_trigger_snapshot_at_start is None:
                 raise RuntimeError('Record integrity enforcement trigger set is incomplete after startup')
+            verify_active_recovery_continuation(self.root, self.integrity_key)
         except BaseException:
             self.db.close()
             self.lock.close()
