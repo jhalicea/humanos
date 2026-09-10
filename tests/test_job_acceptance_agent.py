@@ -38,6 +38,7 @@ class SequenceModel:
 
 class AgentAcceptanceIntegrationTests(unittest.TestCase):
     def test_a4_bad_final_is_retried_without_fake_model_call_for_host_evidence(self):
+        """Regression for the real A4 failure: host evidence is not a model call."""
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             vault = root / "vault"
