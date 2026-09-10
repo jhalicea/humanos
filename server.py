@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 from notebook import Notebook
 from engine import Agent, OllamaModel, Tools, load_context
+from job_acceptance import AcceptanceModel
 from permissions import task_scope
 from references import bind_choice, resolve_reference
 from terminal_ui import choose_reference
@@ -91,7 +92,7 @@ class HumanOSRuntime:
             b = config['browser']
             browser = BrowserBroker(b['envelope'], b['state'], bridge_sender(b['socket'], b['secret']))
         self.tools = Tools(config.get('workspace', BASE / 'workspace'), browser=browser)
-        self.adapter = OllamaModel(self.model, self.ollama_url)
+        self.adapter = AcceptanceModel(OllamaModel(self.model, self.ollama_url))
         self.agent = Agent(self.book, self.adapter, self.tools, self.core_path,
                            max_steps=config.get('max_steps', 6), max_seconds=config.get('max_seconds', 180),
                            finalize_on_error=True)
