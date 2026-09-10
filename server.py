@@ -115,7 +115,7 @@ class HumanOSRuntime:
                 reference_binding = None
                 resolution = resolve_reference(self.book, binding['hcid'], tx, text, self.tools.workspace)
                 if resolution.get('status') == 'ambiguous' and sys.stdin.isatty() and args.message is None:
-                    choice = choose_reference(resolution['candidates'])
+                    choice = choose_reference(resolution['candidates'], prompt=resolution.get('prompt', 'Which item do you mean?'))
                     if choice is None:
                         print('Reference selection cancelled.', file=sys.stderr)
                         continue

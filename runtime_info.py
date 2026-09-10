@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 from capabilities import summary
 from notebook_recall import format_recall, search_notebook
-from references import simple_reference_read
+from references import simple_plan_reference_action, simple_reference_read
 
 
 def recent(book, hcid, exclude_tx, limit=12, budget=8000):
@@ -48,8 +48,12 @@ def request_for(text, history, reference_binding=None):
         words = shlex.split(text)
     except ValueError:
         words = []
-    if reference_binding and simple_reference_read(text):
+    if reference_binding and reference_binding.get('kind', 'file') == 'file' and simple_reference_read(text):
         return {'name': 'read_file', 'path': reference_binding['path']}
+    if reference_binding and reference_binding.get('kind') == 'plan' and simple_plan_reference_action(text):
+        lowered = text.casefold()
+        name = 'undo_plan' if re.search(r'\b(undo|revert)\b', lowered) else 'apply_plan'
+        return {'name': name, 'plan_id': reference_binding['path']}
     if re.match(r'^\s*/recall(?:\s|$)', text):
         if not words or words[0] != '/recall':
             return {'name': 'recall_notebook', 'query': ''}
