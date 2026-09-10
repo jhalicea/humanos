@@ -1,0 +1,34 @@
+name: Apply conversational reference patch
+
+on:
+  push:
+    branches: [feature/conversational-reference-binding]
+    paths:
+      - tools/apply_conversational_reference_patch.py
+      - .github/workflows/apply-conversational-reference-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        run: python tools/apply_conversational_reference_patch.py
+      - name: Compile patched Python
+        run: python -m compileall -q .
+      - name: Run regression suite
+        run: python -m unittest discover -s tests -v
+      - name: Commit verified patch
+        run: |
+          git config user.name "HumanOS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add permissions.py runtime_info.py engine.py server.py references.py terminal_ui.py tests/test_references.py
+          git diff --cached --quiet && exit 0
+          git commit -m "Add verified conversational reference binding"
+          git push
