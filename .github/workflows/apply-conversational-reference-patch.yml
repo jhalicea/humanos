@@ -5,6 +5,7 @@ on:
     branches: [feature/conversational-reference-binding]
     paths:
       - tools/apply_conversational_reference_patch.py
+      - tools/fix_conversational_reference_patch.py
       - .github/workflows/apply-conversational-reference-patch.yml
 
 permissions:
@@ -19,7 +20,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Apply patch
-        run: python tools/apply_conversational_reference_patch.py
+        run: |
+          python tools/apply_conversational_reference_patch.py
+          python tools/fix_conversational_reference_patch.py
       - name: Compile patched Python
         run: python -m compileall -q .
       - name: Run regression suite
