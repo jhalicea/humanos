@@ -269,12 +269,16 @@ class WorkContextModel:
             previously = set(self.progress.get('inspected_paths', []))
             current = {request.get('path') for request, _ in evidence if request.get('name') == 'read_file'}
             remaining = [path for path in paths if path not in previously and path not in current]
-            if remaining:
+            current_reads = len([request for request, _ in evidence if request.get('name') == 'read_file'])
+            limit = int(self.contract.get('inspect_limit', MAX_INSPECTIONS_PER_TURN))
+            if remaining and current_reads < limit:
                 return {'name': 'read_file', 'path': remaining[0]}, {
                     'visible_text_files': len(paths),
                     'already_inspected': len(previously | current),
                     'remaining': len(remaining)}
-            return None, {'visible_text_files': len(paths), 'already_inspected': len(previously | current), 'remaining': 0}
+            return None, {'visible_text_files': len(paths),
+                          'already_inspected': len(previously | current),
+                          'remaining': len(remaining)}
 
         if kind == 'file_review':
             required = self.contract.get('required_paths', [])
@@ -320,8 +324,12 @@ class WorkContextModel:
         if 'final' in proposal and checkpoint:
             final = proposal['final'].rstrip()
             if self.contract['kind'] == 'workspace_review':
+                remaining = int(checkpoint.get('remaining', 0))
                 final += ('\n\nWork checkpoint: verified workspace scan completed; '
                           + str(checkpoint.get('already_inspected', 0)) + ' text file(s) inspected in this work history.')
+                if remaining:
+                    final += (' ' + str(remaining) + ' visible text file(s) remain; this is not a complete workspace review. '
+                              'Use continue that work for the next verified batch.')
             elif self.contract['kind'] == 'file_review':
                 final += ('\n\nWork checkpoint: required file inspection evidence satisfied for '
                           + str(checkpoint.get('required_files', 0)) + ' file(s).')
