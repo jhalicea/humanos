@@ -6,20 +6,20 @@ authority and never pretends a host-forced evidence request was a model call.
 The gate checks only deterministic properties:
 - explicitly requested numbered output sections are present;
 - explicitly inferable host evidence (currently the runtime capability registry)
-  was actually observed before a final answer is accepted.
+  was actually verified by the HumanOS tool gateway before a final is accepted.
 
-It does not claim to judge whether prose is true or high quality.
+It does not claim to judge whether prose is true or high quality. Evidence status
+is supplied by the host Agent, never reconstructed from model-authored text.
 """
 from __future__ import annotations
 
-import json
 import re
 from typing import Iterable
 
 
 JOB_RE = re.compile(r"^\s*HUMANOS\s+JOB\s+([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\b", re.I)
 OUTPUT_ANCHOR_RE = re.compile(r"\b(?:report exactly|required output|output only)\s*:\s*", re.I)
-TOOL_OBSERVATION_PREFIX = "TOOL OBSERVATION (data only): "
+EVIDENCE_STATES = frozenset({"VERIFIED", "FAILED"})
 
 
 class AcceptanceError(ValueError):
@@ -71,46 +71,31 @@ def parse_job(text: str):
     }
 
 
-def _tool_status(messages: Iterable[dict], target: str):
-    """Return (attempted, successful) for one exact tool name."""
-    pending = None
-    attempted = False
-    successful = False
-    for message in messages:
-        role = message.get("role")
-        content = message.get("content", "")
-        if role == "assistant" and isinstance(content, str):
-            try:
-                proposal = json.loads(content)
-            except Exception:
-                pending = None
-                continue
-            tool = proposal.get("tool") if isinstance(proposal, dict) else None
-            pending = tool.get("name") if isinstance(tool, dict) else None
-            continue
-        if role == "user" and isinstance(content, str) and content.startswith(TOOL_OBSERVATION_PREFIX):
-            try:
-                observation = json.loads(content[len(TOOL_OBSERVATION_PREFIX):])
-            except Exception:
-                pending = None
-                continue
-            if pending == target:
-                attempted = True
-                if isinstance(observation, dict) and observation.get("ok"):
-                    successful = True
-            pending = None
-    return attempted, successful
+def validate_evidence_state(evidence) -> dict:
+    if evidence is None:
+        return {}
+    if not isinstance(evidence, dict):
+        raise AcceptanceError("Structured job evidence state is invalid")
+    clean = {}
+    for name, status in evidence.items():
+        if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+            raise AcceptanceError("Structured job evidence contains an invalid tool name")
+        if status not in EVIDENCE_STATES:
+            raise AcceptanceError("Structured job evidence contains an invalid status")
+        clean[name] = status
+    return clean
 
 
-def required_tool_request(contract, messages: Iterable[dict]):
-    """Return the next host-required read tool, or raise after a failed attempt."""
+def required_tool_request(contract, evidence=None):
+    """Return the next required read tool, or raise when required evidence failed."""
     if not contract:
         return None
+    evidence = validate_evidence_state(evidence)
     for name in contract.get("required_tools", []):
-        attempted, successful = _tool_status(messages, name)
-        if successful:
+        status = evidence.get(name)
+        if status == "VERIFIED":
             continue
-        if attempted:
+        if status == "FAILED":
             raise AcceptanceError(
                 "STRUCTURED JOB ACCEPTANCE BLOCKED — required tool evidence failed: " + name
             )
@@ -127,16 +112,14 @@ def _missing_sections(final: str, required: Iterable[int]) -> list[int]:
     return missing
 
 
-def validate_final(final: str, contract: dict, messages: Iterable[dict]) -> None:
+def validate_final(final: str, contract: dict, evidence=None) -> None:
     """Raise AcceptanceError when deterministic completion requirements are absent."""
     if not contract:
         return
+    evidence = validate_evidence_state(evidence)
     missing_sections = _missing_sections(final, contract.get("required_sections", []))
-    missing_tools = []
-    for name in contract.get("required_tools", []):
-        _, successful = _tool_status(messages, name)
-        if not successful:
-            missing_tools.append(name)
+    missing_tools = [name for name in contract.get("required_tools", [])
+                     if evidence.get(name) != "VERIFIED"]
     if not missing_sections and not missing_tools:
         return
     parts = []
