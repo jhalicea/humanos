@@ -5,6 +5,7 @@ on:
     branches: [feature/context-reference-engine-v1]
     paths:
       - tools/apply_context_reference_engine_v1.py
+      - tools/fix_context_reference_engine_v1.py
       - .github/workflows/apply-context-reference-engine-v1.yml
 
 permissions:
@@ -19,7 +20,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Apply patch
-        run: python tools/apply_context_reference_engine_v1.py
+        run: |
+          python tools/apply_context_reference_engine_v1.py
+          python tools/fix_context_reference_engine_v1.py
       - name: Compile
         run: python -m compileall -q .
       - name: Run regression suite
