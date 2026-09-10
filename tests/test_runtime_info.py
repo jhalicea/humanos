@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import unittest
 import test_runtime
-from runtime_info import execute, recent, intent
+from runtime_info import execute, recent, intent, request_for
 from server import HumanOSRuntime
 import io
 
@@ -62,3 +62,34 @@ class RuntimeInfoTests(unittest.TestCase):
         agent = self.agent({'final': 'invented'}, {'tool': {'name': 'read_file', 'path': 'note.txt'}}, {'final': 'actual evidence'})
         self.assertEqual(self.turn(agent, 'read note.txt'), 'actual evidence')
         self.assertEqual(len(agent.model.calls), 3)
+
+    def test_common_workspace_browse_phrases_are_direct_requests(self):
+        expected = {'name': 'list_files', 'path': '.'}
+        for text in ('list files', 'list folders', 'list them', 'show workspace',
+                     'show me the files', "what's in the workspace"):
+            with self.subTest(text=text):
+                self.assertEqual(request_for(text, []), expected)
+        self.assertIsNone(request_for('do not list files', []))
+        self.assertIsNone(request_for('list files in private', []))
+
+    def test_natural_workspace_browse_is_grounded_without_model(self):
+        (self.workspace / 'runtime-check.txt').write_text('proof')
+        (self.workspace / 'Archive').mkdir()
+        agent = self.agent({'final': 'invented stale listing'})
+        result = self.turn(agent, 'show workspace', 'browse')
+        self.assertIn('Workspace contains 2 visible item(s):', result)
+        self.assertIn('runtime-check.txt', result)
+        self.assertIn('Archive', result)
+        self.assertNotIn('invented stale listing', result)
+        self.assertEqual(agent.model.calls, [])
+
+    def test_natural_listing_creates_verified_reference_frame(self):
+        (self.workspace / 'runtime-check.txt').write_text('proof')
+        agent = self.agent()
+        self.turn(agent, 'list files', 'browse')
+        frame = self.book.task('browse').get('reference_frame')
+        self.assertEqual(frame['kind'], 'file')
+        self.assertEqual(frame['paths'], ['runtime-check.txt'])
+        followup = self.turn(self.agent(), 'read that file', 'read')
+        self.assertIn('File: runtime-check.txt', followup)
+        self.assertIn('proof', followup)
