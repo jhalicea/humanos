@@ -43,6 +43,30 @@ def intent(text):
         return 'capabilities'
 
 
+def workspace_listing_request(text):
+    """Resolve simple workspace-browse language before the model can guess.
+
+    This only exposes the already-selected HumanOS workspace and never infers a
+    new path. Negative or qualified requests fall through instead of widening
+    authority.
+    """
+    if not isinstance(text, str):
+        return None
+    lowered = re.sub(r'\s+', ' ', text.casefold().strip()).rstrip('?!.,')
+    if re.search(r"\b(not|never|avoid|except|without|exclude|excluding|don't|don’t)\b", lowered):
+        return None
+    patterns = (
+        r'(?:please )?list (?:the )?(?:files|folders|items|contents)',
+        r'(?:please )?list (?:them|those|these)',
+        r'(?:please )?show (?:me )?(?:the )?(?:workspace|files|folders|directory|contents)',
+        r'(?:please )?show (?:me )?what(?: is|\'s) in (?:the )?(?:workspace|folder|directory)',
+        r'what(?: is|\'s) in (?:the )?(?:workspace|folder|directory)',
+    )
+    if any(re.fullmatch(pattern, lowered) for pattern in patterns):
+        return {'name': 'list_files', 'path': '.'}
+    return None
+
+
 def request_for(text, history, reference_binding=None):
     try:
         words = shlex.split(text)
@@ -74,6 +98,9 @@ def request_for(text, history, reference_binding=None):
         return {'name': 'apply_plan' if words[0] == '/apply' else 'undo_plan', 'plan_id': words[1]}
     if words and words[0] == '/move' and len(words) == 3:
         return {'name': 'plan_move', 'source': words[1], 'destination': words[2]}
+    browse = workspace_listing_request(text)
+    if browse:
+        return browse
     lowered = text.casefold()
     excluded = bool(re.search(r'\b(not|never|avoid|except|without|exclude|excluding|don.t)\b', lowered))
     bare_server = any(token.strip('.,!?;:`\"\'') == 'server.py' for token in words)
@@ -164,6 +191,11 @@ def format_observation(request, observation):
         if observation.get('truncated'):
             answer += '\nContinue with /read ' + shlex.quote(request['path']) + ' ' + str(observation['next_offset'])
         return answer
+    if name == 'list_files':
+        entries = [line for line in observation.get('stdout', '').splitlines() if line]
+        if not entries:
+            return 'Workspace is empty.'
+        return 'Workspace contains ' + str(len(entries)) + ' visible item(s):\n' + '\n'.join('  ' + entry for entry in entries)
     if name in ('scan_files', 'find_duplicates', 'plan_organization', 'understand_file',
                 'plan_contextual_organization', 'plan_inbox_organization', 'plan_move', 'apply_plan', 'undo_plan'):
         report = json.loads(observation['stdout'])
