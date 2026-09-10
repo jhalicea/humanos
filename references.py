@@ -15,6 +15,25 @@ _REFERENCE = re.compile(r"\b(it|that(?:\s+(?:file|one|plan))?|this(?:\s+(?:file|
 _EXPLICIT_FILE = re.compile(r"(?:^|\s)[^\s/]+\.[A-Za-z0-9]{1,12}(?:\s|$)")
 _ORDINALS = {"first": 0, "1st": 0, "second": 1, "2nd": 1, "third": 2, "3rd": 2,
              "fourth": 3, "4th": 3, "fifth": 4, "5th": 4}
+_CONVERSATIONAL_REFERENCE_MAX_CHARS = 400
+_CONVERSATIONAL_REFERENCE_MAX_LINES = 3
+
+
+def _conversational_reference_candidate(text):
+    """Return True only for short follow-up language suitable for implicit binding.
+
+    Contextual binding is intentionally a conversational convenience for phrases
+    such as "do it" or "read that file". Long prompts, pasted review packets, and
+    other document-like instructions must reach the model unchanged instead of
+    being reinterpreted as authority to a prior file or plan.
+    """
+    if not isinstance(text, str):
+        return False
+    stripped = text.strip()
+    if not stripped or len(stripped) > _CONVERSATIONAL_REFERENCE_MAX_CHARS:
+        return False
+    nonempty_lines = [line for line in stripped.splitlines() if line.strip()]
+    return len(nonempty_lines) <= _CONVERSATIONAL_REFERENCE_MAX_LINES
 
 
 def reference_intent(text):
@@ -26,6 +45,8 @@ def reference_intent(text):
     # Explicit slash commands already carry exact human authority. Never let
     # conversational reference resolution replace their target with history.
     if re.match(r"^/(?:apply|undo)\s+\S+", lowered):
+        return None
+    if not _conversational_reference_candidate(text):
         return None
     if re.search(r"\b(plan|changes?|moves?)\b", lowered) and (_REFERENCE.search(lowered) or _PLAN_ACTION.search(lowered)):
         return "plan"
