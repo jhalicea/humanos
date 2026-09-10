@@ -7,6 +7,8 @@ import uuid
 from pathlib import Path
 from notebook import Notebook
 from engine import Agent, OllamaModel, Tools, load_context
+from references import bind_choice, resolve_reference
+from terminal_ui import choose_reference
 
 BASE = Path(__file__).resolve().parent
 
@@ -110,7 +112,20 @@ class HumanOSRuntime:
                 tx = args.tx or 'TX-' + uuid.uuid4().hex
                 print('Transaction: ' + tx, file=sys.stderr)
                 self.agent.authorize = lambda request: self.authorize(tx, request)
-                response = self.agent.run(tx, binding['hcid'], text, args.context)
+                reference_binding = None
+                resolution = resolve_reference(self.book, binding['hcid'], tx, text, self.tools.workspace)
+                if resolution.get('status') == 'ambiguous' and sys.stdin.isatty() and args.message is None:
+                    choice = choose_reference(resolution['candidates'])
+                    if choice is None:
+                        print('Reference selection cancelled.', file=sys.stderr)
+                        continue
+                    reference_binding = bind_choice(resolution, choice)
+                    print('Mirror reference: ' + choice, file=sys.stderr)
+                elif resolution.get('status') == 'resolved':
+                    reference_binding = resolution['binding']
+                    print('Mirror reference: ' + reference_binding['path'], file=sys.stderr)
+                response = self.agent.run(tx, binding['hcid'], text, args.context,
+                                          reference_binding=reference_binding)
                 self.deliver(tx, response)
                 if args.message is not None:
                     return
