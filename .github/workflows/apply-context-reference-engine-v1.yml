@@ -1,0 +1,34 @@
+name: Apply Context Reference Engine v1
+
+on:
+  push:
+    branches: [feature/context-reference-engine-v1]
+    paths:
+      - tools/apply_context_reference_engine_v1.py
+      - .github/workflows/apply-context-reference-engine-v1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        run: python tools/apply_context_reference_engine_v1.py
+      - name: Compile
+        run: python -m compileall -q .
+      - name: Run regression suite
+        run: python -m unittest discover -s tests -v
+      - name: Commit verified implementation
+        run: |
+          git config user.name "HumanOS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add references.py runtime_info.py permissions.py server.py tests/test_references.py
+          git diff --cached --quiet && exit 0
+          git commit -m "Add Context Reference Engine v1"
+          git push
