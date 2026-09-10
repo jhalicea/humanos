@@ -225,7 +225,9 @@ class PortableVaultBackupTests(unittest.TestCase):
         _, bundle = self.backup('semantic-tamper')
         db_path = bundle / DB_FILE
         with sqlite3.connect(db_path) as db:
-            # Simulate an attacker with direct DB access bypassing application triggers.
+            # Avoid WAL sidecars: they are correctly rejected as unauthenticated extras,
+            # but this test needs to reach the deeper semantic Notebook verifier.
+            db.execute('PRAGMA journal_mode=DELETE')
             db.execute('DROP TRIGGER transcript_no_update')
             db.execute("UPDATE transcript SET text='attacker changed plaintext' WHERE tx='tx' AND ordinal=0")
             db.commit()
