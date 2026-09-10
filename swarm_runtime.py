@@ -100,10 +100,18 @@ class SwarmRuntime:
         if result is not None:
             self.transcript[agent_id].append({'role': 'user', 'content': encode({'broker_observation': result})})
 
+    def _invoke(self, agent_id, messages):
+        model = self.models[agent_id]
+        # OllamaModel.structured bypasses the ordinary HumanOS {tool: ...} proposal
+        # validator while retaining its local-endpoint, size, redirect and JSON checks.
+        if isinstance(model, OllamaModel):
+            return model.structured(messages, self.timeout)
+        return model.invoke(messages, self.timeout)
+
     def _step(self, agent_id, round_no):
         if agent_id in self.finals:
             return
-        proposal = validate_proposal(self.models[agent_id].invoke(self._messages(agent_id, round_no), self.timeout))
+        proposal = validate_proposal(self._invoke(agent_id, self._messages(agent_id, round_no)))
         if 'final' in proposal:
             self.finals[agent_id] = proposal['final']
             self._record(agent_id, proposal)
@@ -115,6 +123,7 @@ class SwarmRuntime:
 
     def run(self):
         order = sorted(self.models, key=lambda a: ({'coordinator': 0, 'worker': 1, 'verifier': 2}[self.roles[a]], a))
+        round_no = 0
         try:
             for round_no in range(1, self.max_rounds + 1):
                 for agent_id in order:
