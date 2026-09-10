@@ -86,11 +86,16 @@ def validate_request(request):
 
 def model_instructions():
     from notebook import encode
-    lines = ['Available tools and valid JSON examples. Put arguments directly beside name; '
-             'never wrap them in parameters or arguments. The registry lists tools, not workspace files.']
-    examples = {'path': 'example.txt', 'content': 'text', 'source': 'example.txt', 'tab_id': 0,
-                'url': 'https://allowed.example', 'selector': 'button', 'text': 'text',
-                'destination': 'Documents/example.txt', 'plan_id': 'ID returned by plan tool', 'offset': 0}
+    lines = ['Available tools and valid JSON syntax examples. Put arguments directly beside name; '
+             'never wrap them in parameters or arguments. The registry lists tools, not workspace files. '
+             'All uppercase example values below are syntax placeholders only: they are never evidence that a file, path, URL, selector, or plan exists. '
+             'Use a path only when it came from the human or a successful tool observation.']
+    examples = {'path': 'PATH_FROM_HUMAN_OR_OBSERVATION.txt', 'content': 'TEXT_REQUESTED_BY_HUMAN',
+                'source': 'PATH_FROM_HUMAN_OR_OBSERVATION.txt', 'tab_id': 0,
+                'url': 'https://URL_FROM_HUMAN_OR_OBSERVATION.invalid', 'selector': 'SELECTOR_FROM_OBSERVATION',
+                'text': 'TEXT_REQUESTED_BY_HUMAN',
+                'destination': 'DESTINATION_FROM_HUMAN_OR_PLAN/file.txt',
+                'plan_id': 'PLAN-ID-FROM-TOOL', 'offset': 0}
     for spec in describe():
         if spec['name'] in HUMAN_ONLY:
             continue
