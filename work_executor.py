@@ -25,7 +25,7 @@ def requested_deliverable(goal, work_id):
         return None
     if not re.search(r'\b(report|summary|brief|notes?|document|deliverable|recommendations?)\b', text, re.I):
         return None
-    unsafe = re.search(r'\b(?:create|write|save|produce|generate|make)\b[^\n]{0,100}?(?:\.\./|/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.(?:md|txt))', text, re.I)
+    unsafe = re.search(r'\b(?:create|write|save|produce|generate|make)\b[^\n]{0,100}?(?:\.\./|(?:^|\s)/[A-Za-z0-9_.-])', text, re.I)
     if unsafe:
         raise PermissionError('Requested work deliverable path is outside the selected workspace')
     explicit = re.search(
@@ -103,7 +103,7 @@ class WorkExecutor:
                 depends_on TEXT NOT NULL,
                 required INTEGER NOT NULL,
                 target TEXT,
-                evidence_digest TEXT,
+                state_digest TEXT NOT NULL,
                 updated TEXT NOT NULL,
                 PRIMARY KEY(work_id, step_id));
               CREATE TRIGGER IF NOT EXISTS work_plans_no_update BEFORE UPDATE ON work_plans
@@ -111,6 +111,12 @@ class WorkExecutor:
               CREATE TRIGGER IF NOT EXISTS work_plans_no_delete BEFORE DELETE ON work_plans
                 BEGIN SELECT RAISE(ABORT, 'immutable work plan'); END;
             ''')
+
+    def _state_digest(self, step, status):
+        value = {'step_id': step['step_id'], 'ordinal': step['ordinal'], 'kind': step['kind'],
+                 'title': step['title'], 'status': status, 'depends_on': step['depends_on'],
+                 'required': bool(step['required']), 'target': step.get('target')}
+        return self.book.content_digest(encode(value))
 
     def ensure(self, item, contract):
         """Lazily create a v3 plan; existing pre-v3 work migrates without rewriting history."""
@@ -135,7 +141,7 @@ class WorkExecutor:
                 self.book.db.execute('INSERT INTO work_steps VALUES(?,?,?,?,?,?,?,?,?,?,?)',
                     (item['work_id'], step['step_id'], step['ordinal'], step['kind'], step['title'],
                      'TODO', encode(step['depends_on']), 1 if step['required'] else 0,
-                     step.get('target'), None, stamp))
+                     step.get('target'), self._state_digest(step, 'TODO'), stamp))
             self.book._append_event(item.get('current_tx'), 'WORK_PLAN_CREATED', {
                 'work_id': item['work_id'], 'version': PLAN_VERSION,
                 'step_count': len(plan['steps']),
@@ -152,7 +158,11 @@ class WorkExecutor:
                     row['kind'] != step['kind'] or row['title'] != step['title'] or
                     json.loads(row['depends_on']) != step['depends_on'] or
                     bool(row['required']) != bool(step['required']) or row['target'] != step.get('target') or
-                    row['status'] not in STEP_STATUSES):
+                    row['status'] not in STEP_STATUSES or
+                    not self.book.digest_matches(row['state_digest'], encode({
+                        'step_id': step['step_id'], 'ordinal': step['ordinal'], 'kind': step['kind'],
+                        'title': step['title'], 'status': row['status'], 'depends_on': step['depends_on'],
+                        'required': bool(step['required']), 'target': step.get('target')}))):
                 raise RuntimeError('Work execution step failed integrity validation')
 
     def steps(self, item, contract):
@@ -167,7 +177,7 @@ class WorkExecutor:
         kind = plan['kind']
         inspected = set(progress.get('inspected_paths', []))
         discovered = set(progress.get('discovered_paths', []))
-        artifacts = {item.get('path') for item in progress.get('artifacts', []) if isinstance(item, dict)}
+        artifacts = set(progress.get('artifact_paths', []))
         scan_complete = bool(progress.get('scan_complete'))
         scan_truncated = bool(progress.get('scan_truncated'))
 
@@ -265,15 +275,17 @@ class WorkExecutor:
             for step in plan['steps']:
                 old = rows[step['step_id']]['status']
                 new = desired[step['step_id']]
+                if old == 'VERIFIED':
+                    new = 'VERIFIED'
                 if old == new:
                     continue
                 evidence = {'progress_phase': progress.get('phase'),
                             'inspected_count': len(progress.get('inspected_paths', [])),
-                            'artifact_count': len(progress.get('artifacts', []))}
+                            'artifact_count': len(progress.get('artifact_paths', []))}
                 evidence_text = encode(evidence)
                 self.book.db.execute(
-                    'UPDATE work_steps SET status=?,evidence_digest=?,updated=? WHERE work_id=? AND step_id=?',
-                    (new, self.book.content_digest(evidence_text), stamp, item['work_id'], step['step_id']))
+                    'UPDATE work_steps SET status=?,state_digest=?,updated=? WHERE work_id=? AND step_id=?',
+                    (new, self._state_digest(step, new), stamp, item['work_id'], step['step_id']))
                 self.book._append_event(tx, 'WORK_STEP_STATE', {
                     'work_id': item['work_id'], 'step_id': step['step_id'],
                     'from': old, 'to': new,
