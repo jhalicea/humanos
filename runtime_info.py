@@ -4,6 +4,7 @@ import shlex
 import json
 from datetime import datetime
 from capabilities import summary
+from notebook_recall import format_recall, search_notebook
 
 
 def recent(book, hcid, exclude_tx, limit=12, budget=8000):
@@ -46,6 +47,10 @@ def request_for(text, history):
         words = shlex.split(text)
     except ValueError:
         words = []
+    if re.match(r'^\s*/recall(?:\s|$)', text):
+        if not words or words[0] != '/recall':
+            return {'name': 'recall_notebook', 'query': ''}
+        return {'name': 'recall_notebook', 'query': ' '.join(words[1:])}
     commands = {'/files': 'scan_files', '/duplicates': 'find_duplicates', '/organize': 'plan_organization',
                 '/smart-organize': 'plan_contextual_organization', '/understand': 'understand_file',
                 '/organize-inbox': 'plan_inbox_organization', '/read': 'read_file', '/source': 'read_source'}
@@ -193,6 +198,12 @@ def execute(book, identity, tx, name, now=None):
         result = 'Your Mac’s local date and time is ' + value + '.'
     elif name == 'runtime_capabilities':
         result = summary()
+    elif name == 'recall_notebook':
+        state = book.task(tx) or {}
+        request = state.get('permissions', {}).get('recall_request')
+        if not isinstance(request, dict) or request.get('name') != 'recall_notebook':
+            raise PermissionError('Notebook recall requires the exact human-derived recall scope')
+        result = format_recall(search_notebook(book, identity['owner'], tx, request.get('query', '')))
     elif name == 'read_notebook':
         history = recent(book, identity['hcid'], tx)
         book.verify()
