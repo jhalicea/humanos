@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from integrity_lifecycle import IntegrityKeyError
 from notebook import DIGEST_PREFIX, Notebook, digest
 
 
@@ -90,12 +91,9 @@ class ContentDigestPrivacyTests(unittest.TestCase):
         book.close()
         key_path = vault / 'runtime' / 'integrity.key'
         key_path.write_bytes(b'X' * 32)
-        reopened = Notebook(vault)
-        try:
-            with self.assertRaisesRegex(RuntimeError, 'Transcript hash mismatch'):
-                reopened.verify()
-        finally:
-            reopened.close()
+        os.chmod(key_path, 0o600)
+        with self.assertRaisesRegex(IntegrityKeyError, 'does not match this vault'):
+            Notebook(vault)
 
     def test_delivery_events_use_content_digest_not_plain_sha256(self):
         book = self.new_book()
