@@ -1,8 +1,8 @@
 """Durable delegated-work controller for the local HumanOS runtime.
 
-Work items are owner/session-bound coordination records. They do not grant new
-filesystem or model authority: each execution turn still passes through the normal
-HumanOS permission scope and tool gateway.
+Work items are owner-bound coordination records that can continue across HumanOS
+sessions. They do not grant new filesystem or model authority: each execution turn
+still passes through the normal HumanOS permission scope and tool gateway.
 """
 import re
 import uuid
@@ -101,7 +101,7 @@ class WorkContextModel:
 
 
 class WorkBoard:
-    """Small persistent job board backed by the authoritative Notebook SQLite DB."""
+    """Persistent owner-bound job board backed by the authoritative Notebook DB."""
 
     def __init__(self, book):
         self.book = book
@@ -109,7 +109,8 @@ class WorkBoard:
             self.book.db.executescript('''
               CREATE TABLE IF NOT EXISTS work_items(
                 work_id TEXT PRIMARY KEY,
-                hcid TEXT NOT NULL,
+                owner TEXT NOT NULL,
+                origin_hcid TEXT NOT NULL,
                 goal TEXT NOT NULL,
                 goal_digest TEXT NOT NULL,
                 status TEXT NOT NULL,
@@ -120,6 +121,7 @@ class WorkBoard:
               CREATE TABLE IF NOT EXISTS work_turns(
                 work_id TEXT NOT NULL,
                 ordinal INTEGER NOT NULL,
+                hcid TEXT NOT NULL,
                 tx TEXT NOT NULL UNIQUE,
                 input_digest TEXT NOT NULL,
                 response_digest TEXT,
@@ -132,10 +134,10 @@ class WorkBoard:
         row = self.book.db.execute('SELECT * FROM work_items WHERE work_id=?', (work_id,)).fetchone()
         return dict(row) if row else None
 
-    def _assert_owner(self, work_id, hcid):
+    def _assert_owner(self, work_id, owner):
         row = self._row(work_id)
-        if not row or row['hcid'] != hcid:
-            raise PermissionError('That work item is not available in this HumanOS session')
+        if not row or row['owner'] != owner:
+            raise PermissionError('That work item is not available to this HumanOS owner')
         if row['status'] not in STATUSES or not self.book.digest_matches(row['goal_digest'], row['goal']):
             raise RuntimeError('Delegated work record failed integrity validation')
         return row
@@ -143,45 +145,49 @@ class WorkBoard:
     def _state_event(self, work_id, status, current_tx, turns):
         return {'work_id': work_id, 'status': status, 'current_tx': current_tx, 'turns': turns}
 
-    def create(self, hcid, goal, tx, exact_input):
+    def create(self, owner, hcid, goal, tx, exact_input):
         if not isinstance(goal, str) or not goal.strip() or len(goal.encode('utf-8')) > 16000:
             raise ValueError('Delegated work goal must be nonempty and at most 16 KiB')
         work_id = 'WORK-' + uuid.uuid4().hex[:12].upper()
         stamp = now()
         goal = goal.strip()
         with self.book.db:
-            self.book.db.execute('INSERT INTO work_items VALUES(?,?,?,?,?,?,?,?,?)',
-                (work_id, hcid, goal, self.book.content_digest(goal), 'RUNNING', tx, 1, stamp, stamp))
-            self.book.db.execute('INSERT INTO work_turns VALUES(?,?,?,?,?,?,?)',
-                (work_id, 1, tx, self.book.content_digest(exact_input), None, None, stamp))
+            self.book.db.execute('INSERT INTO work_items VALUES(?,?,?,?,?,?,?,?,?,?)',
+                (work_id, owner, hcid, goal, self.book.content_digest(goal), 'RUNNING', tx, 1, stamp, stamp))
+            self.book.db.execute('INSERT INTO work_turns VALUES(?,?,?,?,?,?,?,?)',
+                (work_id, 1, hcid, tx, self.book.content_digest(exact_input), None, None, stamp))
             self.book._append_event(tx, 'WORK_CREATED', {
                 'work_id': work_id, 'goal_digest': self.book.content_digest(goal),
                 'status': 'RUNNING', 'turns': 1})
         return self._row(work_id)
 
-    def begin_turn(self, work_id, hcid, tx, exact_input):
-        row = self._assert_owner(work_id, hcid)
+    def begin_turn(self, work_id, owner, hcid, tx, exact_input):
+        row = self._assert_owner(work_id, owner)
         if row['status'] == 'CANCELLED':
             raise ValueError('Cancelled work must be started as a new work item')
         ordinal = row['turns'] + 1
         stamp = now()
         with self.book.db:
-            self.book.db.execute('INSERT INTO work_turns VALUES(?,?,?,?,?,?,?)',
-                (work_id, ordinal, tx, self.book.content_digest(exact_input), None, None, stamp))
+            self.book.db.execute('INSERT INTO work_turns VALUES(?,?,?,?,?,?,?,?)',
+                (work_id, ordinal, hcid, tx, self.book.content_digest(exact_input), None, None, stamp))
             self.book.db.execute("UPDATE work_items SET status='RUNNING',current_tx=?,turns=?,updated=? WHERE work_id=?",
                                  (tx, ordinal, stamp, work_id))
             self.book._append_event(tx, 'WORK_STATE', self._state_event(work_id, 'RUNNING', tx, ordinal))
         return self._row(work_id)
 
-    def finish_turn(self, work_id, hcid, tx, response, failed=False):
-        row = self._assert_owner(work_id, hcid)
+    def finish_turn(self, work_id, owner, tx, response, failed=False):
+        row = self._assert_owner(work_id, owner)
         turn = self.book.db.execute('SELECT * FROM work_turns WHERE work_id=? AND tx=?', (work_id, tx)).fetchone()
         if not turn:
             raise RuntimeError('Delegated work turn is missing')
         status = 'BLOCKED' if failed else 'REVIEW'
         outcome = 'FAILED' if failed else 'TURN_COMPLETE'
-        stamp = now()
         digest = self.book.content_digest(response)
+        if turn['response_digest'] is not None:
+            if (not self.book.digest_matches(turn['response_digest'], response) or turn['outcome'] != outcome):
+                raise RuntimeError('Delegated work turn result differs from preserved result')
+            return row
+        stamp = now()
         with self.book.db:
             self.book.db.execute('UPDATE work_turns SET response_digest=?,outcome=? WHERE work_id=? AND tx=?',
                                  (digest, outcome, work_id, tx))
@@ -190,10 +196,10 @@ class WorkBoard:
             self.book._append_event(tx, 'WORK_STATE', self._state_event(work_id, status, tx, row['turns']))
         return self._row(work_id)
 
-    def set_status(self, work_id, hcid, status, tx=None):
+    def set_status(self, work_id, owner, status, tx=None):
         if status not in ('DONE', 'CANCELLED'):
             raise ValueError('Unsupported owner work transition')
-        row = self._assert_owner(work_id, hcid)
+        row = self._assert_owner(work_id, owner)
         if row['status'] == status:
             return row
         stamp = now()
@@ -203,8 +209,8 @@ class WorkBoard:
             self.book._append_event(tx, 'WORK_STATE', self._state_event(work_id, status, row['current_tx'], row['turns']))
         return self._row(work_id)
 
-    def get(self, work_id, hcid):
-        return self._assert_owner(work_id, hcid)
+    def get(self, work_id, owner):
+        return self._assert_owner(work_id, owner)
 
     def by_tx(self, tx):
         row = self.book.db.execute('''SELECT work_items.* FROM work_turns
@@ -212,29 +218,31 @@ class WorkBoard:
         if not row:
             return None
         result = dict(row)
-        return self._assert_owner(result['work_id'], result['hcid'])
+        if result['status'] not in STATUSES or not self.book.digest_matches(result['goal_digest'], result['goal']):
+            raise RuntimeError('Delegated work record failed integrity validation')
+        return result
 
-    def list(self, hcid, active_only=False, limit=20):
+    def list(self, owner, active_only=False, limit=20):
         if active_only:
             placeholders = ','.join('?' for _ in ACTIVE_STATUSES)
             rows = self.book.db.execute(
-                f'SELECT * FROM work_items WHERE hcid=? AND status IN ({placeholders}) ORDER BY updated DESC LIMIT ?',
-                (hcid, *sorted(ACTIVE_STATUSES), limit)).fetchall()
+                f'SELECT * FROM work_items WHERE owner=? AND status IN ({placeholders}) ORDER BY updated DESC LIMIT ?',
+                (owner, *sorted(ACTIVE_STATUSES), limit)).fetchall()
         else:
             rows = self.book.db.execute(
-                'SELECT * FROM work_items WHERE hcid=? ORDER BY updated DESC LIMIT ?', (hcid, limit)).fetchall()
+                'SELECT * FROM work_items WHERE owner=? ORDER BY updated DESC LIMIT ?', (owner, limit)).fetchall()
         result = []
         for item in rows:
             row = dict(item)
-            self._assert_owner(row['work_id'], hcid)
+            self._assert_owner(row['work_id'], owner)
             result.append(row)
         return result
 
-    def choose_candidates(self, hcid):
-        return [item['work_id'] for item in self.list(hcid, active_only=True)]
+    def choose_candidates(self, owner):
+        return [item['work_id'] for item in self.list(owner, active_only=True)]
 
-    def briefing(self, work_id, hcid, budget=6000):
-        item = self._assert_owner(work_id, hcid)
+    def briefing(self, work_id, owner, budget=6000):
+        item = self._assert_owner(work_id, owner)
         lines = [
             'Work ID: ' + item['work_id'],
             'Original goal: ' + item['goal'],
@@ -270,8 +278,8 @@ class WorkBoard:
                 'Turns: ' + str(item['turns']) +
                 ('\nCurrent transaction: ' + item['current_tx'] if item.get('current_tx') else ''))
 
-    def format_list(self, hcid):
-        items = self.list(hcid)
+    def format_list(self, owner):
+        items = self.list(owner)
         if not items:
             return 'No delegated work items yet. Give me work with: work on <goal>'
         lines = ['Delegated work:']
