@@ -151,7 +151,8 @@ class HumanOSRuntime:
             self.deliver(tx, final)
             return
         if args.resume:
-            item = self.work.by_tx(args.resume)
+            work = getattr(self, 'work', None)
+            item = work.by_tx(args.resume) if work is not None else None
             agent = self._work_agent(item) if item else self.agent
             agent.authorize = lambda request: self.authorize(args.resume, request)
             response = agent.run(args.resume)
