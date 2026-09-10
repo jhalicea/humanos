@@ -235,7 +235,7 @@ class HumanOSRuntime:
         while True:
             active_work = None
             try:
-                text = args.message if args.message is not None else read_human_input()
+                text = args.message if args.message is not None else read_human_input(input_fn=input)
                 if text.lower() in ('exit', 'quit') and args.message is None:
                     return
                 # Do not strip whitespace from visible input.
