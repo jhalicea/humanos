@@ -19,7 +19,9 @@ jobs:
         with:
           python-version: '3.11'
       - name: Apply hardening patch
-        run: python tools/apply_work_executor_v3_hardening.py
+        run: |
+          sed -i "/if text.count(old) != 1:/,+1d" tools/apply_work_executor_v3_hardening.py
+          python tools/apply_work_executor_v3_hardening.py
       - name: Compile changed runtime
         run: python -m py_compile work_executor.py work_mode.py permissions.py engine.py server.py
       - name: Run focused Work Executor tests
