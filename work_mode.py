@@ -198,8 +198,10 @@ def _work_id_from_briefing(briefing):
 
 
 def _checkpoint_from_state(goal, state):
-    evidence = _tool_evidence((state or {}).get('messages', []))
-    tools, inspected, scans, artifacts = [], [], [], []
+    messages = (state or {}).get('messages', [])
+    evidence = _tool_evidence(messages)
+    attempts = _tool_attempts(messages)
+    tools, inspected, scans, artifacts, failed_artifacts = [], [], [], [], []
     scan_complete = False
     scan_truncated = False
     for request, observation in evidence:
@@ -221,6 +223,10 @@ def _checkpoint_from_state(goal, state):
             path = artifact.get('path') if isinstance(artifact, dict) else None
             if isinstance(path, str) and path and not path.startswith('.') and '/.' not in path:
                 artifacts.append(path)
+    for request, observation in attempts:
+        if (request.get('name') == 'create_file' and not observation.get('ok') and
+                isinstance(request.get('path'), str)):
+            failed_artifacts.append(request['path'])
     contract = execution_contract(goal)
     if contract['kind'] == 'workspace_review':
         phase = 'INSPECTED' if inspected else 'DISCOVERED' if (scans or scan_complete) else 'NOT_STARTED'
@@ -236,6 +242,7 @@ def _checkpoint_from_state(goal, state):
             'discovered_paths': sorted(set(scans))[:200],
             'scan_complete': scan_complete, 'scan_truncated': scan_truncated,
             'artifact_paths': sorted(set(artifacts))[:50],
+            'failed_artifact_paths': sorted(set(failed_artifacts))[:50],
             'required_paths': sorted(set(contract.get('required_paths', [])))}
 
 
@@ -497,7 +504,7 @@ class WorkBoard:
     def progress(self, work_id, owner):
         item = self._assert_owner(work_id, owner)
         rows = self.book.db.execute('SELECT * FROM work_checkpoints WHERE work_id=? ORDER BY ordinal', (work_id,)).fetchall()
-        tools, inspected, discovered, artifacts, required = set(), set(), set(), set(), set()
+        tools, inspected, discovered, artifacts, failed_artifacts, required = set(), set(), set(), set(), set(), set()
         phase = 'NOT_STARTED'
         scan_complete = False
         scan_truncated = False
@@ -510,6 +517,7 @@ class WorkBoard:
             inspected.update(value.get('inspected_paths', []))
             discovered.update(value.get('discovered_paths', []))
             artifacts.update(value.get('artifact_paths', []))
+            failed_artifacts.update(value.get('failed_artifact_paths', []))
             required.update(value.get('required_paths', []))
             scan_complete = scan_complete or bool(value.get('scan_complete'))
             scan_truncated = scan_truncated or bool(value.get('scan_truncated'))
@@ -519,7 +527,9 @@ class WorkBoard:
         result = {'version': 2, 'phase': phase, 'tools': sorted(tools),
                   'inspected_paths': sorted(inspected), 'discovered_paths': sorted(discovered)[:200],
                   'scan_complete': scan_complete, 'scan_truncated': scan_truncated,
-                  'artifact_paths': sorted(artifacts)[:50], 'required_paths': sorted(required),
+                  'artifact_paths': sorted(artifacts)[:50],
+                  'failed_artifact_paths': sorted(failed_artifacts - artifacts)[:50],
+                  'required_paths': sorted(required),
                   'has_response': has_response}
         self.executor.ensure(item, execution_contract(item['goal']))
         return result
@@ -529,8 +539,10 @@ class WorkBoard:
         turn = self.book.db.execute('SELECT * FROM work_turns WHERE work_id=? AND tx=?', (work_id, tx)).fetchone()
         if not turn:
             raise RuntimeError('Delegated work turn is missing')
-        status = 'BLOCKED' if failed else 'REVIEW'
-        outcome = 'FAILED' if failed else 'TURN_COMPLETE'
+        checkpoint = _checkpoint_from_state(row['goal'], self.book.task(tx) or {})
+        blocked = failed or bool(checkpoint.get('failed_artifact_paths'))
+        status = 'BLOCKED' if blocked else 'REVIEW'
+        outcome = 'FAILED' if failed else 'BLOCKED' if blocked else 'TURN_COMPLETE'
         digest = self.book.content_digest(response)
         if turn['response_digest'] is not None:
             if not self.book.digest_matches(turn['response_digest'], response) or turn['outcome'] != outcome:
@@ -538,7 +550,6 @@ class WorkBoard:
             return row
         if row['status'] in TERMINAL_STATUSES:
             raise ValueError('Cannot finalize a new turn for terminal work')
-        checkpoint = _checkpoint_from_state(row['goal'], self.book.task(tx) or {})
         summary = encode(checkpoint)
         stamp = now()
         with self.book.db:
@@ -556,7 +567,7 @@ class WorkBoard:
         updated = self._row(work_id)
         progress = self.progress(work_id, owner)
         self.executor.sync(updated, execution_contract(updated['goal']), progress,
-                           failed=failed, response_present=not failed, tx=tx)
+                           failed=blocked, response_present=True, tx=tx)
         return self._row(work_id)
 
     def set_status(self, work_id, owner, status, tx=None):

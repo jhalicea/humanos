@@ -74,8 +74,14 @@ class HumanOSRuntime:
             plan = self.tools.manager.get_plan(request['plan_id'])
             prompt = ('Review file changes in ' + str(self.tools.workspace) + ':\n' +
                       format_plan(plan, undo=request['name'] == 'undo_plan') + '\nApprove ' + request['name'] + '? [yes/no]')
+        elif request['name'] == 'create_file':
+            content = request.get('content', '')
+            preview = content[:1200] + ('…' if len(content) > 1200 else '')
+            prompt = ('Approve creating workspace file ' + request['path'] + ' (' +
+                      str(len(content.encode('utf-8'))) + ' bytes)?\nPreview:\n' + preview + '\n[yes/no]')
         else:
-            prompt = 'Approve creating this workspace file? ' + json.dumps(request, ensure_ascii=False) + ' [yes/no]'
+            safe = {key: value for key, value in request.items() if key != 'text'}
+            prompt = 'Approve ' + request['name'] + '? ' + json.dumps(safe, ensure_ascii=False) + ' [yes/no]'
         n = self.book.message_count(tx)
         self.book.append(tx, n, 'ASSISTANT', prompt)
         self.book.project()

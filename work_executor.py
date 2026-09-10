@@ -178,6 +178,7 @@ class WorkExecutor:
         inspected = set(progress.get('inspected_paths', []))
         discovered = set(progress.get('discovered_paths', []))
         artifacts = set(progress.get('artifact_paths', []))
+        failed_artifacts = set(progress.get('failed_artifact_paths', [])) - artifacts
         scan_complete = bool(progress.get('scan_complete'))
         scan_truncated = bool(progress.get('scan_truncated'))
 
@@ -204,7 +205,8 @@ class WorkExecutor:
                 statuses[inspect] = 'BLOCKED'
 
             synth = by_kind['SYNTHESIZE']['step_id']
-            if statuses[inspect] == 'VERIFIED' and response_present and not failed:
+            deliver_target = by_kind.get('DELIVER', {}).get('target')
+            if statuses[inspect] == 'VERIFIED' and (response_present and not failed or deliver_target in failed_artifacts):
                 statuses[synth] = 'VERIFIED'
             elif statuses[inspect] == 'BLOCKED':
                 statuses[synth] = 'BLOCKED'
@@ -217,7 +219,8 @@ class WorkExecutor:
             elif inspected:
                 statuses[inspect] = 'WORKING'
             synth = by_kind['SYNTHESIZE']['step_id']
-            if statuses[inspect] == 'VERIFIED' and response_present and not failed:
+            deliver_target = by_kind.get('DELIVER', {}).get('target')
+            if statuses[inspect] == 'VERIFIED' and (response_present and not failed or deliver_target in failed_artifacts):
                 statuses[synth] = 'VERIFIED'
 
         elif kind == 'web_research':
@@ -251,6 +254,8 @@ class WorkExecutor:
             synth_status = statuses[by_kind['SYNTHESIZE']['step_id']]
             if deliver.get('target') in artifacts:
                 statuses[deliver['step_id']] = 'VERIFIED'
+            elif deliver.get('target') in failed_artifacts:
+                statuses[deliver['step_id']] = 'BLOCKED'
             elif failed and synth_status == 'VERIFIED':
                 statuses[deliver['step_id']] = 'BLOCKED'
             elif synth_status == 'VERIFIED':
