@@ -200,6 +200,7 @@ class HumanOSRuntime:
                             response = self._host_final(tx, binding['hcid'], text, message)
                         else:
                             status = 'CANCELLED' if action == 'cancel' else 'DONE'
+                            self.book.start(binding['hcid'], tx, text)
                             item = self.work.set_status(work_id, owner, status, tx=tx)
                             response = self._host_final(tx, binding['hcid'], text, self.work.format_item(item))
                         self.deliver(tx, response)
