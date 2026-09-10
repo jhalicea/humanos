@@ -29,14 +29,31 @@ def recent(book, hcid, exclude_tx, limit=12, budget=8000):
     return list(reversed(result))
 
 
+def _normalized(text):
+    return re.sub(r'\s+', ' ', text.casefold().strip()).rstrip('?!.,')
+
+
 def intent(text):
     text = text.casefold().strip()
+    normalized = _normalized(text)
     if re.search(r'\b[\w-]+\.(txt|md|json|py|csv)\b', text):
         return None
     if text == '/time' or re.search(r'\b(what|current|know|tell|show)\b.*\btime\b', text):
         return 'clock'
     if text == '/notebook' or ('notebook' in text and re.search(r'\b(show|what|tell|is|read)\b', text)):
         return 'notebook'
+    capability_patterns = (
+        r'what tools (?:do )?(?:we|you) have',
+        r'which tools (?:do )?(?:we|you) have',
+        r'what (?:tools|capabilities) are (?:available|connected)',
+        r'(?:list|show)(?: me)? (?:the )?(?:tools|capabilities)',
+        r'what can you do',
+        r'what are your capabilities',
+        r'what capabilities (?:do )?(?:we|you) have',
+        r'(?:can you|are you able to) (?:edit|modify|change|rewrite|update) (?:yourself|your own code|your code|humanos|humanos source)',
+    )
+    if any(re.fullmatch(pattern, normalized) for pattern in capability_patterns):
+        return 'capabilities'
     if (text == '/capabilities' or 'search the internet' in text or
         (re.search(r'\b(can you|are you able|what can you|what do you need|why not)\b', text) and
          re.search(r'\b(file|files|folder|folders|organize|duplicates|do that)\b', text))):
@@ -52,18 +69,48 @@ def workspace_listing_request(text):
     """
     if not isinstance(text, str):
         return None
-    lowered = re.sub(r'\s+', ' ', text.casefold().strip()).rstrip('?!.,')
+    lowered = _normalized(text)
     if re.search(r"\b(not|never|avoid|except|without|exclude|excluding|don't|don’t)\b", lowered):
         return None
+    what = r"what(?: is|'s|s)"
     patterns = (
         r'(?:please )?list (?:the )?(?:files|folders|items|contents)',
         r'(?:please )?list (?:them|those|these)',
         r'(?:please )?show (?:me )?(?:the )?(?:workspace|files|folders|directory|contents)',
-        r'(?:please )?show (?:me )?what(?: is|\'s) in (?:the )?(?:workspace|folder|directory)',
-        r'what(?: is|\'s) in (?:the )?(?:workspace|folder|directory)',
+        r"(?:please )?show (?:me )?what(?: is|'s|s) in (?:the )?(?:workspace|folder|directory)",
+        r"what(?: is|'s|s) in (?:the )?(?:workspace|folder|directory)",
+        what + r' (?:the )?name of (?:the )?(?:root|workspace) (?:folder|directory)(?: you can see)?',
+        what + r' (?:the )?name of (?:the )?(?:folder|directory) root(?: you can see)?',
+        what + r' (?:the )?(?:root|workspace) (?:folder|directory)(?: called| named)?',
     )
     if any(re.fullmatch(pattern, lowered) for pattern in patterns):
         return {'name': 'list_files', 'path': '.'}
+    return None
+
+
+def workspace_followup_listing_request(text, history):
+    """Resolve short browse follow-ups only from the human's immediately prior intent."""
+    if not isinstance(text, str):
+        return None
+    lowered = _normalized(text)
+    followups = (
+        r"what(?: is|'s|s) inside",
+        r'what else is there',
+        r'is there (?:any|anything) else(?: there)?',
+        r'is there any other (?:file|files|folder|folders|item|items)(?: there)?',
+        r'are there any other (?:file|files|folder|folders|item|items)(?: there)?',
+        r'any other (?:file|files|folder|folders|item|items)(?: there)?',
+    )
+    if not any(re.fullmatch(pattern, lowered) for pattern in followups):
+        return None
+    for item in reversed(history):
+        if item.get('role') != 'HUMAN':
+            continue
+        previous = item.get('text', '')
+        if workspace_listing_request(previous) or re.search(
+                r'\b(workspace|root folder|folder root|root directory|directory root)\b', previous.casefold()):
+            return {'name': 'list_files', 'path': '.'}
+        break
     return None
 
 
@@ -98,7 +145,7 @@ def request_for(text, history, reference_binding=None):
         return {'name': 'apply_plan' if words[0] == '/apply' else 'undo_plan', 'plan_id': words[1]}
     if words and words[0] == '/move' and len(words) == 3:
         return {'name': 'plan_move', 'source': words[1], 'destination': words[2]}
-    browse = workspace_listing_request(text)
+    browse = workspace_listing_request(text) or workspace_followup_listing_request(text, history)
     if browse:
         return browse
     lowered = text.casefold()
@@ -117,11 +164,13 @@ def request_for(text, history, reference_binding=None):
         if re.fullmatch(r'(mirror )?(organize|sort) (my |these |the )?inbox[.! ]*', lowered.strip()):
             return {'name': 'plan_inbox_organization', 'path': 'inbox'}
     kind = intent(text)
-    if text.casefold().strip().rstrip('?!.') in ('do it', 'why', 'what do you mean'):
+    followup = _normalized(text)
+    if re.fullmatch(r'(?:do it|why|why not|why not can you try|can you try|what do you mean)', followup):
         for item in reversed(history):
             if item['role'] == 'HUMAN':
                 kind = intent(item['text'])
-                if item['text'].casefold().strip().rstrip('?!.') not in ('do it', 'why', 'what do you mean'):
+                if not re.fullmatch(r'(?:do it|why|why not|why not can you try|can you try|what do you mean)',
+                                    _normalized(item['text'])):
                     break
     names = {'clock': 'current_time', 'notebook': 'read_notebook', 'capabilities': 'runtime_capabilities'}
     return {'name': names[kind]} if kind else None
@@ -194,8 +243,9 @@ def format_observation(request, observation):
     if name == 'list_files':
         entries = [line for line in observation.get('stdout', '').splitlines() if line]
         if not entries:
-            return 'Workspace is empty.'
-        return 'Workspace contains ' + str(len(entries)) + ' visible item(s):\n' + '\n'.join('  ' + entry for entry in entries)
+            return 'Selected workspace root (relative path ".") is empty.'
+        return ('Selected workspace root (relative path ".") contains ' + str(len(entries)) +
+                ' visible item(s):\n' + '\n'.join('  ' + entry for entry in entries))
     if name in ('scan_files', 'find_duplicates', 'plan_organization', 'understand_file',
                 'plan_contextual_organization', 'plan_inbox_organization', 'plan_move', 'apply_plan', 'undo_plan'):
         report = json.loads(observation['stdout'])
