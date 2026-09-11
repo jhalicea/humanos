@@ -4,6 +4,8 @@ SQLite remains authoritative. This module never rewrites recovery.jsonl; it only
 parses complete physical LF-delimited records and preserves a suspect final tail
 in an owner-local forensic quarantine artifact.
 """
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
