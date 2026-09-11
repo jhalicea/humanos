@@ -19,7 +19,7 @@ def import_pending(vault, capture_path, owner="chatgpt"):
     book = Notebook(vault)
     imported = blocked = 0
     try:
-        captures.db.execute("""
+        captures.db.executescript("""
           CREATE TABLE IF NOT EXISTS capture_materializations(
             message_id TEXT PRIMARY KEY, tx TEXT NOT NULL, hcid TEXT NOT NULL,
             text_sha256 TEXT NOT NULL, imported_at TEXT NOT NULL);
