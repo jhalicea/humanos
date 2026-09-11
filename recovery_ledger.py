@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from typing import Optional
 import uuid
 
 TAIL_SIZE_LIMIT = 8 * 1024 * 1024
@@ -23,8 +24,8 @@ class RecoveryLedgerCorrupt(RuntimeError):
 @dataclass(frozen=True)
 class RecoveryParseResult:
     records: tuple
-    anomaly: dict | None = None
-    quarantine: dict | None = None
+    anomaly: Optional[dict] = None
+    quarantine: Optional[dict] = None
 
 
 def _fsync_directory(path):
