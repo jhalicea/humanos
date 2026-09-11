@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the HumanOS ChatGPT capture native host for Chrome on macOS."""
+"""Install the HumanOS ChatGPT capture native host for Chromium browsers on macOS."""
 import argparse
 import json
 import os
@@ -8,9 +8,17 @@ import stat
 import sys
 
 
-def install(extension_id, root=None):
+BROWSER_MANIFEST_DIRS = {
+    "brave": ("BraveSoftware", "Brave-Browser"),
+    "chrome": ("Google", "Chrome"),
+}
+
+
+def install(extension_id, root=None, browser="brave"):
     if not extension_id or any(ch not in "abcdefghijklmnopqrstuvwxyz" for ch in extension_id):
-        raise ValueError("Chrome extension ID must contain only lowercase a-z")
+        raise ValueError("Extension ID must contain only lowercase a-z")
+    if browser not in BROWSER_MANIFEST_DIRS:
+        raise ValueError("Unsupported browser")
     source_root = Path(root or Path(__file__).resolve().parent).resolve()
     host = source_root / "chat_capture_host.py"
     if not host.is_file():
@@ -24,7 +32,9 @@ def install(extension_id, root=None):
         json.dumps(str(host)) + "\n", encoding="utf-8")
     os.chmod(launcher, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
-    manifest_dir = Path.home() / "Library" / "Application Support" / "Google" / "Chrome" / "NativeMessagingHosts"
+    vendor, product = BROWSER_MANIFEST_DIRS[browser]
+    manifest_dir = (Path.home() / "Library" / "Application Support" /
+                    vendor / product / "NativeMessagingHosts")
     manifest_dir.mkdir(parents=True, exist_ok=True)
     manifest = manifest_dir / "com.humanos.chat_capture.json"
     payload = {
@@ -43,10 +53,12 @@ def install(extension_id, root=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Install HumanOS ChatGPT capture host")
-    parser.add_argument("extension_id", help="ID shown by chrome://extensions")
+    parser.add_argument("extension_id", help="ID shown by the browser extension manager")
+    parser.add_argument("--browser", choices=sorted(BROWSER_MANIFEST_DIRS),
+                        default="brave")
     parser.add_argument("--root", help="HumanOS repository root")
     args = parser.parse_args(argv)
-    print(install(args.extension_id, args.root))
+    print(install(args.extension_id, args.root, args.browser))
     return 0
 
 
