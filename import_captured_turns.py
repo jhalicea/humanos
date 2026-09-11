@@ -19,6 +19,9 @@ def import_pending(vault, capture_path, owner="chatgpt"):
     book = Notebook(vault)
     imported = blocked = 0
     try:
+        # Projections are derived files; repair them from authoritative SQLite before
+        # start() performs its fail-closed readback check. Transcript rows are untouched.
+        book.project()
         captures.db.executescript("""
           CREATE TABLE IF NOT EXISTS capture_materializations(
             message_id TEXT PRIMARY KEY, tx TEXT NOT NULL, hcid TEXT NOT NULL,
