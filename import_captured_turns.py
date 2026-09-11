@@ -56,7 +56,16 @@ def import_pending(vault, capture_path, owner="chatgpt"):
             tx = txrow["tx"] if txrow else None
             if row["role"] == "USER":
                 tx = "CAP-" + row["message_id"]
-                book.start(hcid, tx, row["text"])
+                try:
+                    book.start(hcid, tx, row["text"])
+                except RuntimeError as error:
+                    if "Notebook readback mismatch" not in str(error):
+                        raise
+                    # A projection may have changed while the identity was created;
+                    # repair once, then require the normal fail-closed start check.
+                    book.project()
+                    book.verify()
+                    book.start(hcid, tx, row["text"])
                 active[chat] = tx
             elif tx is None:
                 blocked += 1
