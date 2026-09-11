@@ -38,9 +38,11 @@ class CaptureLedgerTests(unittest.TestCase):
             ("chat-1", "USER", "exact visible text", "PENDING"),
             ("chat-2", "ASSISTANT", "reply", "PENDING")])
 
-    def test_identical_redelivery_is_idempotent(self):
+    def test_identical_redelivery_is_idempotent_across_reload(self):
         self.ledger.capture(record())
-        self.assertEqual(self.ledger.capture(record())["status"], "ALREADY_PENDING")
+        replay = record(chat_title="Renamed", observed_at="2026-09-11T15:00:00.000Z",
+                        source_url="https://chatgpt.com/c/chat-1?model=auto")
+        self.assertEqual(self.ledger.capture(replay)["status"], "ALREADY_PENDING")
         self.assertEqual(self.ledger.db.execute(
             "SELECT COUNT(*) FROM pending_turns").fetchone()[0], 1)
 
