@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "HumanOS Chat Capture",
+  "version": "0.1.0",
+  "description": "Locally captures finalized visible ChatGPT USER and ASSISTANT turns into HumanOS.",
+  "permissions": ["nativeMessaging"],
+  "host_permissions": ["https://chatgpt.com/*", "https://www.chatgpt.com/*"],
+  "background": {"service_worker": "service-worker.js"},
+  "content_scripts": [{
+    "matches": ["https://chatgpt.com/*", "https://www.chatgpt.com/*"],
+    "js": ["content-script.js"],
+    "run_at": "document_idle"
+  }],
+  "action": {"default_title": "HumanOS Chat Capture"}
+}
