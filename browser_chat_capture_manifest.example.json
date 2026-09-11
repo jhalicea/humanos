@@ -1,0 +1,7 @@
+{
+  "name": "com.humanos.chat_capture",
+  "description": "HumanOS exact visible ChatGPT turn capture",
+  "path": "<HUMANOS_ROOT>/chat_capture_host.py",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://<EXTENSION_ID>/"]
+}
