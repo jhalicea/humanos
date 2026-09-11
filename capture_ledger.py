@@ -1,6 +1,5 @@
 """Durable, provider-neutral pending ledger for host-observed visible chat turns."""
 import hashlib
-import json
 import sqlite3
 from pathlib import Path
 from urllib.parse import urlparse
@@ -8,10 +7,6 @@ from urllib.parse import urlparse
 
 MAX_TEXT_BYTES = 2 * 1024 * 1024
 ROLES = frozenset({"USER", "ASSISTANT"})
-
-
-def _canonical(value):
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _digest(text):
@@ -95,9 +90,14 @@ class CaptureLedger:
             "SELECT * FROM pending_turns WHERE message_id=?", (record["message_id"],)
         ).fetchone()
         if prior:
-            same = all(prior[name] == record[name] for name in
-                       ("chat_id", "chat_title", "role", "text", "observed_at", "source_url"))
-            if same:
+            # Capture time, page title and URL can legitimately differ on page reload.
+            same_evidence = (
+                prior["chat_id"] == record["chat_id"] and
+                prior["role"] == record["role"] and
+                prior["text_sha256"] == digest and
+                prior["text"] == record["text"]
+            )
+            if same_evidence:
                 return {"status": "ALREADY_PENDING", "message_id": record["message_id"],
                         "sha256": digest}
             with self.db:
