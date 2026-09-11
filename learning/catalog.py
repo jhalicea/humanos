@@ -3,6 +3,8 @@
 These are broad skill maps, not claims that every item has been taught.
 Overlap is intentional: evidence may advance several courses.
 """
+from copy import deepcopy
+
 from .mastery_engine import Course, Skill
 
 SKILLS = [
@@ -39,10 +41,13 @@ AI = Course("ai-systems", "AI Systems Engineering & HumanOS", [
 ])
 
 def seed(engine):
+    # Catalog constants are templates. Each engine receives independent mutable
+    # learner state so evidence recorded in one engine/test/session cannot leak
+    # into another through module-level Skill objects.
     for skill in SKILLS:
-        engine.add_skill(skill)
-    engine.add_course(CYBER)
-    engine.add_course(AI)
+        engine.add_skill(deepcopy(skill))
+    engine.add_course(deepcopy(CYBER))
+    engine.add_course(deepcopy(AI))
     # Preserve known continuation points without fabricating mastery scores.
     engine.skills["dfir.evidence"].stage = "demonstrated"
     engine.skills["windows.telemetry"].stage = "practiced"
