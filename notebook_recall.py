@@ -79,7 +79,10 @@ def search_notebook(book, owner, current_tx, query, *, limit=MAX_RESULTS, excerp
         FROM transcript s
         JOIN transactions t ON t.tx=s.tx
         JOIN identities i ON i.hcid=t.hcid
+        LEFT JOIN privacy_state p
+          ON p.tx=s.tx AND p.ordinal=s.ordinal
         WHERE i.owner=? AND s.tx!=?
+          AND COALESCE(p.state,'VISIBLE') != 'HIDDEN'
         ORDER BY s.seq DESC
         LIMIT ?''', (owner, current_tx, MAX_SCAN_ROWS + 1)))
     scan_limited = len(rows) > MAX_SCAN_ROWS
