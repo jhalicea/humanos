@@ -7,7 +7,7 @@ repository. The owner plans to give the code to Claude and Gemini for later revi
 
 - Develop the existing HumanOS runtime in https://github.com/jhalicea/humanos.
   Use branches/worktrees of this repository; do not create a competing runtime or
-  repository. The installed checkout is /Users/jhalicea/humanos.
+  repository. The installed checkout is <HUMANOS_ROOT>.
 - This is the code repository, not the canonical personal record store. Preserve
   HumanOS ownership, Mirror's interface role, and the Life Notebook boundaries.
 - Inspect git status, existing implementation, tests, and applicable governing
