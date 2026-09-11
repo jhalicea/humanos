@@ -7,7 +7,7 @@ Core HumanOS remains standard-library only; this feature uses the optional audit
 ## One-time setup on the Mac
 
 ```sh
-cd /Users/jhalicea/humanos
+cd <HUMANOS_ROOT>
 python3 -m pip install -r requirements-encrypted-backup.txt
 ```
 
@@ -21,7 +21,7 @@ Stop the running HumanOS process first so the Notebook writer lock can be acquir
 Then:
 
 ```sh
-cd /Users/jhalicea/humanos
+cd <HUMANOS_ROOT>
 python3 vault_encryption.py backup HumanOS_Vault ~/Documents/HumanOS-Backup.hosenc
 ```
 

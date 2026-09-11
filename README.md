@@ -1,13 +1,13 @@
 # HumanOS Runtime 0.1
 
-Extends `/Users/jhalicea/humanos/server.py`, retaining HumanOSRuntime and the
+Extends `<HUMANOS_ROOT>/server.py`, retaining HumanOSRuntime and the
 Mirror interface. Python 3.9+ standard library; local Ollama already installed.
 No new server, cloud upload, package installation, or background daemon.
 
 Start:
 
 ```sh
-cd /Users/jhalicea/humanos
+cd <HUMANOS_ROOT>
 python3 server.py
 ```
 
@@ -79,7 +79,7 @@ No encryption or full CIBE merge/split/provider migration UI is claimed.
 
 ## Tool scope
 
-Default workspace is `/Users/jhalicea/humanos/workspace`. Read/list require the
+Default workspace is `<HUMANOS_ROOT>/workspace`. Read/list require the
 scope saved from the human's original request. File creation requires interactive per-request approval and
 never overwrites. Absolute paths, traversal, hidden paths, symlinks, hardlinked
 files and devices are rejected. UTF-8 text reads allow up to 16 MiB, returned in
@@ -110,7 +110,7 @@ git restore --source runtime-0.1-before -- server.py
 ```
 
 `audit.py` is copied unchanged from
-`/Users/jhalicea/Downloads/humanos_v018_integrity_scanner-2/humanos_kernel/audit.py`
+`<USER_DOWNLOADS>/humanos_v018_integrity_scanner-2/humanos_kernel/audit.py`
 SHA-256 `2516b3b29c8f4192554849119460a7f7171c80de973501e2ff2f90e3d7d90be0`.
 Other legacy packages and their tests are untouched. This is an extension of the
 existing local HumanOS front door, not a replacement for the legacy Drive runtime.
