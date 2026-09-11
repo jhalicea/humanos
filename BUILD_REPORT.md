@@ -1,7 +1,7 @@
 # HumanOS Runtime 0.1 — local build report
 
 Date: 2026-09-06. Status: implemented and locally tested; not production-qualified.
-Installed in `/Users/jhalicea/humanos`. HumanOS and Mirror names are retained.
+Installed in `<HUMANOS_ROOT>`. HumanOS and Mirror names are retained.
 
 ## Before
 
@@ -10,7 +10,7 @@ configured as `llama3`, optional constitution loading, and daily Markdown append
 It stripped input whitespace, intercepted any mention of “notebook,” and had no
 session binding, idempotent transaction, governed tool loop, or restart recovery.
 The folder was not a Git repository and had no tests. Existing vaults under
-`/Users/jhalicea/humanos`, `/Users/jhalicea`, and `/Users/jhalicea/Documents` were
+`<HUMANOS_ROOT>`, `<USER_HOME>`, and `<USER_DOCUMENTS>` were
 identified; their historical daily files were not moved, merged, or edited.
 Legacy HumanOS v0.20 in Downloads was inspected, and its audit code was reused.
 Its remaining code/tests and the project’s existing projector work are untouched.
@@ -40,7 +40,7 @@ Its remaining code/tests and the project’s existing projector work are untouch
 
 A review copy under this Codex project’s `runtime-patch/` is a build artifact,
 not a second installed runtime. The start command always targets the original
-`/Users/jhalicea/humanos` folder.
+`<HUMANOS_ROOT>` folder.
 
 ## Detected backend and tested flow
 
@@ -63,7 +63,7 @@ Fresh live testing also exercises the repair automatically, without human retry.
 
 ## Verification commands and results
 
-Run from `/Users/jhalicea/humanos`:
+Run from `<HUMANOS_ROOT>`:
 
 ```sh
 python3 -m unittest discover -s tests -v
@@ -123,7 +123,7 @@ Other open limits:
 ## Start and rollback
 
 ```sh
-cd /Users/jhalicea/humanos
+cd <HUMANOS_ROOT>
 python3 server.py
 ```
 

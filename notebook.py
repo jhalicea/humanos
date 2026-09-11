@@ -92,6 +92,27 @@ class Notebook:
             id INTEGER PRIMARY KEY AUTOINCREMENT, tx TEXT, error TEXT NOT NULL,
             closed INTEGER NOT NULL DEFAULT 0, created TEXT NOT NULL,
             scope TEXT NOT NULL DEFAULT 'NOTEBOOK');
+          CREATE TABLE IF NOT EXISTS privacy_state(
+            tx TEXT NOT NULL REFERENCES transactions(tx),
+            ordinal INTEGER NOT NULL,
+            state TEXT NOT NULL CHECK(state IN ('VISIBLE','HIDDEN')),
+            updated TEXT NOT NULL,
+            PRIMARY KEY(tx, ordinal));
+          CREATE TABLE IF NOT EXISTS privacy_operations(
+            op_id TEXT PRIMARY KEY, tx TEXT NOT NULL REFERENCES transactions(tx),
+            ordinal INTEGER NOT NULL,
+            operation TEXT NOT NULL CHECK(operation IN ('HIDE','UNHIDE')),
+            actor TEXT NOT NULL, created TEXT NOT NULL);
+          CREATE TABLE IF NOT EXISTS privacy_receipts(
+            receipt_id TEXT PRIMARY KEY,
+            op_id TEXT NOT NULL REFERENCES privacy_operations(op_id),
+            operation TEXT NOT NULL, actor TEXT NOT NULL, created TEXT NOT NULL);
+          CREATE TRIGGER IF NOT EXISTS privacy_receipts_no_update
+            BEFORE UPDATE ON privacy_receipts
+            BEGIN SELECT RAISE(ABORT, 'append-only privacy receipt'); END;
+          CREATE TRIGGER IF NOT EXISTS privacy_receipts_no_delete
+            BEFORE DELETE ON privacy_receipts
+            BEGIN SELECT RAISE(ABORT, 'append-only privacy receipt'); END;
           CREATE TRIGGER IF NOT EXISTS transcript_no_update BEFORE UPDATE ON transcript
             BEGIN SELECT RAISE(ABORT, 'append-only transcript'); END;
           CREATE TRIGGER IF NOT EXISTS transcript_no_delete BEFORE DELETE ON transcript
@@ -422,6 +443,50 @@ class Notebook:
     def close(self):
         self.db.close()
         self.lock.close()
+
+    def set_privacy(self, tx, ordinal, operation, actor='human:jon',
+                    confirmation=None, request_id=None):
+        if operation not in ('HIDE', 'UNHIDE'):
+            raise ValueError('Unsupported privacy operation')
+        if actor != 'human:jon' or confirmation != operation:
+            raise PermissionError('Human confirmation required')
+        if not self.db.execute(
+                'SELECT 1 FROM transcript WHERE tx=? AND ordinal=?',
+                (tx, ordinal)).fetchone():
+            raise ValueError('Privacy target does not exist')
+
+        op_id = request_id or ('POP-' + uuid.uuid4().hex)
+        prior = self.db.execute(
+            'SELECT receipt_id FROM privacy_receipts WHERE op_id=?', (op_id,)
+        ).fetchone()
+        if prior:
+            return prior['receipt_id']
+        receipt_id = 'PR-' + uuid.uuid4().hex
+        state = 'HIDDEN' if operation == 'HIDE' else 'VISIBLE'
+        stamp = now()
+
+        with self._immediate():
+            self.db.execute(
+                'INSERT INTO privacy_operations VALUES(?,?,?,?,?,?)',
+                (op_id, tx, ordinal, operation, actor, stamp))
+            self.db.execute(
+                'INSERT OR REPLACE INTO privacy_state VALUES(?,?,?,?)',
+                (tx, ordinal, state, stamp))
+            self.db.execute(
+                'INSERT INTO privacy_receipts VALUES(?,?,?,?,?)',
+                (receipt_id, op_id, operation, actor, stamp))
+
+        try:
+            self.project()
+            self.verify()
+        except BaseException as error:
+            self.problem(tx, error, {
+                'scope': 'PRIVACY_PROJECTION',
+                'operation': operation,
+                'op_id': op_id,
+            })
+            raise
+        return receipt_id
 
     def event(self, tx, kind, payload):
         with self.db:
@@ -768,8 +833,19 @@ class Notebook:
         transactions = [dict(r) for r in self.db.execute('SELECT * FROM transactions ORDER BY created,tx')]
         result = {'bindings.json': encode(identities), 'active-index.json': encode(transactions)}
         for ident in identities:
-            messages = [dict(r) for r in self.db.execute('''SELECT transcript.* FROM transcript
-                JOIN transactions USING(tx) WHERE hcid=? ORDER BY seq''', (ident['hcid'],))]
+            messages = [dict(r) for r in self.db.execute('''SELECT transcript.seq,
+                transcript.tx, transcript.ordinal, transcript.role,
+                CASE WHEN COALESCE(p.state,'VISIBLE')='HIDDEN'
+                     THEN '[HIDDEN — content withheld]'
+                     ELSE transcript.text END AS text,
+                transcript.sha256, transcript.created,
+                transcript.record_integrity, transcript.record_integrity_version
+                FROM transcript
+                JOIN transactions USING(tx)
+                LEFT JOIN privacy_state p
+                  ON p.tx=transcript.tx AND p.ordinal=transcript.ordinal
+                WHERE hcid=?
+                ORDER BY seq''', (ident['hcid'],))]
             result['pages/' + ident['page'] + '.json'] = encode({'metadata': ident, 'transcript': messages})
             result['pages/' + ident['page'] + '.md'] = '# ' + ident['page'] + '\n\n' + ''.join(
                 '## ' + r['role'] + ' — ' + r['tx'] + ':' + str(r['ordinal']) + '\n\n' + r['text'] + '\n\n'
