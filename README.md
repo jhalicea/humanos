@@ -1,3 +1,13 @@
+# HumanOS
+
+**Local-first AI infrastructure for continuity, evidence, privacy, and human authority.**
+
+[Documentation](docs/index.md) · [Getting started](docs/getting-started.md) · [Architecture](docs/architecture.md) · [Security](docs/security-and-privacy.md) · [Limitations](docs/limitations.md)
+
+> **Status:** active early-stage runtime. Verified behavior, implemented features, specifications, and planned work are intentionally distinguished.
+
+---
+
 # HumanOS Runtime 0.1
 
 Extends `<HUMANOS_ROOT>/server.py`, retaining HumanOSRuntime and the
