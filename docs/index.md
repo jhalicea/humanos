@@ -13,7 +13,7 @@ HumanOS is a local-first personal AI runtime and applied research project focuse
 - [Testing and evidence](testing-and-evidence.md)
 - [Limitations](limitations.md)
 - [Roadmap](roadmap.md)
-- [Contributing](contributing.md)
+- [Contributing](https://jhalicea.github.io/humanos/contributing.html)
 
 ## Capability labels
 
