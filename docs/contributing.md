@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # Contributing
 
 HumanOS welcomes careful review, reproducible bug reports, tests, documentation improvements, and narrowly scoped pull requests.
