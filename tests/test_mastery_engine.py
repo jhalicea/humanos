@@ -13,6 +13,30 @@ class MasteryEngineTests(unittest.TestCase):
         self.assertEqual(self.engine.courses["cybersecurity-dfir"].career_readiness_percent, 47.0)
         self.assertEqual(self.engine.skills["ai.transformers"].stage, "introduced")
 
+    def test_systems_literacy_course_added(self):
+        self.assertIn("systems-literacy", self.engine.courses)
+        course = self.engine.courses["systems-literacy"]
+        for skill_id in ("identity.iam", "identity.platforms", "transfer.mft", "enterprise.netcool",
+                         "delivery.safe", "finance.frontoffice", "data.kdbq", "hardware.fpga"):
+            self.assertIn(skill_id, course.skill_ids)
+
+    def test_identity_is_part_of_core_learning_paths(self):
+        for course_id in ("cybersecurity-dfir", "ai-systems"):
+            skills = self.engine.courses[course_id].skill_ids
+            self.assertIn("identity.iam", skills)
+            self.assertIn("identity.federation", skills)
+            self.assertIn("identity.platforms", skills)
+
+    def test_networking_refresh_preserves_exposure_without_mastery(self):
+        networking = self.engine.skills["networking"]
+        self.assertEqual(networking.stage, "introduced")
+        self.assertEqual(networking.mastery_percent, 0.0)
+
+    def test_all_skill_prerequisites_exist(self):
+        for skill in self.engine.skills.values():
+            for prerequisite in skill.prerequisites:
+                self.assertIn(prerequisite, self.engine.skills)
+
     def test_overlap_is_supported(self):
         self.assertIn("git", self.engine.courses["cybersecurity-dfir"].skill_ids)
         self.assertIn("git", self.engine.courses["ai-systems"].skill_ids)
@@ -33,7 +57,8 @@ class MasteryEngineTests(unittest.TestCase):
         item = Evidence("same", "git", "lab", "attempt", {"practical": 4})
         self.engine.record_evidence(item); self.engine.record_evidence(item)
         self.assertEqual(self.engine.skills["git"].evidence_ids.count("same"), 1)
-        with self.assertRaises(ValueError): self.engine.record_evidence(Evidence("same", "git", "lab", "different", {"practical": 1}))
+        with self.assertRaises(ValueError):
+            self.engine.record_evidence(Evidence("same", "git", "lab", "different", {"practical": 1}))
 
     def test_research_is_candidate_only(self):
         item = self.engine.propose_curriculum_update("Future topic", "field changed", ["primary-source"])
@@ -42,18 +67,23 @@ class MasteryEngineTests(unittest.TestCase):
 
     def test_invalid_score_rejected(self):
         for value in (-1, 6):
-            with self.assertRaises(ValueError): self.engine.record_evidence(Evidence(f"bad-{value}", "git", "lab", "bad", {"practical": value}))
+            with self.assertRaises(ValueError):
+                self.engine.record_evidence(Evidence(f"bad-{value}", "git", "lab", "bad", {"practical": value}))
 
     def test_unknown_skill_rejected(self):
-        with self.assertRaises(KeyError): self.engine.record_evidence(Evidence("e3", "missing", "lab", "unknown", {"practical": 2}))
+        with self.assertRaises(KeyError):
+            self.engine.record_evidence(Evidence("e3", "missing", "lab", "unknown", {"practical": 2}))
 
     def test_future_and_naive_timestamps_rejected(self):
         future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
-        with self.assertRaises(ValueError): self.engine.record_evidence(Evidence("future", "git", "lab", "future", {"practical": 2}, created_at=future))
-        with self.assertRaises(ValueError): self.engine.record_evidence(Evidence("naive", "git", "lab", "naive", {"practical": 2}, created_at="2026-09-11T12:00:00"))
+        with self.assertRaises(ValueError):
+            self.engine.record_evidence(Evidence("future", "git", "lab", "future", {"practical": 2}, created_at=future))
+        with self.assertRaises(ValueError):
+            self.engine.record_evidence(Evidence("naive", "git", "lab", "naive", {"practical": 2}, created_at="2026-09-11T12:00:00"))
 
     def test_course_rejects_unknown_skill_reference(self):
-        with self.assertRaises(ValueError): self.engine.add_course(Course("bad", "Bad", ["not-real"]))
+        with self.assertRaises(ValueError):
+            self.engine.add_course(Course("bad", "Bad", ["not-real"]))
 
     def test_empty_course_is_defined(self):
         self.engine.add_course(Course("empty", "Empty", []))
