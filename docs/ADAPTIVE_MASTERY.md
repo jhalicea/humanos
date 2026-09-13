@@ -20,6 +20,11 @@ Track separately: course completion %, mastery %, and (where applicable) career-
 ## Cross-project learning
 Evidence is reusable. A BodyFix task can advance Git/API/database skills; a DFIR case can advance Windows, networking, evidence, AI verification, and reporting. Do not interrupt urgent work merely because a gap is encountered. Record it and schedule practice when useful.
 
+## Refresh mode
+When a learner has studied a topic before but is rusty, do not restart from lesson one by default. Begin with a compact diagnostic, preserve any valid evidence, then target weak or stale areas with short labs and spaced review. Exposure or a historical course does not automatically become a mastery score.
+
+For Jon's networking refresh, the old CCENT/CCNA material is treated as prior exposure. Current networking objectives and hands-on diagnostics determine what needs review now.
+
 ## Gap engine
 Prefer high-priority, low-mastery skills while retaining spaced review of strong skills. Respect the human's goals, interests, available time, current projects, prerequisites, and chosen pace.
 
@@ -29,11 +34,18 @@ The system may research changes in a field and create **CANDIDATE** modules. It 
 ## Technology Encounter Ledger
 Any meaningful technology touched in real work may become a skill node: commands, Git, Python, APIs, JSON/YAML, networking, cryptography, microprocessors, electricity/electronics, virtualization, containers, databases, LLM internals, PLC/industrial controls, and future technologies. Encounter does not equal mastery.
 
+The current version-controlled ledger is `docs/TECHNOLOGY_LEDGER.md`. It records `SEEN`, `REFRESH`, and active encounters with provenance and maps them to course skill IDs without fabricating evidence-derived mastery.
+
 ## Flagship curricula
 1. Cybersecurity, DFIR & Incident Response — preserve the historical ~47% as **career readiness**, not course completion.
 2. AI Systems Engineering & HumanOS — preserve the current continuation at Transformer Architecture; do not invent a historical percentage.
 
 Overlap between curricula is intentional.
+
+## Supporting curriculum
+**Technology Systems Literacy & Scarcity Niches** provides bounded exposure to technologies that are valuable to recognize but do not all justify specialization. It currently includes networking refresh, IAM/IDaaS/IGA and identity protocols/platforms, secure/managed file transfer, cloud and automation, IBM Netcool/event management, SAFe/RTE, front-office trading systems, kdb+/q, C++, and FPGA/HDL concepts.
+
+High-value crossover topics such as networking, IAM, identity federation, Okta/Entra/Active Directory/SailPoint, cloud and secure file transfer are also included in the relevant flagship curricula. Niche technologies remain lower-priority unless evidence from projects or the labor market justifies promotion.
 
 ## Future domains
 The same engine supports electronics, microprocessors/computer architecture, programming, networking, OSINT/intelligence, PLC/industrial controls, electricity, pumps/mechanical systems, woodworking, automotive, languages/communication, business/finance, design, and domains selected by other humans.
