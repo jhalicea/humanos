@@ -43,6 +43,8 @@ function sendEvent(conversation, turnId, role, text, dedupeKey) {
       role,
       text,
     },
+  }).then((response) => {
+    if (!response || response.ok !== true) sent.delete(dedupeKey);
   }).catch(() => {
     // Native host or service worker may be restarting. Remove the local marker so
     // the next scan retries; the local HumanOS spool is idempotent.
