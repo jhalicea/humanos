@@ -30,11 +30,21 @@ DECLARE
     r1_retry bigint;
     r2 bigint;
     c integer;
+    protocol_digest text;
 BEGIN
+    protocol_digest := humanos_capture_payload_digest(e1);
+    IF protocol_digest <> 'aca0fc36611bb56005f78fbbba919e773d391eb40e8c2e7a500e10138e79a50c' THEN
+        RAISE EXCEPTION 'PostgreSQL digest differs from Capture Event v1 protocol: %', protocol_digest;
+    END IF;
+
     SELECT x.seq INTO r1 FROM humanos_append_capture_event(e1) AS x;
     SELECT x.seq INTO r1_retry FROM humanos_append_capture_event(e1) AS x;
     IF r1 IS NULL OR r1_retry <> r1 THEN
         RAISE EXCEPTION 'idempotent retry did not return same sequence';
+    END IF;
+
+    IF (SELECT payload_digest FROM humanos_capture_events WHERE seq = r1) <> protocol_digest THEN
+        RAISE EXCEPTION 'stored digest differs from protocol digest';
     END IF;
 
     BEGIN
