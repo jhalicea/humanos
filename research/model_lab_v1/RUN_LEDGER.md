@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** 6 OBJECTIVE-SCORED RUNS / TASK 1 COMPLETE / TASK 2 IN PROGRESS
+**Status:** 7 OBJECTIVE-SCORED RUNS / TASK 1 COMPLETE / TASK 2 IN PROGRESS
 
 | Run ID | Task | Model | Surface | Effort | Raw preserved | Score | Notes |
 |---|---|---|---|---|---|---|---|
@@ -10,7 +10,7 @@
 | MLAB-P1-T1-TERRA | 1 | GPT-5.6 Terra | TBD | TBD | Yes | Objective 60/60; total pending | User corrected model identity to Terra; ingestion was briefly mislabeled Sol, then corrected before scoring |
 | MLAB-P1-T1-ASTRA | 1 | GPT-6 Astra | TBD | TBD | Yes | Objective 60/60; total pending | Raw frozen and scored; Task 1 ceiling reached across all five models |
 | MLAB-P1-T2-TERRA | 2 | GPT-5.6 Terra | Work | Light | Yes | Objective 59/60; total pending | Strong architectural judgment; minor deduction for composite revisit trigger with unspecified SLO threshold |
-| MLAB-P1-T2-ASTRA | 2 | GPT-6 Astra | TBD | TBD | No | Pending | |
+| MLAB-P1-T2-ASTRA | 2 | GPT-6 Astra | TBD | TBD | Yes | Objective 60/60; total pending | Strong staged plan and cleaner single measurable revisit trigger; model identity follows frozen sequence |
 | MLAB-P1-T2-LUNA | 2 | GPT-5.6 Luna | TBD | TBD | No | Pending | |
 | MLAB-P1-T2-SOL | 2 | GPT-5.6 Sol | TBD | TBD | No | Pending | |
 | MLAB-P1-T2-55 | 2 | GPT-5.5 | TBD | TBD | No | Pending | |
