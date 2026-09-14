@@ -28,11 +28,13 @@ The research sequence is deliberately separated to reduce contamination:
 
 - Ratified Constitution: `HumanOS — Founding Constitution and Human Bill of Rights v0.2 — Ratified 2026-08-02`
 - Canonical Google Doc ID: `1nZuBSM-PSABqcW0tnZ_geoo2XWGUKUVGBoG64m1NJ2s`
-- Round 3 packet: `HumanOS_FRIENDS_Round3_Sovereignty_Gauntlet_v1.0.pdf`
+- Clean-room Pass A packet: `HumanOS_FRIENDS_Round3_PASS_A_Blind_Constitution_v1.0.pdf`
+- Full Round 3 packet for later passes: `HumanOS_FRIENDS_Round3_Sovereignty_Gauntlet_v1.0.pdf`
 
 ### Artifact hashes
 
-- Round 3 packet SHA-256: `ba1e25d7b7e2bc9a8289e2cae6e2e5509b7fa7961ac16d1fa9ad531d32e64688`
+- Clean-room Pass A packet SHA-256: `e7bf2101238295da572c17ddcd0b7aeaa83a36270f280782882bc0830e49f96e`
+- Full Round 3 packet SHA-256: `ba1e25d7b7e2bc9a8289e2cae6e2e5509b7fa7961ac16d1fa9ad531d32e64688`
 - Exported Constitution PDF SHA-256: `aaa0156e0fcb24f7ca63061bbbbd6ab527389522e404675f08682d02ba7e9696`
 
 ## Planned participants
