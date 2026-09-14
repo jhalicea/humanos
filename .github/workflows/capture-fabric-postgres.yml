@@ -46,7 +46,11 @@ jobs:
           python -m pip install 'psycopg[binary]'
       - name: Apply capture relay schema
         run: psql -v ON_ERROR_STOP=1 -f sql/capture_fabric_postgres.sql
+      - name: Apply least-privilege role templates
+        run: psql -v ON_ERROR_STOP=1 -f sql/capture_fabric_roles.sql
       - name: Verify append-only relay behavior
         run: psql -v ON_ERROR_STOP=1 -f tests/capture_fabric_postgres.sql
+      - name: Verify least-privilege role boundaries
+        run: psql -v ON_ERROR_STOP=1 -f tests/capture_fabric_roles.sql
       - name: Verify Python relay adapter against PostgreSQL
         run: python -m unittest tests.test_postgres_capture_relay -v
