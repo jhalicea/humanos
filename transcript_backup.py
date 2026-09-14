@@ -72,6 +72,22 @@ def _write_atomic(path, data, mode=0o600):
     _fsync_dir(path.parent)
 
 
+def _append_fsynced(path, data, mode=0o600):
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0)
+    fd = os.open(str(path), flags, mode)
+    try:
+        offset = 0
+        while offset < len(data):
+            count = os.write(fd, data[offset:])
+            if count <= 0:
+                raise OSError('short transcript backup receipt write')
+            offset += count
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    _fsync_dir(Path(path).parent)
+
+
 class TranscriptBatchOutbox:
     """Prepare immutable transcript batches and track verified remote delivery.
 
@@ -177,6 +193,24 @@ class TranscriptBatchOutbox:
                 raise TranscriptBackupError('Transcript batch artifact readback mismatch: ' + name)
         return manifest
 
+    def _reconcile_committed_pending(self, cursor):
+        """Finish local housekeeping after a crash following cursor commit.
+
+        The authenticated cursor is written only after remote readback verification.
+        If the process died before moving the local batch from pending to confirmed,
+        this safely completes that move on the next pass.
+        """
+        for manifest in sorted(self._pending_manifests(), key=lambda value: value['first_seq']):
+            if manifest['last_seq'] > cursor:
+                continue
+            source = self.pending / manifest['batch_id']
+            destination = self.confirmed / manifest['batch_id']
+            if destination.exists():
+                raise TranscriptBackupError('Transcript batch exists in pending and confirmed locations')
+            os.replace(source, destination)
+            _fsync_dir(self.pending)
+            _fsync_dir(self.confirmed)
+
     def _select_rows(self, after_seq, max_records):
         if isinstance(max_records, bool) or not isinstance(max_records, int) or max_records < 1:
             raise ValueError('max_records must be a positive integer')
@@ -202,8 +236,8 @@ class TranscriptBatchOutbox:
                 'tx': row['tx'],
                 'ordinal': row['ordinal'],
                 'role': row['role'],
-                # The JSON string value preserves the exact visible text bytes
-                # after UTF-8 decode/encode; it is never summarized or normalized.
+                # The JSON string preserves the exact visible text after UTF-8
+                # decode/encode. It is never summarized or normalized.
                 'text': row['text'],
                 'content_digest': row['content_digest'],
                 'created': row['created'],
@@ -230,6 +264,7 @@ class TranscriptBatchOutbox:
         """
         self.book.verify()
         cursor = self._read_cursor()
+        self._reconcile_committed_pending(cursor)
         pending = self._pending_manifests()
         if pending:
             pending.sort(key=lambda value: value['first_seq'])
@@ -295,10 +330,7 @@ class TranscriptBatchOutbox:
             raise ValueError('Invalid transcript batch id')
         batch_dir = self.pending / batch_id
         manifest = self._load_manifest(batch_dir)
-        return {
-            name: batch_dir / name
-            for name in sorted(manifest['files'])
-        }
+        return {name: batch_dir / name for name in sorted(manifest['files'])}
 
     def confirm_upload(self, batch_id, remote_files):
         """Advance the cursor only after transport-level remote readback proof.
@@ -331,17 +363,11 @@ class TranscriptBatchOutbox:
             'verified_at': now(),
         }
         receipt['proof'] = self.book.content_digest(_canonical(receipt))
-        raw = (_canonical(receipt) + '\n').encode('utf-8')
-        flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0)
-        fd = os.open(str(self.receipts_path), flags, 0o600)
-        try:
-            os.write(fd, raw)
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+        _append_fsynced(self.receipts_path, (_canonical(receipt) + '\n').encode('utf-8'))
 
-        # The cursor is the commit point: until this authenticated write/readback
-        # succeeds, the batch remains pending and will be retried.
+        # Cursor commit occurs only after the durable remote-verification receipt.
+        # If the process dies after this point but before the directory move, the
+        # next prepare_batch() call reconciles the already-committed pending batch.
         self._write_cursor(manifest['last_seq'])
         destination = self.confirmed / batch_id
         if destination.exists():
