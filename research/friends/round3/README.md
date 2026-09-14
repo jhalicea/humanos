@@ -44,6 +44,7 @@ The research sequence is deliberately separated to reduce contamination:
 - Google / Gemini
 - xAI / Grok
 - DeepSeek
+- Perplexity Computer
 - Local Llama-family models
 - Local Qwen-family models
 - Future qualified models
@@ -69,6 +70,10 @@ Each submission records:
 - later regression-test mapping.
 
 A participant that has already seen other FRIEND answers or later architecture material may still produce a useful **pilot/calibration** result, but that result is labeled `CONTAMINATED` and is excluded from blind-panel scoring.
+
+## First blind response received
+
+`R3-A-PERPLEXITY-001` is the first blind Pass A response received. Its returned attachment was hashed before substantive analysis. Model identity beyond the participant/provider self-report remains unverified. The response is being held from substantive comparison until the rest of the blind cohort is frozen.
 
 ## Truth boundary
 
