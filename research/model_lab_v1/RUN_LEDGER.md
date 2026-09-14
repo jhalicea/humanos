@@ -1,10 +1,10 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** NO SCORED RUNS YET
+**Status:** 1 OBJECTIVE-SCORED RUN / COMPARATIVE SCORING IN PROGRESS
 
 | Run ID | Task | Model | Surface | Effort | Raw preserved | Score | Notes |
 |---|---|---|---|---|---|---|---|
-| MLAB-P1-T1-LUNA | 1 | GPT-5.6 Luna | TBD | TBD | No | Pending | |
+| MLAB-P1-T1-LUNA | 1 | GPT-5.6 Luna | Work | Light | Yes | Objective 60/60; total pending | First-pass accepted; Jon-fit + comparative efficiency pending |
 | MLAB-P1-T1-55 | 1 | GPT-5.5 | TBD | TBD | No | Pending | |
 | MLAB-P1-T1-SOL | 1 | GPT-5.6 Sol | TBD | TBD | No | Pending | |
 | MLAB-P1-T1-TERRA | 1 | GPT-5.6 Terra | TBD | TBD | No | Pending | |
