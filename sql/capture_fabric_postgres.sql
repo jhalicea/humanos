@@ -1,7 +1,7 @@
 -- HumanOS Capture Fabric — PostgreSQL relay schema
 --
 -- This database is a durable synchronization mailbox, not the canonical Life
--- Notebook.  Writers should receive EXECUTE on the append function only; they
+-- Notebook. Writers should receive EXECUTE on the append function only; they
 -- should not receive UPDATE/DELETE/SELECT privileges on the underlying table.
 
 BEGIN;
@@ -56,6 +56,7 @@ DECLARE
         'text','idempotency_key','variant_id','source_created_at'
     ];
     actual_keys text[];
+    required_keys_sorted text[];
     v_idempotency text;
     v_digest text;
     inserted humanos_capture_events%ROWTYPE;
@@ -65,17 +66,19 @@ BEGIN
         RAISE EXCEPTION 'capture event must be a JSON object';
     END IF;
 
-    SELECT array_agg(key ORDER BY key)
+    SELECT array_agg(t.key ORDER BY t.key)
       INTO actual_keys
-      FROM jsonb_object_keys(p_event) AS key;
+      FROM jsonb_object_keys(p_event) AS t(key);
 
-    IF actual_keys IS DISTINCT FROM (
-        SELECT array_agg(key ORDER BY key) FROM unnest(required_keys) AS key
-    ) THEN
+    SELECT array_agg(t.key ORDER BY t.key)
+      INTO required_keys_sorted
+      FROM unnest(required_keys) AS t(key);
+
+    IF actual_keys IS DISTINCT FROM required_keys_sorted THEN
         RAISE EXCEPTION 'unexpected or missing capture event fields';
     END IF;
 
-    IF (p_event->>'version')::integer <> 1 THEN
+    IF jsonb_typeof(p_event->'version') <> 'number' OR (p_event->>'version')::integer <> 1 THEN
         RAISE EXCEPTION 'unsupported capture event version';
     END IF;
     IF p_event->>'source' IS NULL OR p_event->>'source' = '' THEN
@@ -98,8 +101,8 @@ BEGIN
     IF p_event->>'role' NOT IN ('human','assistant') THEN
         RAISE EXCEPTION 'unsupported role';
     END IF;
-    IF (p_event->>'event_type' LIKE 'human%%' AND p_event->>'role' <> 'human')
-       OR (p_event->>'event_type' LIKE 'assistant%%' AND p_event->>'role' <> 'assistant') THEN
+    IF (p_event->>'event_type' LIKE 'human%' AND p_event->>'role' <> 'human')
+       OR (p_event->>'event_type' LIKE 'assistant%' AND p_event->>'role' <> 'assistant') THEN
         RAISE EXCEPTION 'event_type and role disagree';
     END IF;
     IF p_event->>'text' IS NULL OR p_event->>'text' = '' THEN
@@ -174,7 +177,7 @@ BEGIN
 END;
 $$;
 
--- Fail closed by default.  Deployment creates provider-specific NOLOGIN/login
+-- Fail closed by default. Deployment creates provider-specific NOLOGIN/login
 -- roles and grants only the functions each route needs.
 REVOKE ALL ON humanos_capture_events FROM PUBLIC;
 REVOKE ALL ON FUNCTION humanos_append_capture_event(jsonb) FROM PUBLIC;
