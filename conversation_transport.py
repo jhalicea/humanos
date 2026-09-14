@@ -7,7 +7,9 @@ even while another HumanOS process owns the Notebook writer lock. When the
 Notebook is available, the ingestor moves the already-preserved event into the
 canonical Life Notebook through UniversalConversationCapture.
 
-No language model is called anywhere in this module.
+The spool lives beside, not inside, ``vault/runtime`` so creating it first can
+never make a fresh Notebook vault look like a damaged pre-existing protected
+runtime. No language model is called anywhere in this module.
 """
 
 import argparse
@@ -82,7 +84,7 @@ class CaptureSpool:
 
     def __init__(self, vault):
         self.vault = Path(vault).resolve()
-        self.root = _private_dir(self.vault / 'runtime' / 'capture-transport')
+        self.root = _private_dir(self.vault / 'capture-transport')
         self.secret_path = self.root / 'capture.key'
         self.secret = _load_or_create_secret(self.secret_path)
         self.db_path = self.root / 'capture.sqlite3'
