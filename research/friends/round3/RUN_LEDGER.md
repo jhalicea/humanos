@@ -7,7 +7,7 @@ This ledger records experiment execution status. A run is not considered an inde
 | R3-A-OPENAI-001 | A | OpenAI / ChatGPT | NOT RUN | Must use fresh context | Yes | No | Pending |
 | R3-A-CLAUDE-001 | A | Anthropic / Claude | NOT RUN | Unknown until run | Yes | No | Pending |
 | R3-A-GEMINI-001 | A | Google / Gemini | RAW FROZEN | NONE (self-report) | Claimed canonical Pass A | Repository raw copy + SHA-256 frozen | PROVISIONAL YES |
-| R3-A-GROK-001 | A | xAI / Grok | NOT RUN | Unknown until run | Yes | No | Pending |
+| R3-A-GROK-001 | A | xAI / Grok 4.5 | RAW FROZEN | NONE (self-report) | Claimed canonical Pass A | Repository raw copy + SHA-256 frozen | PROVISIONAL YES |
 | R3-A-DEEPSEEK-001 | A | DeepSeek | NOT RUN | Unknown until run | Yes | No | Pending |
 | R3-A-PERPLEXITY-001 | A | Perplexity Computer | RAW HASH FROZEN | LOW (self-report) | Claimed canonical Pass A | Attachment + SHA-256 frozen | PROVISIONAL YES |
 | R3-A-LLAMA-001 | A | Local Llama | NOT RUN | Unknown until run | Yes | No | Pending |
@@ -41,3 +41,6 @@ Received 2026-09-14. The response self-reports no web access, no repository acce
 
 ### R3-A-GEMINI-001
 Received 2026-09-14. The response self-reports Gemini / Google, no web access, no repository access, no code execution, no other HumanOS material, and contamination risk NONE. The raw response is preserved in the repository and SHA-256 frozen. Runtime-attested model identity and runtime-side verification of the input bytes remain UNKNOWN. Substantive analysis is intentionally held until the blind cohort is complete.
+
+### R3-A-GROK-001
+Received 2026-09-14. The response self-reports Grok 4.5 / xAI, no web access, no repository access, no code execution, no other HumanOS material, and contamination risk NONE. The raw response is preserved in the repository and SHA-256 frozen. Runtime-attested model identity and runtime-side verification of the input bytes remain UNKNOWN. Substantive analysis is intentionally held until the blind cohort is complete.
