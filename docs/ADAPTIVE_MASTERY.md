@@ -25,6 +25,8 @@ When a learner has studied a topic before but is rusty, do not restart from less
 
 For Jon's networking refresh, the old CCENT/CCNA material is treated as prior exposure. Current networking objectives and hands-on diagnostics determine what needs review now.
 
+Jon's 2020 Thinkful Engineering Flex work is treated the same way: surviving GitHub repositories establish prior exposure/practice and determine diagnostic starting points, but they do not automatically establish current mastery. The recovered and modernized path is documented in `docs/WEB_ENGINEERING_REACTIVATION.md`.
+
 ## Gap engine
 Prefer high-priority, low-mastery skills while retaining spaced review of strong skills. Respect the human's goals, interests, available time, current projects, prerequisites, and chosen pace.
 
@@ -41,6 +43,15 @@ The current version-controlled ledger is `docs/TECHNOLOGY_LEDGER.md`. It records
 2. AI Systems Engineering & HumanOS — preserve the current continuation at Transformer Architecture; do not invent a historical percentage.
 
 Overlap between curricula is intentional.
+
+## Reactivation curriculum
+**Web & Software Engineering Reactivation — Thinkful 2020 → HumanOS 2026** restores Jon's prior Git/GitHub, JavaScript, jQuery, npm, React, routing, API, Node/Express, testing, PostgreSQL and authentication knowledge, then modernizes it for current HumanOS/AI systems work. It is refresh-first and evidence-based: old repositories establish provenance and diagnostic starting points, while new HumanOS-linked builds, failure drills, tests and teach-backs determine present mastery.
+
+The course explicitly repairs the historical weak point around backend/authentication sequencing. HTTP failure handling, middleware, tokens/sessions/JWT, 401/403 behavior, refresh/revocation, database boundaries and end-to-end request tracing receive deeper treatment before any full-stack capstone. DSA/Big-O is intentionally sequenced after the application stack is stable rather than being piled onto an unfinished backend capstone.
+
+Historical diagnostics may run without creating a competing production implementation slice. New React/Node/database/auth code is added to HumanOS only when a real selected HumanOS feature needs it.
+
+See `docs/WEB_ENGINEERING_REACTIVATION.md` for the recovered evidence map, modernization baseline, skill graph, mastery gates and Noteful diagnostic.
 
 ## Supporting curriculum
 **Technology Systems Literacy & Scarcity Niches** provides bounded exposure to technologies that are valuable to recognize but do not all justify specialization. It currently includes networking refresh, IAM/IDaaS/IGA and identity protocols/platforms, secure/managed file transfer, cloud and automation, IBM Netcool/event management, SAFe/RTE, front-office trading systems, kdb+/q, C++, and FPGA/HDL concepts.
