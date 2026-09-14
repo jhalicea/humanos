@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** 4 OBJECTIVE-SCORED RUNS / COMPARATIVE SCORING IN PROGRESS
+**Status:** 5 OBJECTIVE-SCORED RUNS / TASK 1 COMPLETE / COMPARATIVE SCORING IN PROGRESS
 
 | Run ID | Task | Model | Surface | Effort | Raw preserved | Score | Notes |
 |---|---|---|---|---|---|---|---|
@@ -8,7 +8,7 @@
 | MLAB-P1-T1-55 | 1 | GPT-5.5 | TBD | TBD | Yes | Objective 60/60; total pending | Raw frozen; model identity follows frozen sequence; surface/effort not independently verified |
 | MLAB-P1-T1-SOL | 1 | GPT-5.6 Sol | TBD | TBD | Yes | Objective 60/60; total pending | Raw frozen and scored; surface/effort not independently verified |
 | MLAB-P1-T1-TERRA | 1 | GPT-5.6 Terra | TBD | TBD | Yes | Objective 60/60; total pending | User corrected model identity to Terra; ingestion was briefly mislabeled Sol, then corrected before scoring |
-| MLAB-P1-T1-ASTRA | 1 | GPT-6 Astra | TBD | TBD | No | Pending | |
+| MLAB-P1-T1-ASTRA | 1 | GPT-6 Astra | TBD | TBD | Yes | Objective 60/60; total pending | Raw frozen and scored; Task 1 ceiling reached across all five models |
 | MLAB-P1-T2-TERRA | 2 | GPT-5.6 Terra | TBD | TBD | No | Pending | |
 | MLAB-P1-T2-ASTRA | 2 | GPT-6 Astra | TBD | TBD | No | Pending | |
 | MLAB-P1-T2-LUNA | 2 | GPT-5.6 Luna | TBD | TBD | No | Pending | |
