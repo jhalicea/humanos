@@ -1,13 +1,13 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** 2 OBJECTIVE-SCORED RUNS / COMPARATIVE SCORING IN PROGRESS
+**Status:** 3 OBJECTIVE-SCORED RUNS / COMPARATIVE SCORING IN PROGRESS
 
 | Run ID | Task | Model | Surface | Effort | Raw preserved | Score | Notes |
 |---|---|---|---|---|---|---|---|
 | MLAB-P1-T1-LUNA | 1 | GPT-5.6 Luna | Work | Light | Yes | Objective 60/60; total pending | First-pass accepted; Jon-fit + comparative efficiency pending |
 | MLAB-P1-T1-55 | 1 | GPT-5.5 | TBD | TBD | Yes | Objective 60/60; total pending | Raw frozen; model identity follows frozen sequence; surface/effort not independently verified |
 | MLAB-P1-T1-SOL | 1 | GPT-5.6 Sol | TBD | TBD | No | Pending | |
-| MLAB-P1-T1-TERRA | 1 | GPT-5.6 Terra | TBD | TBD | No | Pending | |
+| MLAB-P1-T1-TERRA | 1 | GPT-5.6 Terra | TBD | TBD | Yes | Objective 60/60; total pending | User corrected model identity to Terra; ingestion was briefly mislabeled Sol, then corrected before scoring |
 | MLAB-P1-T1-ASTRA | 1 | GPT-6 Astra | TBD | TBD | No | Pending | |
 | MLAB-P1-T2-TERRA | 2 | GPT-5.6 Terra | TBD | TBD | No | Pending | |
 | MLAB-P1-T2-ASTRA | 2 | GPT-6 Astra | TBD | TBD | No | Pending | |
