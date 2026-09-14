@@ -4,7 +4,9 @@
 **Pass:** A
 **Participant:** Perplexity Computer (self-report)
 **Provider:** Perplexity (self-report)
-**Model/runtime self-report:** `Perplexity Computer`; orchestrator reported in the submitted response as `Preview, GLM 5.2-based`
+**Execution class:** ORCHESTRATED SYSTEM / UNDERLYING MODEL ATTRIBUTION UNKNOWN
+**Underlying model selection:** UNKNOWN — the human did not select Claude or any other named model; Perplexity Computer mode was used and did not expose a definitive model identity in the UI.
+**Submitted response self-report:** `Perplexity Computer`; the response text also described the orchestrator as `Preview, GLM 5.2-based`, but this is not runtime attestation and MUST NOT be treated as proof that GLM 5.2 alone generated the response.
 **Runtime-attested identity:** UNKNOWN
 **Status:** RAW ATTACHMENT RECEIVED / SHA-256 FROZEN / SUBSTANTIVE ANALYSIS HELD
 **Date received:** 2026-09-14
@@ -35,9 +37,23 @@ The SHA-256 above was computed before any normalization or substantive compariso
 
 ## Eligibility
 
-**Blind-scoring eligibility:** PROVISIONAL YES
+**Blind system-level scoring eligibility:** PROVISIONAL YES
 
-Reason: the participant explicitly reports that it used only the Pass A packet and saw no other HumanOS material or FRIEND response. Runtime identity and exact runtime-side input-byte attestation remain unknown, so those fields must not be upgraded beyond self-report.
+Reason: the participant explicitly reports that it used only the Pass A packet and saw no other HumanOS material or FRIEND response.
+
+**Single-model attribution eligibility:** NO
+
+Reason: Perplexity Computer is an orchestration/harness mode in this run and the underlying model or model mixture was not runtime-attested. Findings from this run may be attributed only to `Perplexity Computer`, never to Claude, GLM, GPT, or any other specific model.
+
+This run can therefore contribute to:
+- system-level convergence analysis;
+- harness/orchestrator comparison;
+- constitutional-review quality comparison.
+
+It cannot by itself support claims about:
+- the behavior of any one underlying model family;
+- Claude-vs-Gemini-vs-GPT-vs-GLM performance;
+- whether one specific model independently discovered a finding.
 
 ## Analysis hold
 
