@@ -6,6 +6,7 @@ const CAPTURE_HOST = "com.humanos.conversation_capture";
 let selectedTabId = null;
 let port = null;
 let capturePort = null;
+let capturePending = [];
 
 chrome.action.onClicked.addListener((tab) => { selectedTabId = tab.id; });
 
@@ -20,12 +21,24 @@ function connect() {
   }
 }
 
+function failCapturePending(error) {
+  const pending = capturePending;
+  capturePending = [];
+  for (const respond of pending) {
+    try { respond({ok: false, stored_local: false, error}); } catch (_) {}
+  }
+}
+
 function connectCapture() {
   try {
     capturePort = chrome.runtime.connectNative(CAPTURE_HOST);
-    capturePort.onMessage.addListener(() => {});
+    capturePort.onMessage.addListener((response) => {
+      const respond = capturePending.shift();
+      if (respond) respond(response);
+    });
     capturePort.onDisconnect.addListener(() => {
       capturePort = null;
+      failCapturePending("HumanOS capture native host disconnected before local receipt");
       setTimeout(connectCapture, 1000);
     });
   } catch (_) {
@@ -38,22 +51,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.kind !== "humanos-conversation-capture") return false;
   const event = message.event;
   if (!event || typeof event !== "object") {
-    sendResponse({ok: false, error: "Malformed conversation capture event"});
+    sendResponse({ok: false, stored_local: false, error: "Malformed conversation capture event"});
     return false;
   }
   if (!capturePort) connectCapture();
   if (!capturePort) {
-    sendResponse({ok: false, error: "HumanOS capture native host is unavailable"});
+    sendResponse({ok: false, stored_local: false, error: "HumanOS capture native host is unavailable"});
     return false;
   }
   try {
+    // Keep the content-script message channel open until the native host returns
+    // the daemon's durable local-spool acknowledgement. FIFO is safe because the
+    // native host processes one native-messaging request at a time.
+    capturePending.push(sendResponse);
     capturePort.postMessage(event);
-    sendResponse({ok: true, accepted_by_extension: true});
+    return true;
   } catch (error) {
+    capturePending.pop();
     capturePort = null;
-    sendResponse({ok: false, error: String(error.message || error)});
+    sendResponse({ok: false, stored_local: false, error: String(error.message || error)});
+    return false;
   }
-  return false;
 });
 
 async function handle(command) {
