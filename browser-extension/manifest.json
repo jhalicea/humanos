@@ -1,9 +1,17 @@
 {
   "manifest_version": 3,
   "name": "HumanOS Browser Bridge",
-  "version": "0.1.0",
-  "description": "Executes broker-approved HumanOS browser actions on a selected tab.",
-  "permissions": ["activeTab", "scripting", "tabs", "downloads"],
+  "version": "0.2.0",
+  "description": "Executes broker-approved HumanOS browser actions and captures exact ChatGPT web transcripts into the local HumanOS transport.",
+  "permissions": ["activeTab", "scripting", "tabs", "downloads", "nativeMessaging"],
+  "host_permissions": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
   "background": {"service_worker": "service-worker.js", "type": "module"},
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["chatgpt-capture.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {"default_title": "HumanOS: select this tab"}
 }
