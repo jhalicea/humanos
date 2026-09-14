@@ -11,8 +11,9 @@ This ledger records experiment execution status. A run is not considered an inde
 | R3-A-GROK-001 | A | xAI / Grok 4.5 | RAW FROZEN | NONE (self-report) | Claimed canonical Pass A | Repository raw copy + SHA-256 frozen | PROVISIONAL YES |
 | R3-A-DEEPSEEK-001 | A | DeepSeek | RAW FROZEN | LOW (self-report) | Claimed canonical Pass A | Repository raw copy + original attachment SHA-256 frozen | PROVISIONAL YES |
 | R3-A-PERPLEXITY-001 | A | Perplexity Computer | RAW HASH FROZEN | LOW (self-report) | Claimed canonical Pass A | Attachment + SHA-256 frozen | PROVISIONAL YES |
-| R3-A-LLAMA-001 | A | Local Llama | HARNESS READY / NOT RUN | Fresh Ollama request planned | Frozen local text pair | No | Pending |
-| R3-A-QWEN-001 | A | Local Qwen | HARNESS READY / NOT RUN | Fresh Ollama request planned | Frozen local text pair | No | Pending |
+| R3-A-LLAMA-001 | A | Local `llama3.2:latest` | HOST EXECUTED / PARTIAL RAW FROZEN | Fresh local Ollama request; no peer answer supplied | Frozen local text pair | Local raw artifact + SHA-256 observed on host | No — incomplete protocol response |
+| R3-A-QWEN-16K-001 | A | Local `qwen3-coder:16k` | HOST EXECUTED / FAILED EMPTY VISIBLE RESPONSE | Fresh local Ollama request; no peer answer supplied | Frozen local text pair | Failure metadata only; no visible substantive response | No — diagnostics pending |
+| R3-A-QWEN-001 | A | Local Qwen representative TBD | NOT RUN | Must use fresh local request | Frozen local text pair | No | Pending |
 | R3-A-CHAT-CAL-001 | A | Current ChatGPT orchestration thread | CALIBRATION ONLY | CONTAMINATED: challenge designer + architecture exposure | Yes | Not yet | No |
 
 ## Status vocabulary
@@ -53,7 +54,13 @@ Received 2026-09-14. The response itself reported model/provider identity UNKNOW
 
 ## Local runs
 
-The research branch now contains `run_local_pass_a.py` and `LOCAL_PASS_A_PROTOCOL.md`. These are **IMPLEMENTED CANDIDATE / HOST VERIFICATION REQUIRED**. They use fresh loopback Ollama requests and record model digest, context capacity, input hashes, raw output hashes, and runtime metadata. No local model result is claimed until the Mac executes the harness.
+### R3-A-LLAMA-001
+The host executed both v1 and v2 against `llama3.2:latest`. Both runs produced the same visible response SHA-256 `1ca6453e67568f964ee8b10bc7977c07f5cb721bfedc927c6371e13eb9c2fb50`, 4,364 bytes, 42 lines, and `eval_count=775`. V2 classified it `RAW_FROZEN_LOCAL_PARTIAL` because every required Pass A structural marker was absent. The identical hash across reruns is strong evidence that the incomplete result is reproducible under the fixed seed/temperature harness. It is not eligible as a complete Pass A submission.
+
+### R3-A-QWEN-16K-001
+The host executed both v1 and v2 against `qwen3-coder:16k`. V1 reported an empty/non-text response. V2 reported `FAILED_EMPTY_VISIBLE_RESPONSE`, with message keys `['content', 'role']`, `done_reason=None`, and `eval_count=None`. This is treated as a local inference/template/runtime compatibility failure, not as substantive constitutional reasoning evidence.
+
+A separate neutral diagnostic harness now exists at `research/friends/round3/diagnose_local_ollama.py` to compare `/api/chat` and `/api/generate` on installed Qwen variants before selecting a complete Qwen representative. Diagnostic runs are explicitly not EXP-R3-A-001.
 
 ## Calibration runs
 
