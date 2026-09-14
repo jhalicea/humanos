@@ -1,6 +1,6 @@
 # EXP-R3-A-001 — Local Pass A v2 note
 
-**Status:** IMPLEMENTED CANDIDATE / HOST VERIFICATION REQUIRED
+**Status:** HOST EXECUTED / PARTIAL + FAILED / NEXT DIAGNOSTIC IMPLEMENTED
 **Reason for v2:** The first host run on 2026-09-14 produced one short Llama response and one Qwen empty-visible-response failure. The original v1 harness is preserved unchanged as experiment history.
 
 ## Observed v1 host evidence supplied by the human operator
@@ -8,32 +8,64 @@
 - `llama3.2:latest` reached Ollama and produced a visible response: 4,364 bytes, 42 lines, 63.1 seconds, `done_reason=stop`, `eval_count=775`, with response SHA-256 `1ca6453e67568f964ee8b10bc7977c07f5cb721bfedc927c6371e13eb9c2fb50`.
 - `qwen3-coder:16k` failed in the v1 harness with `RuntimeError: Ollama returned an empty/non-text response`.
 
-These observations do **not** yet establish either model as a complete official Pass A participant. The Llama response is suspiciously short for the required protocol and must pass structural completeness checks. The Qwen failure needs visible-response diagnostics.
+These observations did **not** establish either model as a complete official Pass A participant.
 
-## V2 changes
+## V2 host rerun evidence
 
-`run_local_pass_a_v2.py`:
+The human operator then ran `run_local_pass_a_v2.py` from the isolated worktree.
 
-1. explicitly requests `think=false` from Ollama;
-2. never saves hidden thinking text; it records only whether a thinking field was present and its character count;
-3. records top-level and message response keys on failures;
-4. preserves non-empty outputs even when incomplete;
-5. checks for all 12 trials plus the required terminal sections before assigning `RAW_FROZEN_LOCAL`;
-6. labels incomplete visible answers `RAW_FROZEN_LOCAL_PARTIAL`;
-7. raises the planned output allowance to 12,000 tokens and requires at least 5,000 tokens of available output context for a fair full Pass A run.
+### llama3.2:latest
 
-## Host rerun
+Observed:
 
-From the isolated worktree:
+- status: `RAW_FROZEN_LOCAL_PARTIAL`
+- response SHA-256: `1ca6453e67568f964ee8b10bc7977c07f5cb721bfedc927c6371e13eb9c2fb50`
+- response bytes: `4364`
+- response lines: `42`
+- runtime: `50.9s`
+- `done_reason=stop`
+- `eval_count=775`
+- all required Pass A structural markers were reported missing by the v2 compliance checker.
+
+Important observation: the response SHA-256 is identical to the v1 run. With the same frozen input, seed, and temperature, the model reproduced the same short visible output across both runs. This strongly supports that the short result is reproducible model behavior under this harness rather than a one-off transport failure. It remains **PARTIAL / NOT ELIGIBLE AS A COMPLETE PASS A SUBMISSION** until the raw response itself is reviewed for substantive content after blind collection is complete.
+
+### qwen3-coder:16k
+
+Observed:
+
+- status: `FAILED_EMPTY_VISIBLE_RESPONSE`
+- terminal: `FAIL: Ollama returned no visible text response`
+- response message keys: `['content', 'role']`
+- `done_reason=None`
+- `eval_count=None`
+
+The absence of `done_reason` and `eval_count`, combined with blank visible content, means the failure should not yet be attributed to constitutional reasoning quality. It may be a model/runtime/template compatibility issue or another local inference failure.
+
+## Interpretation boundary
+
+Do not score Llama on constitutional quality as if it completed the assigned protocol. Do not score Qwen as a substantive refusal or failure of constitutional reasoning. The current evidence is:
+
+- Llama: **reproducible incomplete visible response**.
+- Qwen 16k: **local visible-response failure**.
+
+## Next diagnostic
+
+A separate non-HumanOS diagnostic was added at:
+
+`research/friends/round3/diagnose_local_ollama.py`
+
+It sends only the neutral prompt `Return exactly the word OK and nothing else.` through both Ollama `/api/chat` and `/api/generate`. It records model family, parameter size, quantization, reported context length, visible response fields, completion metadata, and whether a hidden-thinking field existed, without storing hidden thinking text.
+
+This diagnostic is explicitly **NOT EXP-R3-A-001** and cannot be scored as a constitutional run. Its purpose is to determine whether Qwen's empty response is caused by the model/runtime/template path or specifically by the long Pass A request.
+
+Recommended diagnostic cohort:
 
 ```bash
-cd /Users/jhalicea/humanos-r3
-git pull --ff-only
-python3 research/friends/round3/run_local_pass_a_v2.py \
-  --model llama3.2:latest \
-  --model qwen3-coder:16k
+python3 research/friends/round3/diagnose_local_ollama.py \
+  --model qwen3-coder:16k \
+  --model qwen3-coder-local:16k \
+  --model qwen3-coder:latest \
+  --model qwen3-coder:30b
 ```
 
-Do not delete or overwrite the v1 artifacts. They are part of the experiment history.
-
-If Qwen still returns no visible text, preserve the v2 metadata and test a stronger installed Qwen candidate in a separate fresh run rather than modifying or hiding the failure.
+After identifying a Qwen variant that returns normal visible text through `/api/chat`, run that exact model through the unchanged v2 Pass A harness in a fresh request.
