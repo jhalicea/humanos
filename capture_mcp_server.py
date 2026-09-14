@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
-"""Runnable HumanOS Capture MCP server.
+"""Runnable encrypted HumanOS Capture MCP server.
 
-Run with the current official MCP Python SDK v2, for example:
+Production remote capture is fail-closed: the MCP writer requires a dedicated
+least-privilege PostgreSQL credential, an owner-controlled X25519 *public* key,
+and a separate relay token secret. The matching private key is never present on
+the remote service.
 
-    HUMANOS_CAPTURE_DATABASE_URL='postgresql://...' mcp run capture_mcp_server.py
+Required environment variables:
 
-or deploy it with the SDK's Streamable HTTP transport. The database credential
-should be the dedicated ``humanos_capture_writer`` role, which has EXECUTE on
-one append function and no underlying table privileges.
+    HUMANOS_CAPTURE_DATABASE_URL
+    HUMANOS_CAPTURE_RECIPIENT_PUBLIC_KEY_B64
+    HUMANOS_CAPTURE_TOKEN_SECRET_B64
+
+The database stores encrypted envelopes only. The gateway sees tool input
+transiently in process memory because it receives the provider request, but this
+module does not log message bodies or expose read/search/delete/admin tools.
 """
 
 from __future__ import annotations
@@ -17,31 +24,50 @@ from typing import Any
 
 from mcp.server import MCPServer
 
-from capture_fabric import CaptureGateway
-from capture_postgres import PostgresCaptureRelay
+from capture_encryption import decode_public_key_b64, decode_secret_b64
+from capture_fabric import CaptureEvent
+from capture_secure_postgres import EncryptedPostgresCaptureWriter
 
 
 mcp = MCPServer('HumanOS Capture')
-_gateway: CaptureGateway | None = None
+_writer: EncryptedPostgresCaptureWriter | None = None
 
 
-def gateway() -> CaptureGateway:
-    global _gateway
-    if _gateway is None:
+def writer() -> EncryptedPostgresCaptureWriter:
+    global _writer
+    if _writer is None:
         dsn = os.environ.get('HUMANOS_CAPTURE_DATABASE_URL', '')
-        if not dsn:
-            raise RuntimeError('HUMANOS_CAPTURE_DATABASE_URL is not configured')
-        relay = PostgresCaptureRelay(dsn)
-        _gateway = CaptureGateway(relay.append)
-    return _gateway
+        public_b64 = os.environ.get('HUMANOS_CAPTURE_RECIPIENT_PUBLIC_KEY_B64', '')
+        token_b64 = os.environ.get('HUMANOS_CAPTURE_TOKEN_SECRET_B64', '')
+        missing = [name for name, value in (
+            ('HUMANOS_CAPTURE_DATABASE_URL', dsn),
+            ('HUMANOS_CAPTURE_RECIPIENT_PUBLIC_KEY_B64', public_b64),
+            ('HUMANOS_CAPTURE_TOKEN_SECRET_B64', token_b64),
+        ) if not value]
+        if missing:
+            raise RuntimeError('Encrypted capture is not configured: missing ' + ', '.join(missing))
+        _writer = EncryptedPostgresCaptureWriter(
+            dsn,
+            decode_public_key_b64(public_b64),
+            decode_secret_b64(token_b64),
+        )
+    return _writer
 
 
 @mcp.tool()
 def humanos_append_capture_event(event: dict[str, Any]) -> dict[str, Any]:
-    """Append one exact immutable conversation event to HumanOS.
+    """Encrypt and append one immutable conversation event to HumanOS.
 
-    A repeated idempotency key with the identical event is safe. A repeated key
-    with different content fails closed. This tool cannot read, update, delete,
-    search, or administer the HumanOS database.
+    The tool can append only. It cannot read, update, delete, search, decrypt,
+    or administer HumanOS. The remote database receives ciphertext rather than
+    plaintext transcript content.
     """
-    return gateway().append_event(event)
+    validated = CaptureEvent.from_mapping(event)
+    receipt = writer().append(validated)
+    return {
+        'seq': receipt.seq,
+        'event_id': receipt.event_id,
+        'ciphertext_digest': receipt.payload_digest,
+        'received_at': receipt.received_at,
+        'state': receipt.state,
+    }
