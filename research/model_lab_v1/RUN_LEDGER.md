@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** 8 OBJECTIVE-SCORED RUNS / TASK 1 COMPLETE / TASK 2 IN PROGRESS
+**Status:** 9 OBJECTIVE-SCORED RUNS / TASK 1 COMPLETE / TASK 2 IN PROGRESS
 
 | Run ID | Task | Model | Surface | Effort | Raw preserved | Score | Notes |
 |---|---|---|---|---|---|---|---|
@@ -12,7 +12,7 @@
 | MLAB-P1-T2-TERRA | 2 | GPT-5.6 Terra | Work | Light | Yes | Objective 59/60; total pending | Strong architectural judgment; minor deduction for composite revisit trigger with unspecified SLO threshold |
 | MLAB-P1-T2-ASTRA | 2 | GPT-6 Astra | TBD | TBD | Yes | Objective 60/60; total pending | Strong staged plan and cleaner single measurable revisit trigger; model identity follows frozen sequence |
 | MLAB-P1-T2-LUNA | 2 | GPT-5.6 Luna | Work | Light | Yes | Objective 59/60; total pending | Strong compact architecture judgment; quantified trigger mixes performance/reliability predicates and leaves 3× improvement dimension implicit |
-| MLAB-P1-T2-SOL | 2 | GPT-5.6 Sol | TBD | TBD | No | Pending | |
+| MLAB-P1-T2-SOL | 2 | GPT-5.6 Sol | TBD | TBD | Yes | Objective 60/60; total pending | Strong authority-boundary reasoning; single causal, reproducible migration trigger |
 | MLAB-P1-T2-55 | 2 | GPT-5.5 | TBD | TBD | No | Pending | |
 | MLAB-P1-T3-55 | 3 | GPT-5.5 | TBD | TBD | No | Pending | |
 | MLAB-P1-T3-LUNA | 3 | GPT-5.6 Luna | TBD | TBD | No | Pending | |
