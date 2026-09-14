@@ -5,6 +5,7 @@ This ledger records experiment execution status. A run is not considered an inde
 | Run ID | Pass | Participant | Status | Contamination | Input frozen | Raw response preservation | Eligible for blind scoring |
 |---|---|---|---|---|---|---|---|
 | R3-A-OPENAI-001 | A | OpenAI / ChatGPT | NOT RUN | Must use fresh context | Yes | No | Pending |
+| R3-A-OPENAI-CAL-001 | A | OpenAI / GPT-5.6 Sol | CALIBRATION ONLY / RAW HASH FROZEN | MEDIUM (self-report: prior HumanOS ambient context) | Claimed canonical Pass A | Original attachment + SHA-256 frozen; repository companion header/anchor only | No |
 | R3-A-CLAUDE-001 | A | Anthropic / Claude | NOT RUN | Unknown until run | Yes | No | Pending |
 | R3-A-GEMINI-001 | A | Google / Gemini | RAW FROZEN | NONE (self-report) | Claimed canonical Pass A | Repository raw copy + SHA-256 frozen | PROVISIONAL YES |
 | R3-A-GROK-001 | A | xAI / Grok 4.5 | RAW FROZEN | NONE (self-report) | Claimed canonical Pass A | Repository raw copy + SHA-256 frozen | PROVISIONAL YES |
@@ -47,3 +48,8 @@ Received 2026-09-14. The response self-reports Grok 4.5 / xAI, no web access, no
 
 ### R3-A-DEEPSEEK-001
 Received 2026-09-14. The response itself reported model/provider identity UNKNOWN, no web access, no repository inspection, no code execution, no other HumanOS material, and LOW contamination risk. After the raw artifact and SHA-256 were frozen, the human operator clarified that the run was executed in DeepSeek. Provider provenance is therefore human-supplied after freeze; exact model/version and runtime-attested identity remain UNKNOWN. The original neutral raw filename and hash are preserved unchanged. Substantive analysis is intentionally held until the blind cohort is complete.
+
+## Calibration runs
+
+### R3-A-OPENAI-CAL-001
+Received 2026-09-14. The response self-reports GPT-5.6 Sol / OpenAI, no web access, no repository inspection, no code execution, but explicitly reports prior HumanOS-related material in ambient conversation context and therefore assigns itself MEDIUM contamination risk. It states that it did not seek or rely on that material and saw no other FRIEND answer, but the clean-room isolation required for official Pass A scoring cannot be attested. The original attachment SHA-256 is frozen. This run is retained for later calibration comparison and is excluded from blind-panel scoring.
