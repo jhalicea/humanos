@@ -6,13 +6,13 @@ import tempfile
 import unittest
 
 from capture_fabric import (
-    CaptureEvent,
     CaptureGateway,
     ProviderWebhookIngress,
     SQLiteRelay,
     canonical_json,
     hmac_webhook_verifier,
 )
+from capture_mcp_gateway import HumanOSCaptureMCP
 
 
 class CaptureFabricTests(unittest.TestCase):
@@ -109,6 +109,23 @@ class CaptureFabricTests(unittest.TestCase):
         receipt = ingress.receive({'X-HumanOS-Signature': signature}, body)
         self.assertEqual(receipt['state'], 'REMOTE_CAPTURED')
         self.assertEqual(len(self.relay.after(0)), 1)
+
+    def test_mcp_writer_exposes_only_append(self):
+        mcp = HumanOSCaptureMCP(self.gateway)
+        tools = mcp.list_tools()
+        self.assertEqual([tool['name'] for tool in tools], ['humanos_append_capture_event'])
+        receipt = mcp.call_tool('humanos_append_capture_event', {'event': self.event()})
+        self.assertEqual(receipt['state'], 'REMOTE_CAPTURED')
+        with self.assertRaises(PermissionError):
+            mcp.call_tool('humanos_capture_after', {'seq': 0})
+
+    def test_mcp_rejects_argument_smuggling(self):
+        mcp = HumanOSCaptureMCP(self.gateway)
+        with self.assertRaisesRegex(ValueError, 'exactly one event'):
+            mcp.call_tool('humanos_append_capture_event', {
+                'event': self.event(),
+                'delete_everything': True,
+            })
 
 
 if __name__ == '__main__':
