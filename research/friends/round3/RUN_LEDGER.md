@@ -10,6 +10,7 @@ This ledger records experiment execution status. A run is not considered an inde
 | R3-A-GROK-001 | A | xAI / Grok 4.5 | RAW FROZEN | NONE (self-report) | Claimed canonical Pass A | Repository raw copy + SHA-256 frozen | PROVISIONAL YES |
 | R3-A-DEEPSEEK-001 | A | DeepSeek | NOT RUN | Unknown until run | Yes | No | Pending |
 | R3-A-PERPLEXITY-001 | A | Perplexity Computer | RAW HASH FROZEN | LOW (self-report) | Claimed canonical Pass A | Attachment + SHA-256 frozen | PROVISIONAL YES |
+| R3-A-UNATTESTED-001 | A | Unattributed / provider unknown | RAW FROZEN | LOW (self-report) | Claimed canonical Pass A | Repository raw copy + original attachment SHA-256 frozen | PROVISIONAL / attribution unknown |
 | R3-A-LLAMA-001 | A | Local Llama | NOT RUN | Unknown until run | Yes | No | Pending |
 | R3-A-QWEN-001 | A | Local Qwen | NOT RUN | Unknown until run | Yes | No | Pending |
 | R3-A-CHAT-CAL-001 | A | Current ChatGPT orchestration thread | CALIBRATION ONLY | CONTAMINATED: challenge designer + architecture exposure | Yes | Not yet | No |
@@ -44,3 +45,6 @@ Received 2026-09-14. The response self-reports Gemini / Google, no web access, n
 
 ### R3-A-GROK-001
 Received 2026-09-14. The response self-reports Grok 4.5 / xAI, no web access, no repository access, no code execution, no other HumanOS material, and contamination risk NONE. The raw response is preserved in the repository and SHA-256 frozen. Runtime-attested model identity and runtime-side verification of the input bytes remain UNKNOWN. Substantive analysis is intentionally held until the blind cohort is complete.
+
+### R3-A-UNATTESTED-001
+Received 2026-09-14. The response explicitly reports model identity UNKNOWN, provider UNKNOWN, no web access, no repository inspection, no code execution, no other HumanOS material, and LOW contamination risk. No provider/model attribution was externally supplied in the chat turn, so the run is preserved under an unattributed identifier rather than inferred from sequence. The raw text is preserved in the repository and the original attachment SHA-256 is frozen. Substantive analysis is intentionally held until the blind cohort is complete.
