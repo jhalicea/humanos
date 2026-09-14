@@ -69,7 +69,7 @@ Promotion evidence:
 
 ## Route 2 — HumanOS Capture MCP gateway
 
-**Target:** preferred owner-controlled route when Route 1 is unavailable.**
+**Target:** preferred owner-controlled route when Route 1 is unavailable.
 
 The application layer exposes exactly one conversational-writer capability:
 
@@ -92,7 +92,7 @@ A real private Neon/PostgreSQL bakeoff relay is now provisioned. It contains the
 - `humanos_append_capture_event(jsonb)`
 - `humanos_capture_after(bigint, integer)`
 
-Dedicated writer and reader roles are separate. The writer has function-level append authority; the reader has cursor-read authority; neither needs direct table privileges.
+The final runtime authority is represented by separate NOLOGIN capability templates: `humanos_capture_writer_limited` can execute only the append function and has no table read/update/delete or cursor-read authority; `humanos_capture_reader_limited` can execute only the cursor-read function and cannot append or read the table directly. CI verifies these boundaries. Provider-created administrative roles must not be reused as production runtime identities merely because they can be narrowed with ordinary grants; deployment must use purpose-built least-privilege identities.
 
 Live synthetic evidence already obtained:
 
@@ -100,7 +100,7 @@ Live synthetic evidence already obtained:
 - the relay returned `REMOTE_CAPTURED` and a durable sequence;
 - an identical retry returned the same sequence and event identity rather than inserting a duplicate;
 - remote cursor readback returned the exact text unchanged;
-- PostgreSQL CI independently verifies append-only UPDATE/DELETE denial, conflict rejection, idempotency, exact text, and cursor behavior.
+- PostgreSQL CI independently verifies append-only UPDATE/DELETE denial, conflict rejection, idempotency, exact text, cursor behavior, and writer/reader privilege separation.
 
 This proves the database/event layer independently of MCP deployment. It is not automatically the preferred final interface because a generic database connector can be broader than the single-purpose HumanOS MCP. The final design keeps the least-privilege function boundary even if the infrastructure later moves to another PostgreSQL provider or a private server.
 
@@ -190,9 +190,11 @@ Implemented on `feature/capture-fabric-bakeoff`:
 - `capture_postgres.py` — function-only PostgreSQL writer/reader adapter;
 - `capture_remote_sync.py` — remote mirror -> durable local spool -> Life Notebook synchronization;
 - `sql/capture_fabric_postgres.sql` — append-only PostgreSQL relay and RPC functions;
+- `sql/capture_fabric_roles.sql` — least-privilege writer/reader capability templates;
 - `tests/test_capture_fabric.py` — exactness, idempotency, conflict, immutability, cursor, webhook, MCP authority tests;
 - `tests/test_capture_remote_sync.py` — remote mirroring, exact Notebook import, variant turns, gap failure, busy-writer recovery;
 - `tests/capture_fabric_postgres.sql` — live PostgreSQL behavior checks;
+- `tests/capture_fabric_roles.sql` — privilege-boundary checks;
 - `.github/workflows/capture-fabric-postgres.yml` — PostgreSQL CI verification;
 - `.github/workflows/capture-mcp-tests.yml` — current MCP dependency/import authority-surface check.
 
