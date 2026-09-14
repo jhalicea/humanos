@@ -2,7 +2,7 @@
 """HumanOS Capture Fabric core.
 
 This module defines the provider-neutral event contract used by every capture
-route.  It deliberately separates *how an event reaches HumanOS* from *what the
+route. It deliberately separates *how an event reaches HumanOS* from *what the
 event means*.
 
 Production intent:
@@ -15,8 +15,8 @@ Production intent:
                                   v
                          local Life Notebook
 
-No language model is used here.  The relay is not the canonical Life Notebook;
-it is a durable synchronization mailbox.  The local Notebook remains the owner
+No language model is used here. The relay is not the canonical Life Notebook;
+it is a durable synchronization mailbox. The local Notebook remains the owner-
 controlled source of truth after verified import.
 """
 
@@ -35,6 +35,7 @@ import uuid
 
 FORMAT_VERSION = 1
 MAX_TEXT_BYTES = 1_000_000
+DIGEST_DOMAIN = b'HumanOS Capture Event v1|'
 ALLOWED_EVENT_TYPES = frozenset({
     'human_message',
     'assistant_message',
@@ -49,7 +50,7 @@ def _now() -> str:
 
 
 def canonical_json(value: Any) -> str:
-    """Stable UTF-8 JSON used for local digests and signatures."""
+    """Stable UTF-8 JSON for local storage and signed test webhook bodies."""
     return json.dumps(value, ensure_ascii=False, sort_keys=True,
                       separators=(',', ':'), allow_nan=False)
 
@@ -62,12 +63,20 @@ def _bounded(name: str, value: Any, maximum: int) -> str:
     return value
 
 
+def _digest_part(value: Any) -> bytes:
+    """Unambiguous length-prefixed UTF-8 field encoding shared with PostgreSQL."""
+    if value is None:
+        return b'-1:'
+    raw = str(value).encode('utf-8')
+    return str(len(raw)).encode('ascii') + b':' + raw
+
+
 @dataclass(frozen=True)
 class CaptureEvent:
     """One immutable conversation event.
 
     ``idempotency_key`` is supplied by the source adapter and must remain stable
-    across retries.  A repeated key with the same exact event is idempotent; a
+    across retries. A repeated key with the same exact event is idempotent; a
     repeated key with different content fails closed.
     """
 
@@ -122,7 +131,24 @@ class CaptureEvent:
         }
 
     def digest(self) -> str:
-        return hashlib.sha256(canonical_json(self.payload()).encode('utf-8')).hexdigest()
+        self.validated()
+        values = (
+            self.version,
+            self.source,
+            self.conversation_id,
+            self.turn_id,
+            self.event_type,
+            self.role,
+            self.text,
+            self.idempotency_key,
+            self.variant_id,
+            self.source_created_at,
+        )
+        digest = hashlib.sha256()
+        digest.update(DIGEST_DOMAIN)
+        for value in values:
+            digest.update(_digest_part(value))
+        return digest.hexdigest()
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> 'CaptureEvent':
@@ -157,7 +183,7 @@ class SQLiteRelay:
     """Reference append-only relay used for tests and local experiments.
 
     Production remote deployments use PostgreSQL through the SQL migration in
-    ``sql/capture_fabric_postgres.sql``.  Keeping this tiny SQLite implementation
+    ``sql/capture_fabric_postgres.sql``. Keeping this tiny SQLite implementation
     lets the protocol be tested without a network or cloud account.
     """
 
@@ -256,7 +282,7 @@ class ProviderWebhookIngress:
     """Adapter contract for future provider-native signed webhooks.
 
     HumanOS does *not* assume that ChatGPT, Claude, Gemini, or another provider
-    currently emits the required conversation webhook.  A provider adapter is
+    currently emits the required conversation webhook. A provider adapter is
     enabled only when a real verifier and mapper for that provider exist.
     """
 
