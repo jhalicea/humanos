@@ -12,7 +12,7 @@ This ledger records experiment execution status. A run is not considered an inde
 | R3-A-DEEPSEEK-001 | A | DeepSeek | RAW FROZEN | LOW (self-report) | Claimed canonical Pass A | Repository raw copy + original attachment SHA-256 frozen | PROVISIONAL YES |
 | R3-A-PERPLEXITY-001 | A | Perplexity Computer | RAW HASH FROZEN | LOW (self-report) | Claimed canonical Pass A | Attachment + SHA-256 frozen | PROVISIONAL YES |
 | R3-A-LLAMA-001 | A | Local `llama3.2:latest` | HOST EXECUTED / PARTIAL RAW FROZEN | Fresh local Ollama request; no peer answer supplied | Frozen local text pair | Local raw artifact + SHA-256 observed on host | No — incomplete protocol response |
-| R3-A-QWEN-16K-001 | A | Local `qwen3-coder:16k` | HOST EXECUTED / FAILED EMPTY VISIBLE RESPONSE | Fresh local Ollama request; no peer answer supplied | Frozen local text pair | Failure metadata only; no visible substantive response | No — diagnostics pending |
+| R3-A-QWEN-16K-001 | A | Local `qwen3-coder:16k` | HOST EXECUTED / FULL-RUN FAILURE; SMOKE PASS | Fresh local Ollama request; no peer answer supplied | Frozen local text pair | Full-run failure metadata; neutral diagnostic saved locally | Pending controlled context rerun |
 | R3-A-QWEN-001 | A | Local Qwen representative TBD | NOT RUN | Must use fresh local request | Frozen local text pair | No | Pending |
 | R3-A-CHAT-CAL-001 | A | Current ChatGPT orchestration thread | CALIBRATION ONLY | CONTAMINATED: challenge designer + architecture exposure | Yes | Not yet | No |
 
@@ -58,9 +58,11 @@ Received 2026-09-14. The response itself reported model/provider identity UNKNOW
 The host executed both v1 and v2 against `llama3.2:latest`. Both runs produced the same visible response SHA-256 `1ca6453e67568f964ee8b10bc7977c07f5cb721bfedc927c6371e13eb9c2fb50`, 4,364 bytes, 42 lines, and `eval_count=775`. V2 classified it `RAW_FROZEN_LOCAL_PARTIAL` because every required Pass A structural marker was absent. The identical hash across reruns is strong evidence that the incomplete result is reproducible under the fixed seed/temperature harness. It is not eligible as a complete Pass A submission.
 
 ### R3-A-QWEN-16K-001
-The host executed both v1 and v2 against `qwen3-coder:16k`. V1 reported an empty/non-text response. V2 reported `FAILED_EMPTY_VISIBLE_RESPONSE`, with message keys `['content', 'role']`, `done_reason=None`, and `eval_count=None`. This is treated as a local inference/template/runtime compatibility failure, not as substantive constitutional reasoning evidence.
+The host executed both v1 and v2 against `qwen3-coder:16k`. V1 reported an empty/non-text response. V2 reported `FAILED_EMPTY_VISIBLE_RESPONSE`, with message keys `['content', 'role']`, `done_reason=None`, and `eval_count=None`.
 
-A separate neutral diagnostic harness now exists at `research/friends/round3/diagnose_local_ollama.py` to compare `/api/chat` and `/api/generate` on installed Qwen variants before selecting a complete Qwen representative. Diagnostic runs are explicitly not EXP-R3-A-001.
+A separate neutral smoke diagnostic was then run on four installed Qwen tags. `qwen3-coder:16k` returned exactly `OK` through both `/api/chat` and `/api/generate`, each with `done_reason=stop` and `eval_count=2`, proving the basic local inference path for this tag is functional. `qwen3-coder-local:16k`, `qwen3-coder:latest`, and `qwen3-coder:30b` returned no visible content through either endpoint in the observed host configuration. All four reported family `qwen3moe`, parameter size `30.5B`, quantization `Q4_K_M`, and context length `262144`.
+
+The full-run failure is therefore not treated as a general Qwen reasoning failure. The next controlled test keeps the exact frozen Pass A text, seed, and temperature but reduces Ollama's requested context from the prior large cap to `16384`, because the healthy smoke diagnostic used only `4096` and an unnecessarily large KV/context allocation is a plausible runtime-resource variable. This interpretation remains a hypothesis until the controlled rerun is observed. See `LOCAL_QWEN_DIAGNOSTIC_2026-09-14.md`.
 
 ## Calibration runs
 
