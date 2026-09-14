@@ -44,7 +44,11 @@ function sendEvent(conversation, turnId, role, text, dedupeKey) {
       text,
     },
   }).then((response) => {
-    if (!response || response.ok !== true) sent.delete(dedupeKey);
+    // Only a daemon acknowledgement of durable local storage makes this event
+    // complete. Merely handing it to the extension/native port is not enough.
+    if (!response || response.ok !== true || response.stored_local !== true) {
+      sent.delete(dedupeKey);
+    }
   }).catch(() => {
     // Native host or service worker may be restarting. Remove the local marker so
     // the next scan retries; the local HumanOS spool is idempotent.
