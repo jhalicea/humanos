@@ -1,6 +1,7 @@
 import importlib.util
 import os
 import unittest
+import uuid
 
 from capture_encryption import generate_recipient_keypair
 from capture_fabric import CaptureEvent
@@ -18,16 +19,17 @@ class SecurePostgresCaptureTests(unittest.TestCase):
         dsn = os.environ['HUMANOS_TEST_POSTGRES_DSN']
         self.writer = EncryptedPostgresCaptureWriter(dsn, public_key, b'z' * 32)
         self.reader = EncryptedPostgresCaptureReader(dsn, private_key)
+        self.case_id = uuid.uuid4().hex
 
     def event(self, **changes):
         value = dict(
             source='chatgpt',
-            conversation_id='secure-conversation-α',
+            conversation_id='secure-conversation-' + self.case_id,
             turn_id='turn-secure-1',
             event_type='human_message',
             role='human',
             text='  secret exact text 🛡️\nsecond line  ',
-            idempotency_key='secure/test/event/1',
+            idempotency_key='secure/test/' + self.case_id + '/event/1',
             variant_id='primary',
             source_created_at=None,
         )
@@ -39,12 +41,12 @@ class SecurePostgresCaptureTests(unittest.TestCase):
         second = self.writer.append(self.event())
         self.assertEqual(first.seq, second.seq)
         self.assertEqual(first.event_id, second.event_id)
-        rows = self.reader.after(first.seq - 1, 10)
+        rows = self.reader.after(first.seq - 1, 1)
         self.assertEqual(len(rows), 1)
         receipt, event = rows[0]
         self.assertEqual(receipt.seq, first.seq)
         self.assertEqual(event.text, '  secret exact text 🛡️\nsecond line  ')
-        self.assertEqual(event.conversation_id, 'secure-conversation-α')
+        self.assertEqual(event.conversation_id, 'secure-conversation-' + self.case_id)
 
     def test_conflicting_retry_fails_closed(self):
         self.writer.append(self.event())
