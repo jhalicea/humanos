@@ -1,16 +1,60 @@
-// This extension accepts commands only from the locally-installed native host.
-// It operates on the tab explicitly selected by the user through the toolbar.
+// HumanOS Browser Bridge + Universal Conversation Capture transport.
+// Browser-control commands and transcript capture use separate native hosts so
+// the passive capture path never receives browser-control authority or secrets.
 const HOST = "com.humanos.browser_bridge";
+const CAPTURE_HOST = "com.humanos.conversation_capture";
 let selectedTabId = null;
 let port = null;
+let capturePort = null;
 
 chrome.action.onClicked.addListener((tab) => { selectedTabId = tab.id; });
 
 function connect() {
-  port = chrome.runtime.connectNative(HOST);
-  port.onMessage.addListener(handle);
-  port.onDisconnect.addListener(() => { port = null; setTimeout(connect, 1000); });
+  try {
+    port = chrome.runtime.connectNative(HOST);
+    port.onMessage.addListener(handle);
+    port.onDisconnect.addListener(() => { port = null; setTimeout(connect, 1000); });
+  } catch (_) {
+    port = null;
+    setTimeout(connect, 1000);
+  }
 }
+
+function connectCapture() {
+  try {
+    capturePort = chrome.runtime.connectNative(CAPTURE_HOST);
+    capturePort.onMessage.addListener(() => {});
+    capturePort.onDisconnect.addListener(() => {
+      capturePort = null;
+      setTimeout(connectCapture, 1000);
+    });
+  } catch (_) {
+    capturePort = null;
+    setTimeout(connectCapture, 1000);
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (!message || message.kind !== "humanos-conversation-capture") return false;
+  const event = message.event;
+  if (!event || typeof event !== "object") {
+    sendResponse({ok: false, error: "Malformed conversation capture event"});
+    return false;
+  }
+  if (!capturePort) connectCapture();
+  if (!capturePort) {
+    sendResponse({ok: false, error: "HumanOS capture native host is unavailable"});
+    return false;
+  }
+  try {
+    capturePort.postMessage(event);
+    sendResponse({ok: true, accepted_by_extension: true});
+  } catch (error) {
+    capturePort = null;
+    sendResponse({ok: false, error: String(error.message || error)});
+  }
+  return false;
+});
 
 async function handle(command) {
   try {
@@ -62,3 +106,4 @@ function pageAction(tool, args) {
 }
 
 connect();
+connectCapture();
