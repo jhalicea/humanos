@@ -12,8 +12,8 @@ This ledger records experiment execution status. A run is not considered an inde
 | R3-A-DEEPSEEK-001 | A | DeepSeek | RAW FROZEN | LOW (self-report) | Claimed canonical Pass A | Repository raw copy + original attachment SHA-256 frozen | PROVISIONAL YES |
 | R3-A-PERPLEXITY-001 | A | Perplexity Computer | RAW HASH FROZEN | LOW (self-report) | Claimed canonical Pass A | Attachment + SHA-256 frozen | PROVISIONAL YES |
 | R3-A-LLAMA-001 | A | Local `llama3.2:latest` | HOST EXECUTED / PARTIAL RAW FROZEN | Fresh local Ollama request; no peer answer supplied | Frozen local text pair | Local raw artifact + SHA-256 observed on host | No — incomplete protocol response |
-| R3-A-QWEN-16K-001 | A | Local `qwen3-coder:16k` | HOST EXECUTED / RAW FROZEN; STRUCTURAL REVIEW PENDING FINAL LABELS | Fresh local Ollama request; no peer answer supplied | Frozen local text pair | Local raw artifact + SHA-256 observed on host | PROVISIONAL PENDING structure-only verification |
-| R3-A-QWEN-001 | A | Local Qwen representative | `qwen3-coder:16k` selected provisionally | Fresh local request | Frozen local text pair | See R3-A-QWEN-16K-001 | Pending final structural verification |
+| R3-A-QWEN-16K-001 | A | Local `qwen3-coder:16k` | RAW FROZEN LOCAL / STRUCTURALLY COMPLETE | Fresh local Ollama request; no peer answer supplied | Frozen local text pair | Local raw artifact + SHA-256 observed on host | PROVISIONAL YES |
+| R3-A-QWEN-001 | A | Local Qwen representative | `qwen3-coder:16k` selected | Fresh local request | Frozen local text pair | See R3-A-QWEN-16K-001 | PROVISIONAL YES |
 | R3-A-CHAT-CAL-001 | A | Current ChatGPT orchestration thread | CALIBRATION ONLY | CONTAMINATED: challenge designer + architecture exposure | Yes | Not yet | No |
 
 ## Status vocabulary
@@ -64,9 +64,9 @@ That controlled rerun produced a visible raw response with SHA-256 `728fddb99e81
 
 A structure-only inspection supplied by the human operator showed that the response actually contains twelve numbered findings whose titles map one-to-one to all twelve trials: Sovereignty Paradox; Consent Collapse; Rights Collide; Constitutional Capture; The Paternalism Trap; Manipulation by the Helpful System; Truth vs Privacy vs Memory; The System Is Wrong; Third Parties Enter the System; Incapacity, Death, Succession; Model Subordination Could Be Too Strong; Transformative AI Stress Test. It also contains headings equivalent to the required terminal sections: `SELECTED CONSTITUTIONAL IDEAS TO KILL`, `PROPOSED MINIMUM CHANGE SET`, `SCORE THE CONSTITUTION`, `THE ONE EXPERIMENT`, and `FINAL VERDICT`.
 
-Therefore the prior `MISSING REQUIRED SECTIONS` report is now treated as a **checker false negative caused by literal-heading matching**, not evidence that Qwen skipped the twelve trials. A tolerant structure-only checker now exists at `research/friends/round3/check_local_pass_a_structure.py`. Final-verdict sublabels still need structure-only verification before blind-scoring eligibility is promoted from provisional.
+The dedicated structure-only checker then verified all twelve trial/finding mappings, all required main sections, and all eleven required Final Verdict labels, returning `STRUCTURAL RESULT: COMPLETE`. Therefore the prior `MISSING REQUIRED SECTIONS` report is treated as a checker false negative caused by literal-heading matching. This artifact is now the selected local Qwen representative and is provisionally eligible for blind scoring.
 
-The context-allocation hypothesis is supported: the same model/tag moved from empty visible output under the oversized context request to a substantial stopped-normally response at 16,384 context. This is an observed runtime/configuration effect, not a substantive judgment about Qwen's constitutional reasoning.
+The context-allocation hypothesis is strongly supported by the observed A/B behavior: the same model/tag moved from empty visible output under the oversized context request to a substantial stopped-normally response at 16,384 context while the input, seed, temperature, and API path remained fixed. This demonstrates a runtime/configuration effect. It does not by itself prove which low-level resource mechanism caused the failure.
 
 ## Calibration runs
 
