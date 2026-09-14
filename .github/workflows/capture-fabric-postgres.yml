@@ -39,18 +39,24 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.13'
-      - name: Install PostgreSQL client and Python driver
+      - name: Install PostgreSQL client and capture dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client
-          python -m pip install 'psycopg[binary]'
-      - name: Apply capture relay schema
+          python -m pip install -r requirements-capture.txt
+      - name: Apply plaintext bakeoff relay schema
         run: psql -v ON_ERROR_STOP=1 -f sql/capture_fabric_postgres.sql
+      - name: Apply encrypted production relay schema
+        run: psql -v ON_ERROR_STOP=1 -f sql/capture_fabric_encrypted.sql
       - name: Apply least-privilege role templates
         run: psql -v ON_ERROR_STOP=1 -f sql/capture_fabric_roles.sql
-      - name: Verify append-only relay behavior
+      - name: Verify plaintext bakeoff relay behavior
         run: psql -v ON_ERROR_STOP=1 -f tests/capture_fabric_postgres.sql
       - name: Verify least-privilege role boundaries
         run: psql -v ON_ERROR_STOP=1 -f tests/capture_fabric_roles.sql
-      - name: Verify Python relay adapter against PostgreSQL
+      - name: Verify plaintext Python relay adapter
         run: python -m unittest tests.test_postgres_capture_relay -v
+      - name: Verify encrypted envelope cryptography
+        run: python -m unittest tests.test_capture_encryption -v
+      - name: Verify encrypted Postgres round trip
+        run: python -m unittest tests.test_secure_postgres_capture -v
