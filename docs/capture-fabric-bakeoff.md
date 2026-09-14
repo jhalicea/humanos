@@ -1,6 +1,6 @@
 # HumanOS Capture Fabric Bakeoff
 
-Status: **experimental feature branch; do not merge without live evidence.**
+Status: **experimental feature branch; do not merge without live end-to-end evidence and owner approval.**
 
 HumanOS is testing five capture routes against one provider-neutral event contract. The goal is not to pick a vendor. The goal is to prove which transport most reliably preserves an exact conversation event and delivers it into the owner-controlled Life Notebook.
 
@@ -19,10 +19,13 @@ HumanOS Capture Event v1
 append-only remote relay (when used)
        |
        v
-verified local import
+private local remote-event mirror
        |
        v
-Life Notebook SQLite  <-- canonical owner-controlled record
+durable local CaptureSpool
+       |
+       v
+verified Life Notebook SQLite  <-- canonical owner-controlled record
        |
        +--> distilled transcript/export
        +--> encrypted disaster-recovery backup
@@ -47,13 +50,13 @@ Every route must produce the same immutable event fields:
 
 `text` is exact message content. It is never summarized or normalized by the capture layer.
 
-A repeated `idempotency_key` with identical content is a safe retry. A repeated key with different content fails closed.
+A repeated `idempotency_key` with identical content is a safe retry. A repeated key with different content fails closed. Human edits and assistant regenerations are represented as new immutable variants rather than overwriting prior evidence.
 
 ## Route 1 — provider-native signed event/webhook
 
-**Target:** best possible route when a provider exposes a real signed conversation event stream.
+**Target:** best possible route when a provider exposes a real signed committed-message event stream.
 
-HumanOS now has a provider-neutral `ProviderWebhookIngress` contract. It refuses a request unless a real provider-specific signature verifier succeeds. HumanOS does **not** claim that ChatGPT or another provider currently exposes the required normal-chat webhook merely because the adapter exists.
+HumanOS has a provider-neutral `ProviderWebhookIngress` contract. It refuses a request unless a real provider-specific signature verifier succeeds. HumanOS does **not** claim that ChatGPT or another provider currently exposes the required normal-chat webhook merely because the adapter exists.
 
 Promotion evidence:
 
@@ -66,7 +69,7 @@ Promotion evidence:
 
 ## Route 2 — HumanOS Capture MCP gateway
 
-**Target:** best owner-controlled route.
+**Target:** preferred owner-controlled route when Route 1 is unavailable.**
 
 The application layer exposes exactly one conversational-writer capability:
 
@@ -74,34 +77,40 @@ The application layer exposes exactly one conversational-writer capability:
 
 It does not expose arbitrary SQL, deletion, transcript search, Life Notebook reading, filesystem access, or administrative database capabilities. Local HumanOS synchronization uses separate read credentials.
 
-The MCP transport wrapper can change without changing the HumanOS event contract.
+A runnable MCP Python SDK v2 wrapper is present in `capture_mcp_server.py`. Its database credential is expected to be the dedicated append-only writer role. The MCP transport wrapper can change without changing the HumanOS event contract.
 
-Promotion evidence:
-
-- remote MCP server is deployed;
-- ChatGPT can invoke the append tool from native mobile and desktop sessions;
-- exact user and assistant content can be captured without a second model pass;
-- tool invocation is reliable enough for the chosen capture guarantee;
-- credentials are append-only / least-privilege;
-- local HumanOS imports the event exactly once.
+Current state: application layer and runnable server code are implemented. A live remote MCP deployment and ChatGPT connection are still required before this route is called operational.
 
 ## Route 3 — direct PostgreSQL connector
 
-**Target:** fastest practical prototype and comparison baseline.
+**Target:** fastest practical prototype and independent comparison baseline.
 
-The same schema runs on PostgreSQL. Supabase and Neon can both be tested without changing the event model.
+The same schema can run on compatible PostgreSQL providers without changing the event model.
 
-The database exposes `humanos_append_capture_event(jsonb)` and `humanos_capture_after(bigint, integer)`. The underlying event table is append-only. Public access is revoked. A production writer credential should receive `EXECUTE` on the append function only.
+A real private Neon/PostgreSQL bakeoff relay is now provisioned. It contains the append-only event table plus two SECURITY DEFINER functions:
 
-This route is intentionally compared with Route 2. If a generic database connector cannot be constrained to a tiny permission surface, Route 2 wins even if Route 3 is simpler.
+- `humanos_append_capture_event(jsonb)`
+- `humanos_capture_after(bigint, integer)`
+
+Dedicated writer and reader roles are separate. The writer has function-level append authority; the reader has cursor-read authority; neither needs direct table privileges.
+
+Live synthetic evidence already obtained:
+
+- exact Unicode/leading-trailing whitespace/multiline text was remotely committed;
+- the relay returned `REMOTE_CAPTURED` and a durable sequence;
+- an identical retry returned the same sequence and event identity rather than inserting a duplicate;
+- remote cursor readback returned the exact text unchanged;
+- PostgreSQL CI independently verifies append-only UPDATE/DELETE denial, conflict rejection, idempotency, exact text, and cursor behavior.
+
+This proves the database/event layer independently of MCP deployment. It is not automatically the preferred final interface because a generic database connector can be broader than the single-purpose HumanOS MCP. The final design keeps the least-privilege function boundary even if the infrastructure later moves to another PostgreSQL provider or a private server.
 
 ## Route 4 — local browser/native bridge
 
 **Target:** independent desktop fallback and reconciliation sensor.
 
-The existing HumanOS browser capture path remains valuable because it can observe the rendered desktop conversation and durably land events locally even when the cloud relay is unavailable. It does not solve native iPhone capture by itself.
+The existing HumanOS browser capture path can observe the rendered desktop conversation and durably land events locally even when the cloud relay is unavailable. It acknowledges only after durable local storage and tolerates the Life Notebook writer lock.
 
-The bakeoff should eventually map its events into the same Capture Event v1 contract rather than maintaining a permanent parallel identity model.
+It does not solve native iPhone capture by itself, and provider DOM changes require maintenance. It should remain a fallback/reconciliation lane rather than the sole capture mechanism.
 
 ## Route 5 — Google Drive archive / distilled transcript export
 
@@ -114,7 +123,22 @@ Existing transcript batching remains useful for:
 - owner-readable exports;
 - provider-independent disaster recovery.
 
-Drive should not be the synchronization database unless all database/gateway routes fail the bakeoff.
+Drive should not make normal conversation capture wait on network file writes and should not decide whether a turn is canonical.
+
+## Remote-to-local synchronization
+
+`capture_remote_sync.py` adds a staged synchronization path rather than writing a cloud event directly into the Life Notebook:
+
+1. read events after the highest locally mirrored remote sequence;
+2. require contiguous remote sequence ordering;
+3. validate every Capture Event v1 object;
+4. atomically write the remote page into a private local SQLite mirror using WAL + `synchronous=FULL`;
+5. read the committed rows back and run SQLite integrity verification;
+6. convert mirrored events into the existing durable local `CaptureSpool`;
+7. opportunistically ingest the spool into the Life Notebook;
+8. if the Notebook writer is busy, leave the already-durable local event pending and retry later.
+
+Assistant regenerations are materialized as new local variant turns with the original human prompt repeated as branch context. Human edits are preserved as new human half-turns. Prior transcript evidence is never rewritten.
 
 ## What we measure
 
@@ -136,33 +160,59 @@ Do not choose the winner by elegance alone. Every live route gets the same tests
 | Latency | Time from committed message to durable receipt |
 | Cost | Database/API/storage operations per 1,000 events |
 | Operational burden | Secrets, daemons, OAuth, deployment and maintenance required |
+| Privacy | Amount of raw transcript plaintext exposed outside the owner-controlled device |
 
 ## Selection policy
 
 HumanOS can use more than one route. The likely final shape is defense in depth:
 
-- primary remote capture route: Route 1 if a trustworthy provider-native event exists, otherwise Route 2;
-- rapid prototype / independent comparison: Route 3;
+- primary remote capture route: Route 1 if a trustworthy provider-native committed-message event exists, otherwise Route 2;
+- durable remote mailbox: least-privilege PostgreSQL;
+- independent comparison/debug path: Route 3;
 - desktop reconciliation/fallback: Route 4;
 - archive/disaster recovery: Route 5.
 
-A route is not called "working" until a real conversation event has been written, read back, matched exactly, retried without duplication, and imported into the local Life Notebook.
+A route is not called "working" until a real or explicitly synthetic acceptance event has been written, read back, matched exactly, retried without duplication, and — for production promotion — imported into the local Life Notebook.
+
+## Privacy gate before real conversations
+
+The bakeoff relay currently uses **synthetic plaintext test events only**. Real private conversations should not be routed into the remote relay until the production privacy mode is chosen and tested.
+
+The preferred direction is application-level envelope encryption: remote PostgreSQL stores ciphertext plus only the minimum routing/idempotency information needed for synchronization; owner-controlled HumanOS keeps decryption authority. TLS and database role restrictions remain required, but they are not substitutes for minimizing remote plaintext exposure.
 
 ## Current implementation evidence
 
 Implemented on `feature/capture-fabric-bakeoff`:
 
-- `capture_fabric.py` — immutable event contract, receipts, reference relay, webhook ingress contract, HMAC test verifier;
+- `capture_fabric.py` — immutable event contract, receipts, reference relay, webhook ingress contract, test verifier;
 - `capture_mcp_gateway.py` — one-tool least-privilege MCP application surface;
+- `capture_mcp_server.py` — runnable MCP Python SDK v2 wrapper;
+- `capture_postgres.py` — function-only PostgreSQL writer/reader adapter;
+- `capture_remote_sync.py` — remote mirror -> durable local spool -> Life Notebook synchronization;
 - `sql/capture_fabric_postgres.sql` — append-only PostgreSQL relay and RPC functions;
 - `tests/test_capture_fabric.py` — exactness, idempotency, conflict, immutability, cursor, webhook, MCP authority tests;
+- `tests/test_capture_remote_sync.py` — remote mirroring, exact Notebook import, variant turns, gap failure, busy-writer recovery;
 - `tests/capture_fabric_postgres.sql` — live PostgreSQL behavior checks;
-- `.github/workflows/capture-fabric-postgres.yml` — PostgreSQL 16 CI verification.
+- `.github/workflows/capture-fabric-postgres.yml` — PostgreSQL CI verification;
+- `.github/workflows/capture-mcp-tests.yml` — current MCP dependency/import authority-surface check.
 
 Still requiring live external evidence:
 
 - a provider-native signed conversation event source for Route 1;
-- a deployed MCP transport for Route 2;
-- connected Supabase and/or Neon project for Route 3;
-- Capture Event v1 normalization for the inherited browser adapter in Route 4;
-- final archive policy and privacy semantics for Route 5.
+- a deployed MCP transport connected to ChatGPT for Route 2;
+- one remote synthetic human+assistant pair pulled through the real reader path and imported into Jon's local Life Notebook;
+- live desktop acceptance on Jon's Mac for Route 4;
+- final encrypted remote-payload design and final Drive archive policy.
+
+## Promotion gate
+
+Do not merge this branch based only on unit tests. Promotion requires at least:
+
+- full HumanOS regression suite on macOS and Linux;
+- PostgreSQL append-only integration test;
+- current MCP SDK import/tool-surface test;
+- live MCP deployment with a function-only writer credential;
+- one synthetic remote human+assistant turn imported exactly once into a local Life Notebook and verified after restart;
+- duplicate retry and conflicting retry tests across the remote boundary;
+- a documented privacy decision for remote transcript payloads;
+- owner approval.
