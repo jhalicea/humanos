@@ -19,6 +19,46 @@ CREATE TABLE IF NOT EXISTS humanos_capture_events (
     CHECK (payload_digest ~ '^[0-9a-f]{64}$')
 );
 
+CREATE OR REPLACE FUNCTION humanos_capture_digest_part(p_value text)
+RETURNS bytea
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+    raw bytea;
+BEGIN
+    IF p_value IS NULL THEN
+        RETURN convert_to('-1:', 'UTF8');
+    END IF;
+    raw := convert_to(p_value, 'UTF8');
+    RETURN convert_to(octet_length(raw)::text || ':', 'UTF8') || raw;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION humanos_capture_payload_digest(p_event jsonb)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+    SELECT encode(
+        digest(
+            convert_to('HumanOS Capture Event v1|', 'UTF8')
+            || humanos_capture_digest_part(p_event->>'version')
+            || humanos_capture_digest_part(p_event->>'source')
+            || humanos_capture_digest_part(p_event->>'conversation_id')
+            || humanos_capture_digest_part(p_event->>'turn_id')
+            || humanos_capture_digest_part(p_event->>'event_type')
+            || humanos_capture_digest_part(p_event->>'role')
+            || humanos_capture_digest_part(p_event->>'text')
+            || humanos_capture_digest_part(p_event->>'idempotency_key')
+            || humanos_capture_digest_part(p_event->>'variant_id')
+            || humanos_capture_digest_part(p_event->>'source_created_at'),
+            'sha256'
+        ),
+        'hex'
+    );
+$$;
+
 CREATE OR REPLACE FUNCTION humanos_capture_events_immutable()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -117,9 +157,9 @@ BEGIN
         RAISE EXCEPTION 'idempotency_key is required';
     END IF;
 
-    -- The digest is a transport-integrity proof, not a replacement for the
-    -- local Life Notebook's vault-keyed record integrity.
-    v_digest := encode(digest(convert_to(p_event::text, 'UTF8'), 'sha256'), 'hex');
+    -- Cross-platform transport digest. This is not a replacement for the local
+    -- Life Notebook's vault-keyed record integrity.
+    v_digest := humanos_capture_payload_digest(p_event);
 
     INSERT INTO humanos_capture_events(idempotency_key, payload, payload_digest)
     VALUES (v_idempotency, p_event, v_digest)
@@ -141,6 +181,9 @@ BEGIN
     END IF;
     IF existing.payload IS DISTINCT FROM p_event THEN
         RAISE EXCEPTION 'conflicting retry for idempotency_key';
+    END IF;
+    IF existing.payload_digest IS DISTINCT FROM v_digest THEN
+        RAISE EXCEPTION 'existing payload digest differs from protocol digest';
     END IF;
 
     RETURN QUERY SELECT existing.seq, existing.event_id, existing.payload_digest,
@@ -180,6 +223,8 @@ $$;
 -- Fail closed by default. Deployment creates provider-specific NOLOGIN/login
 -- roles and grants only the functions each route needs.
 REVOKE ALL ON humanos_capture_events FROM PUBLIC;
+REVOKE ALL ON FUNCTION humanos_capture_digest_part(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION humanos_capture_payload_digest(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION humanos_append_capture_event(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION humanos_capture_after(bigint, integer) FROM PUBLIC;
 
