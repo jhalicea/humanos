@@ -1,21 +1,23 @@
-# Exact Chat Capture
+# Universal Conversation Capture
 
-Status: **capture engine implemented on `feature/exact-turn-capture`; ChatGPT transport not yet connected.**
+Status: **capture engine implemented on the current feature branch; live ChatGPT transport is not yet connected.**
 
-HumanOS treats exact transcript preservation and AI-derived interpretation as two separate lanes.
+Universal Conversation Capture is the HumanOS mechanism for preserving exact visible conversations from supported hosts such as ChatGPT, Claude, Gemini, Grok, or a local model UI. The provider is a source label; the Life Notebook remains the source of truth.
 
-## Lane A — exact capture
+HumanOS separates transcript preservation from AI-derived interpretation.
+
+## Lane A — exact transcript capture
 
 This lane runs on every turn and does not call a language model.
 
-1. The host receives the human's exact visible message.
-2. `ExternalTurnCapture.begin_turn(...)` writes it to the Life Notebook.
+1. A host receives the human's exact visible message.
+2. `UniversalConversationCapture.begin_turn(...)` writes it to the Life Notebook.
 3. The Notebook projects the page and performs integrity/readback verification.
-4. The host may then allow the external model/service to continue.
+4. The host may then continue normal conversation processing.
 5. When the exact visible assistant message is available, the host calls `finish_turn(...)`.
-6. HumanOS appends the assistant text, checkpoints the transaction, projects it, and verifies it again.
+6. HumanOS appends that assistant text, checkpoints the transaction, projects it, and verifies it again.
 
-If step 2 fails, the host must not report the turn as saved. If step 5 never arrives, the transaction remains `EXTERNAL_CAPTURE_PENDING`; HumanOS does not invent the missing assistant response or run a local model to fill it in.
+If the human-message write cannot be verified, HumanOS must not report it as saved. If the assistant message never arrives, the transaction remains pending and HumanOS does not invent a response.
 
 The capture path stores exact visible text. It does not summarize, rewrite, classify, or infer.
 
@@ -29,22 +31,28 @@ Because the expensive intelligence lane does not run on every message, transcrip
 
 ## Identity and idempotency
 
-The external host supplies stable `conversation_id` and `turn_id` values. HumanOS derives a vault-keyed local digest from those identifiers and uses it to create the local transaction ID. Raw external identifiers are not copied into content-light audit events.
+The host supplies a `source`, stable `conversation_id`, and stable `turn_id`. HumanOS derives a vault-keyed local digest from those identifiers and uses it to create the local transaction ID. Raw host identifiers are not copied into content-light audit events.
 
 Retries with the same IDs and exact text are idempotent. A retry with different text fails closed rather than changing preserved evidence.
 
+Different sources are isolated: the same conversation and turn IDs from ChatGPT and Claude resolve to different local transaction identities.
+
+## Internal compatibility name
+
+Runtime 0.1 already recognizes the internal phase `EXTERNAL_CAPTURE_PENDING`. That name stays for compatibility. In this context, "external" only means "outside the local HumanOS runtime." The user-facing feature is **Universal Conversation Capture**.
+
 ## Transport boundary
 
-`external_capture.py` is transport-independent. It deliberately does **not** scrape ChatGPT, expose a network port, or depend on a single provider.
+`conversation_capture.py` is transport-independent. It deliberately does not scrape a provider, expose an unauthenticated network port, or depend on a single vendor.
 
-A transport adapter still needs to deliver two events to HumanOS:
+A transport adapter needs to deliver two events to HumanOS:
 
-- `human_visible` -> `begin_turn`
-- `assistant_visible` -> `finish_turn`
+- exact human-visible message -> `begin_turn`
+- exact assistant-visible message -> `finish_turn`
 
-Possible adapters include the existing HumanOS browser/native-messaging bridge for supported desktop web sessions, a future authenticated local desktop bridge, and an import/reconciliation adapter for historical exports.
+The existing HumanOS browser/native-messaging bridge is a candidate transport for supported desktop web sessions. Historical exports can use an import/reconciliation adapter. A future desktop bridge can use the same capture API.
 
-Native mobile ChatGPT sessions require a supported source of turn events before they can be guaranteed in real time. Until such an adapter is connected and verified, HumanOS must not claim that every ChatGPT turn is automatically saved.
+Native mobile ChatGPT sessions require a supported source of turn events before HumanOS can guarantee real-time capture. Until such an adapter is connected and verified, HumanOS must not claim that every mobile ChatGPT turn is automatically saved.
 
 ## Promotion gate
 
@@ -54,5 +62,6 @@ Do not merge this feature based only on code review. Promotion requires:
 - idempotent retry tests;
 - conflicting retry fail-closed tests;
 - crash-window recovery tests;
+- source-isolation tests;
 - full HumanOS regression suite on macOS and Linux;
 - a live adapter test proving one human message and one assistant message appear exactly once in the Life Notebook and survive restart/readback.
