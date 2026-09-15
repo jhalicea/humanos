@@ -122,6 +122,63 @@ os._exit(91)
             'SELECT role,text FROM transcript ORDER BY seq'
         )], [('HUMAN', human), ('ASSISTANT', assistant)])
 
+    def test_process_crash_after_remote_receipt_before_staging_recovers_exactly(self):
+        self.importer.close()
+        self.book.close()
+        self.relay.close()
+        self.crash_child('''
+import os, sys
+from pathlib import Path
+from capture_fabric import CaptureGateway, SQLiteRelay
+from capture_mcp_gateway import HumanOSCaptureMCP
+root = Path(sys.argv[1])
+relay = SQLiteRelay(root / 'relay' / 'capture.sqlite3')
+mcp = HumanOSCaptureMCP(CaptureGateway(relay.append))
+human = {'version': 1, 'source': 'chatgpt', 'conversation_id': 'receipt-crash', 'turn_id': 'turn-1', 'event_type': 'human_message', 'role': 'human', 'text': 'human after receipt crash', 'idempotency_key': 'receipt-crash/human', 'variant_id': 'primary', 'source_created_at': None}
+assistant = dict(human, event_type='assistant_message', role='assistant', text='assistant after receipt crash', idempotency_key='receipt-crash/assistant')
+assert mcp.call_tool('humanos_append_capture_event', {'event': human})['state'] == 'REMOTE_CAPTURED'
+assert mcp.call_tool('humanos_append_capture_event', {'event': assistant})['state'] == 'REMOTE_CAPTURED'
+os._exit(93)
+''', 93)
+        self.reopen()
+        self.assertEqual(self.importer.stage(self.relay.after), 2)
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 2)
+        self.assertEqual([(row['role'], row['text']) for row in self.book.db.execute(
+            'SELECT role,text FROM transcript ORDER BY seq'
+        )], [('HUMAN', 'human after receipt crash'), ('ASSISTANT', 'assistant after receipt crash')])
+
+    def test_process_crash_during_uncommitted_staging_write_leaves_no_false_cursor(self):
+        human = 'human after uncommitted stage crash'
+        assistant = 'assistant after uncommitted stage crash'
+        self.mcp.call_tool('humanos_append_capture_event', {
+            'event': self.event(role='human', text=human, event_type='human_message')})
+        self.mcp.call_tool('humanos_append_capture_event', {
+            'event': self.event(role='assistant', text=assistant, event_type='assistant_message')})
+        self.importer.close()
+        self.book.close()
+        self.relay.close()
+        self.crash_child('''
+import os, sys
+from pathlib import Path
+from capture_fabric import SQLiteRelay
+from capture_importer import CaptureImporter
+from notebook import Notebook
+root = Path(sys.argv[1])
+relay = SQLiteRelay(root / 'relay' / 'capture.sqlite3')
+book = Notebook(root / 'vault')
+book.recover()
+importer = CaptureImporter(book, root / 'import-state')
+importer.db.create_function('crash_after_insert', 0, lambda: os._exit(94))
+importer.db.execute('CREATE TEMP TRIGGER crash_uncommitted_stage AFTER INSERT ON inbox BEGIN SELECT crash_after_insert(); END')
+importer.stage(relay.after)
+''', 94)
+        self.reopen()
+        self.assertEqual(self.importer.stage(self.relay.after), 2)
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 2)
+        self.assertEqual([(row['role'], row['text']) for row in self.book.db.execute(
+            'SELECT role,text FROM transcript ORDER BY seq'
+        )], [('HUMAN', human), ('ASSISTANT', assistant)])
+
     def test_process_crash_after_notebook_write_before_acknowledgment_is_idempotent(self):
         human = 'human before acknowledgment crash'
         assistant = 'assistant before acknowledgment crash'
@@ -153,6 +210,80 @@ def crash_after_notebook_write(event):
 importer._import_event = crash_after_notebook_write
 importer.drain()
 ''', 92)
+        self.reopen()
+        self.assertEqual(self.importer.stage(self.relay.after), 0)
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 2)
+        self.assertEqual([(row['role'], row['text']) for row in self.book.db.execute(
+            'SELECT role,text FROM transcript ORDER BY seq'
+        )], [('HUMAN', human), ('ASSISTANT', assistant)])
+
+    def test_process_crash_after_partial_notebook_turn_recovers_exactly_once(self):
+        human = 'human partial notebook crash'
+        assistant = 'assistant partial notebook crash'
+        self.mcp.call_tool('humanos_append_capture_event', {
+            'event': self.event(role='human', text=human, event_type='human_message')})
+        self.mcp.call_tool('humanos_append_capture_event', {
+            'event': self.event(role='assistant', text=assistant, event_type='assistant_message')})
+        self.importer.close()
+        self.book.close()
+        self.relay.close()
+        self.crash_child('''
+import os, sys
+from pathlib import Path
+from capture_fabric import SQLiteRelay
+from capture_importer import CaptureImporter
+from notebook import Notebook
+root = Path(sys.argv[1])
+relay = SQLiteRelay(root / 'relay' / 'capture.sqlite3')
+book = Notebook(root / 'vault')
+book.recover()
+importer = CaptureImporter(book, root / 'import-state')
+assert importer.stage(relay.after) == 2
+original = importer._import_event
+def crash_after_human_write(event):
+    transaction = original(event)
+    if event.role == 'human':
+        os._exit(95)
+    return transaction
+importer._import_event = crash_after_human_write
+importer.drain()
+''', 95)
+        self.reopen()
+        self.assertEqual(self.importer.stage(self.relay.after), 0)
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 2)
+        self.assertEqual([(row['role'], row['text']) for row in self.book.db.execute(
+            'SELECT role,text FROM transcript ORDER BY seq'
+        )], [('HUMAN', human), ('ASSISTANT', assistant)])
+
+    def test_process_restart_after_locked_storage_retries_staged_capture(self):
+        human = 'human after locked storage restart'
+        assistant = 'assistant after locked storage restart'
+        self.mcp.call_tool('humanos_append_capture_event', {
+            'event': self.event(role='human', text=human, event_type='human_message')})
+        self.mcp.call_tool('humanos_append_capture_event', {
+            'event': self.event(role='assistant', text=assistant, event_type='assistant_message')})
+        self.importer.close()
+        self.book.close()
+        self.relay.close()
+        self.crash_child('''
+import os, sqlite3, sys
+from pathlib import Path
+from capture_fabric import SQLiteRelay
+from capture_importer import CaptureImporter
+from notebook import Notebook
+root = Path(sys.argv[1])
+relay = SQLiteRelay(root / 'relay' / 'capture.sqlite3')
+book = Notebook(root / 'vault')
+book.recover()
+book.db.execute('PRAGMA busy_timeout=1')
+importer = CaptureImporter(book, root / 'import-state')
+assert importer.stage(relay.after) == 2
+blocker = sqlite3.connect(str(book.root / 'notebook.sqlite3'), timeout=0)
+blocker.execute('BEGIN EXCLUSIVE')
+result = importer.drain()
+assert result['retryable_errors'] == 1
+os._exit(96)
+''', 96)
         self.reopen()
         self.assertEqual(self.importer.stage(self.relay.after), 0)
         self.assertEqual(self.importer.drain()['acknowledged_seq'], 2)
