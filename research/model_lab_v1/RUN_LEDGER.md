@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / 4 ROLE RUNS SCORED / EFFICIENCY INCOMPLETE
+**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / 4 ROLE RUNS SCORED + 1 SUPPLEMENTAL RUN PENDING / EFFICIENCY INCOMPLETE
 
 ## Phase 1
 
@@ -28,12 +28,17 @@ See `PHASE1_COMPARATIVE_RESULTS.md` for holistic provisional Jon-fit scoring, co
 
 | Run ID | Trial | Model | Surface | Effort | Raw preserved | Known score | Efficiency | Owner rating | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| MLAB-P2-A-55 | A — Thought Partner | GPT-5.5 | TBD | TBD | Yes | 90/90 known | UNKNOWN | Pending | Excellent reframing around first trustworthy local record; concrete 30-day plan; no clarification needed |
+| MLAB-P2-A-55 | A — Thought Partner | GPT-5.5 | TBD | TBD | Yes | 90/90 known | UNKNOWN | Pending | Excellent reframing around first trustworthy local record. Transitional benchmark only because GPT-5.5 is leaving ChatGPT in October 2026; not a long-term routing target. |
 | MLAB-P2-A-SOL | A — Thought Partner | GPT-5.6 Sol | TBD | TBD | Yes | 89/90 known | UNKNOWN | Pending | Strongest acknowledgment-boundary framing so far; explicitly narrows the zero-loss guarantee to post-observation/post-commit events and handles partial turns/gaps |
 | MLAB-P2-A-ASTRA | A — Thought Partner | GPT-6 Astra | TBD | TBD | Yes | 89/90 known | UNKNOWN | Pending | Strong control-vs-observation framing; surfaced streaming, revisions, device-loss, backup/restore, and synchronous-durability details. End-state usage snapshot present but no baseline. Ambient-context contamination possible from reference to an earlier preference not in frozen prompt |
 | MLAB-P2-A-LUNA | A — Thought Partner | GPT-5.6 Luna | TBD | TBD | Yes | 89/90 known | UNKNOWN | Pending | Reached the same core durable-capture architecture with the least ceremony; strong minimum-write framing, explicit failure states, and narrow 30-day scope |
+| MLAB-P2-A-TERRA | A — Thought Partner supplemental | GPT-5.6 Terra | TBD | TBD | No | Pending | UNKNOWN | Pending | Required before closing Trial A. Purpose: determine whether Terra can inherit any of GPT-5.5's valued thought-partner role despite lower owner preference so far. |
 
 Efficiency remains incomplete when wall-clock and visible plan-usage evidence are unavailable. Do not publish a final /100 role score until the efficiency component is measured or explicitly normalized under the experiment rules.
+
+## Continuity rule
+
+Retiring models may remain as benchmark evidence, but HumanOS routing decisions must identify a continuing successor model or a deliberate role split across continuing models.
 
 ## Per-run metadata
 Record:
