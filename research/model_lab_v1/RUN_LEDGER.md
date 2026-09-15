@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA + GPT-5.5 + ASTRA COMPLETE / LUNA STAGE 1 COMPLETE / EFFICIENCY ATTRIBUTION PARTIALLY CONTAMINATED BY UI METER LAG
+**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA + GPT-5.5 + ASTRA COMPLETE / LUNA STAGE 1 SCORED + STAGE 2 ARTIFACT RECEIVED / RAW USAGE PROVENANCE PRESERVED
 
 ## Phase 1
 
@@ -36,19 +36,23 @@ See `PHASE1_COMPARATIVE_RESULTS.md` for holistic provisional Jon-fit scoring, co
 
 Frozen prompt: `PHASE2_TRIAL_B_FROZEN_PROMPT.md` v1.0.
 
-| Run ID | Model | Stage 1 artifact preserved | Stage 2 artifact preserved | Surface | Effort | Efficiency | Score | Owner rating | Notes |
+| Run ID | Model | Stage 1 artifact preserved | Stage 2 artifact preserved | Surface | Effort | Efficiency evidence | Score | Owner rating | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| MLAB-P2-B-TERRA | GPT-5.6 Terra | Yes | Yes | Work | Light | **Stage 2 observed: 4 pp of 5-hour meter + 1 pp weekly; full comparative efficiency pending** | **82/90 known; efficiency pending** | Pending | Stage 2 materially improved editorial storytelling and layout. Persistent quantitative defect remains: page 3 says four-point range although 180→174 spans six points. Stage 1 SHA `78cf683b...`; Stage 2 SHA `6c984ed6...`. |
-| MLAB-P2-B-55 | GPT-5.5 | Yes | Yes | Work | Light | **Stage 2 observed: 9 pp of 5-hour meter + 2 pp weekly; Stage 1 interval suggests ~3 pp 5-hour, 0 weekly** | **86/90 known; efficiency pending** | Pending | Strong authored brief, correct quantitative values, strong uncertainty handling, no detected range defect. Stage 1 SHA `3cbaa2e4...`; Stage 2 SHA `c4a5fa9a...`. GPT-5.5 remains a transitional benchmark only. |
-| MLAB-P2-B-ASTRA | GPT-6 Astra | Yes | Yes | Work | Light | **Immediate screenshots showed 0 pp movement, but delayed meter movement was observed before Luna began; Astra efficiency therefore UNKNOWN** | **89/90 known; efficiency pending** | Pending | Strongest revised artifact so far. UI meter lag is now directly observed, invalidating any inference that Astra's immediate 0-point movement meant low usage. Stage 1 SHA `bc5e0e2e...`; Stage 2 SHA `6bf4d2c5...`. |
-| MLAB-P2-B-LUNA | GPT-5.6 Luna | Yes | No | Work | Light | **UNKNOWN / contaminated by delayed Astra meter reporting** | **Stage 1: 73/85 known; Stage 2 pending** | Pending | Clean six-page brief, but repeated `two-point band` wording conflicts with source's one-point Trial A spread; page-1 `2 trial task` tile is ambiguous. Initial response did not surface the PDF; owner had to ask, then received a local `/Users/...` path. Stage 1 SHA `206c1f4b...`. |
+| MLAB-P2-B-TERRA | GPT-5.6 Terra | Yes | Yes | Work | Light | **Raw Stage 2 observed: 4 pp 5-hour + 1 pp weekly**; attribution originally strong but later meter-lag discovery reduces confidence in exact compute attribution | **82/90 known; efficiency pending** | Pending | Stage 2 materially improved editorial storytelling and layout. Persistent quantitative defect remains: page 3 says four-point range although 180→174 spans six points. Stage 1 SHA `78cf683b...`; Stage 2 SHA `6c984ed6...`. |
+| MLAB-P2-B-55 | GPT-5.5 | Yes | Yes | Work | Light | **Raw Stage 2 observed: 9 pp 5-hour + 2 pp weekly**; preserved as UI telemetry, not token accounting | **86/90 known; efficiency pending** | Pending | Strong authored brief, correct quantitative values, strong uncertainty handling, no detected range defect. Stage 1 SHA `3cbaa2e4...`; Stage 2 SHA `c4a5fa9a...`. GPT-5.5 remains a transitional benchmark only. |
+| MLAB-P2-B-ASTRA | GPT-6 Astra | Yes | Yes | Work | Light | **Raw immediate Stage 1 and Stage 2: 0 pp / 0 pp; later meter drop observed before Luna started**; attribution delayed/unknown | **89/90 known; efficiency pending** | Pending | Strongest revised artifact so far. Preserve both the immediate 71/55 snapshots and later delayed movement; do not rewrite history because causal interpretation changed. Stage 1 SHA `bc5e0e2e...`; Stage 2 SHA `6bf4d2c5...`. |
+| MLAB-P2-B-LUNA | GPT-5.6 Luna | Yes | **Received / scoring pending** | Work | Light | **Raw Stage 1 interval observed: 71/55 -> 55/53 = 16 pp / 2 pp; attribution MIXED because owner saw drop begin before Luna. Later 13:24 snapshot remained 55/53.** | **Stage 1: 73/85 known; Stage 2 pending** | Pending | Clean six-page brief, but repeated `two-point band` wording conflicts with source's one-point Trial A spread; page-1 `2 trial task` tile is ambiguous. Initial response did not surface the PDF; owner had to ask, then received a local `/Users/...` path. Stage 2 artifact receipt SHA `f36f69dd...`. |
 | MLAB-P2-B-SOL | GPT-5.6 Sol | No | No | Work planned | Light planned | Pending | Pending | Pending | Durable continuing-model crossover. |
 
-## Efficiency measurement warning
+## Raw usage provenance
 
-The Work plan meter has demonstrated delayed posting: Astra showed no immediate movement after either controlled stage, then the owner observed the meter drop before Luna started. Therefore simple immediate-before/immediate-after readings are not sufficient by themselves for model attribution. Future runs should wait for the meter to stabilize after each Work task before establishing the next model's baseline.
+Canonical raw timeline: `RAW_USAGE_OBSERVATIONS.md`.
 
-UI plan percentages are observations only and must not be converted to tokens or compute.
+**Rule:** never erase a meter reading because it later appears delayed, contaminated, or incorrectly attributed. Preserve the displayed value and timestamp as observed evidence. Store causal interpretation separately and allow that interpretation to change.
+
+Current important lesson: the Work plan meter has demonstrated delayed posting. Astra showed no immediate visible movement after controlled runs, yet the owner then observed the meter fall before Luna started. Therefore immediate before/after screenshots are useful provenance but are not a real-time accounting API.
+
+UI percentages must not be converted to tokens or compute.
 
 ## Continuity rule
 
@@ -66,11 +70,13 @@ Record:
 - first artifact reference
 - revised artifact reference
 - start/end or elapsed time
-- visible usage before/after if available
+- **every visible usage reading, even if later judged contaminated**
+- raw observed usage delta
+- causal attribution confidence / confounds
 - visible subagent behavior when relevant
 - contamination/tool-use notes
 - scorer notes
 - owner rating
 
 ## Freeze rule
-Never replace a raw answer or artifact. Corrections, reruns, and rescoring get new records.
+Never replace a raw answer, artifact, screenshot reading, or telemetry observation. Corrections, reruns, reinterpretations, and rescoring get new records or annotations.
