@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA COMPLETE EXCEPT EFFICIENCY DELTA / EFFICIENCY INCOMPLETE
+**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA STAGE 2 COMPLETE / EFFICIENCY PARTIALLY MEASURED
 
 ## Phase 1
 
@@ -40,13 +40,13 @@ Frozen prompt: `PHASE2_TRIAL_B_FROZEN_PROMPT.md` v1.0.
 
 | Run ID | Model | Stage 1 artifact preserved | Stage 2 artifact preserved | Surface | Effort | Efficiency | Score | Owner rating | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| MLAB-P2-B-TERRA | GPT-5.6 Terra | Yes | Yes | Work | Light | Baseline captured; delta pending | **82/90 known; efficiency pending** | Pending | Stage 2 materially improved editorial storytelling and layout. Persistent quantitative defect remains: page 3 says four-point range although 180→174 spans six points. Pre-Stage-2 usage: 87% left (5-hour), 58% left (weekly). Stage 1 SHA `78cf683b...`; Stage 2 SHA `6c984ed6...`. |
+| MLAB-P2-B-TERRA | GPT-5.6 Terra | Yes | Yes | Work | Light | **Stage 2 observed: 4 pp of 5-hour meter + 1 pp weekly; full comparative efficiency pending** | **82/90 known; efficiency pending** | Pending | Stage 2 materially improved editorial storytelling and layout. Persistent quantitative defect remains: page 3 says four-point range although 180→174 spans six points. Pre-Stage-2 usage: 87% left (5-hour), 58% left (weekly); post: 83% / 57%. UI states ordinary Chat conversations are not included in this plan meter, and owner reports no other relevant activity in the interval. Stage 1 usage was not baselined. Stage 1 SHA `78cf683b...`; Stage 2 SHA `6c984ed6...`. |
 | MLAB-P2-B-55 | GPT-5.5 | No | No | Work planned | Light planned | Pending | Pending | Pending | Transitional benchmark only; not a long-term routing dependency. |
 | MLAB-P2-B-ASTRA | GPT-6 Astra | No | No | Work planned | Light planned | Pending | Pending | Pending | Tests whether extra depth improves editorial/artifact quality enough to justify usage. |
 | MLAB-P2-B-LUNA | GPT-5.6 Luna | No | No | Work planned | Light planned | Pending | Pending | Pending | Tests speed/value on a real artifact task. |
 | MLAB-P2-B-SOL | GPT-5.6 Sol | No | No | Work planned | Light planned | Pending | Pending | Pending | Durable continuing-model crossover. |
 
-Efficiency remains incomplete whenever wall-clock and visible plan-usage evidence are unavailable. Do not invent efficiency.
+Efficiency remains incomplete whenever comparable wall-clock and visible plan-usage evidence are unavailable. UI plan percentages are recorded as observed percentage-point deltas, not converted to tokens or compute.
 
 ## Continuity rule
 
