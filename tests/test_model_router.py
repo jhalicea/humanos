@@ -1,6 +1,6 @@
 import unittest
 
-from model_router import TaskProfile, route_task
+from model_router import ExperimentWorkflow, TaskProfile, route_task
 
 
 class ModelRouterTests(unittest.TestCase):
@@ -74,6 +74,49 @@ class ModelRouterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             route_task(TaskProfile(
                 task_id="T8", well_defined=True, owner_override="gpt-5.5"
+            ))
+
+    def test_router_explicitly_remains_learning_and_unlocked(self):
+        result = route_task(TaskProfile(task_id="T9", well_defined=False))
+        self.assertEqual("v1-candidate", result["policy_version"])
+        self.assertEqual("learning", result["router_mode"])
+        self.assertTrue(result["recommendation_only"])
+        self.assertFalse(result["policy_locked"])
+        self.assertFalse(result["authority_granted"])
+
+    def test_astra_recommended_terra_high_is_recorded_not_promoted(self):
+        result = route_task(TaskProfile(
+            task_id="T10",
+            well_defined=True,
+            operational_state_dominant=True,
+            experiment_workflow=ExperimentWorkflow(
+                experiment_id="MPC-R3",
+                advisor_model="astra",
+                advisor_effort="light",
+                worker_model="terra",
+                worker_effort="high",
+                owner_accepted=True,
+            ),
+        ))
+        workflow = result["experimental_workflow"]
+        self.assertEqual("astra", workflow["advisor_model"])
+        self.assertEqual("light", workflow["advisor_effort"])
+        self.assertEqual("terra", workflow["worker_model"])
+        self.assertEqual("high", workflow["worker_effort"])
+        self.assertTrue(workflow["owner_accepted"])
+        self.assertFalse(workflow["promoted_to_policy"])
+        self.assertIn("EXPERIMENTAL_WORKFLOW_RECORDED", result["reason_codes"])
+        self.assertIn("OWNER_ACCEPTED_EXPERIMENT", result["reason_codes"])
+
+    def test_invalid_experiment_effort_is_rejected(self):
+        with self.assertRaises(ValueError):
+            route_task(TaskProfile(
+                task_id="T11",
+                well_defined=True,
+                experiment_workflow=ExperimentWorkflow(
+                    advisor_model="astra",
+                    advisor_effort="turbo",
+                ),
             ))
 
 
