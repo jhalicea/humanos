@@ -239,13 +239,16 @@ book = Notebook(root / 'vault')
 book.recover()
 importer = CaptureImporter(book, root / 'import-state')
 assert importer.stage(relay.after) == 2
-original = importer._import_event
-def crash_after_human_write(event):
-    transaction = original(event)
-    if event.role == 'human':
+# ``begin_turn`` performs several durable Notebook operations.  Terminate
+# after its human transcript/transaction write, but before it records
+# EXTERNAL_CAPTURE_STARTED.  This is deliberately inside the import of
+# the human event, rather than after ``_import_event`` has returned.
+original_save = book.save_task_event
+def crash_mid_human_turn(tx, state, event_type, detail):
+    if event_type == 'EXTERNAL_CAPTURE_STARTED':
         os._exit(95)
-    return transaction
-importer._import_event = crash_after_human_write
+    return original_save(tx, state, event_type, detail)
+book.save_task_event = crash_mid_human_turn
 importer.drain()
 ''', 95)
         self.reopen()
@@ -290,6 +293,69 @@ os._exit(96)
         self.assertEqual([(row['role'], row['text']) for row in self.book.db.execute(
             'SELECT role,text FROM transcript ORDER BY seq'
         )], [('HUMAN', human), ('ASSISTANT', assistant)])
+
+    def test_process_sqlite_full_in_importer_state_fails_loudly_then_recovers_from_relay(self):
+        """A full importer DB must not falsely claim its failure history was saved."""
+        human = 'human after importer sqlite full'
+        self.mcp.call_tool('humanos_append_capture_event', {
+            'event': self.event(role='human', text=human, event_type='human_message')})
+        self.importer.close()
+        self.book.close()
+        self.relay.close()
+        self.crash_child('''
+import os, sqlite3, sys
+from pathlib import Path
+from capture_fabric import SQLiteRelay
+from capture_importer import CaptureImporter
+from notebook import Notebook
+root = Path(sys.argv[1])
+relay = SQLiteRelay(root / 'relay' / 'capture.sqlite3')
+book = Notebook(root / 'vault')
+book.recover()
+importer = CaptureImporter(book, root / 'import-state')
+assert importer.stage(relay.after) == 1
+# Constrain the actual importer SQLite database, then consume its remaining
+# pages.  This is a real SQLITE_FULL condition, not an OSError substitute.
+pages = importer.db.execute('PRAGMA page_count').fetchone()[0]
+assert importer.db.execute(f'PRAGMA max_page_count={pages}').fetchone()[0] == pages
+while True:
+    try:
+        with importer.db:
+            importer.db.execute(
+                'INSERT INTO failure_history(remote_seq,classification,message,created) VALUES(?,?,?,?)',
+                (1, 'RETRYABLE', 'padding-' + ('x' * 3000), '2026-09-15T12:00:00+00:00'),
+            )
+    except sqlite3.OperationalError as full:
+        assert 'full' in str(full).casefold(), full
+        break
+history_before = importer.db.execute('SELECT COUNT(*) FROM failure_history').fetchone()[0]
+def notebook_unavailable(*args, **kwargs):
+    # The preserved diagnostic deliberately needs overflow pages, so the
+    # failure-history insert must encounter the constrained SQLite boundary.
+    raise OSError(28, 'Notebook storage unavailable: ' + ('y' * 100000))
+book.start = notebook_unavailable
+try:
+    importer.drain()
+except RuntimeError as failure:
+    assert 'no failure record was written' in str(failure)
+    assert isinstance(failure.__cause__, sqlite3.Error)
+else:
+    raise AssertionError('importer state exhaustion must fail loudly')
+assert importer.db.execute('SELECT COUNT(*) FROM failure_history').fetchone()[0] == history_before
+assert tuple(importer.db.execute('SELECT status,error FROM inbox WHERE remote_seq=1').fetchone()) == ('STAGED', None)
+assert len(relay.after(0, 10)) == 1
+os._exit(97)
+''', 97)
+        self.reopen()
+        # Remove only the artificial cap; the remote relay still holds the
+        # source event, and the preserved staged row now imports normally.
+        self.importer.db.execute('PRAGMA max_page_count=0')
+        self.assertEqual(len(self.relay.after(0, 10)), 1)
+        self.assertEqual(self.importer.stage(self.relay.after), 0)
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 1)
+        self.assertEqual([(row['role'], row['text']) for row in self.book.db.execute(
+            'SELECT role,text FROM transcript ORDER BY seq'
+        )], [('HUMAN', human)])
 
 
 if __name__ == '__main__':
