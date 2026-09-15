@@ -141,6 +141,48 @@ class CaptureImporterTests(unittest.TestCase):
             'SELECT role,text FROM transcript ORDER BY seq'
         )], [('HUMAN', 'durable after storage recovery')])
 
+    def test_injected_disk_full_stays_staged_and_retries(self):
+        """An ENOSPC reported by Notebook leaves the verified inbox evidence retryable.
+
+        This is fault injection at the Notebook boundary, not a claim that the
+        host filesystem has been filled in this test environment.
+        """
+        self.relay.append(self.event('human', 'durable after injected disk full'))
+        self.importer.stage(self.relay.after)
+        original = self.book.start
+
+        def disk_full(*args, **kwargs):
+            raise OSError(errno.ENOSPC, 'injected disk full')
+
+        self.book.start = disk_full
+        result = self.importer.drain()
+        self.book.start = original
+        self.assertEqual((result['pending'], result['retryable_errors'], result['permanent_errors']),
+                         (1, 1, 0))
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 1)
+        self.assertEqual([(role, text) for _, role, text in self.transcript()],
+                         [('HUMAN', 'durable after injected disk full')])
+
+    def test_injected_permission_loss_is_visible_until_owner_requeues(self):
+        """Permission loss is terminal, so the importer never retries it silently."""
+        self.relay.append(self.event('human', 'durable after permission repair'))
+        self.importer.stage(self.relay.after)
+        original = self.book.start
+
+        def permission_denied(*args, **kwargs):
+            raise PermissionError(errno.EACCES, 'injected permission denied')
+
+        self.book.start = permission_denied
+        result = self.importer.drain()
+        self.book.start = original
+        self.assertEqual((result['pending'], result['retryable_errors'], result['permanent_errors']),
+                         (0, 0, 1))
+        self.assertEqual(self.importer.status()['acknowledged_seq'], 0)
+        self.importer.requeue_error(1)
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 1)
+        self.assertEqual([(role, text) for _, role, text in self.transcript()],
+                         [('HUMAN', 'durable after permission repair')])
+
     def test_permanent_error_does_not_block_later_capture_and_can_be_requeued(self):
         self.relay.append(self.event('human', 'bad evidence', turn='turn-bad'))
         self.relay.append(self.event('human', 'good evidence', turn='turn-good'))

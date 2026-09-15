@@ -347,7 +347,19 @@ class CaptureImporter:
                     # A transient local-storage failure leaves the event staged
                     # for a later drain. Evidence conflicts and unknown failures
                     # stay visible as ERROR and do not block later captures.
-                    self._record_failure(row, error, retryable)
+                    try:
+                        self._record_failure(row, error, retryable)
+                    except (sqlite3.Error, OSError) as persistence_error:
+                        # The status update and its history row are one SQLite
+                        # transaction.  If that transaction cannot commit, do
+                        # not claim that the original failure was recorded.
+                        # The relay is still the independent recovery source;
+                        # callers must treat this as a loud importer failure.
+                        raise RuntimeError(
+                            'Capture importer state persistence failed; no failure '
+                            'record was written and the remote relay remains the '
+                            'recovery source'
+                        ) from persistence_error
                     if retryable:
                         retryable_failure = True
                         break
