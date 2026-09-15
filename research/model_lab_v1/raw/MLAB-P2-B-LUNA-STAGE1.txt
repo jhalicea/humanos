@@ -1,0 +1,22 @@
+MLAB-P2-B-LUNA — Phase 2 Trial B Stage 1 raw handoff
+Model: GPT-5.6 Luna
+Surface: Work
+Effort: Light (planned protocol)
+
+Initial model response as supplied by owner:
+
+Created the finished six-page executive brief:
+
+Design choices: editorial navy/teal palette, strong page hierarchy, compact scorecards, measured-vs-interpreted distinctions, working-style profiles, provisional routing table, and an unresolved-questions close. The PDF was rendered and visually checked for layout, contrast, pagination, and legibility.
+
+- Create a shorter one-page version
+- Create a presentation version
+- Add a measurement plan
+
+Owner follow-up at approximately 1:14 PM:
+where is the pdf?
+
+Model follow-up at approximately 1:15 PM:
+[Download the finished PDF](/Users/jhalicea/Documents/Codex/2026-09-15/create-a-finished-polished-pdf-executive-6/output/pdf/humanos_model_lab_interim_model_routing_brief.pdf)
+
+Note: the owner had to ask where the PDF was after the initial completion message. The follow-up link exposed a local filesystem path rather than a portable artifact link. The owner subsequently supplied the actual PDF for scoring.
