@@ -110,6 +110,27 @@ class CaptureImporterTests(unittest.TestCase):
         self.assertEqual(result['imported'], 0)
         self.assertEqual(result['acknowledged_seq'], 2)
 
+    def test_unavailable_local_storage_stays_staged_and_retries(self):
+        self.relay.append(self.event('human', 'durable after storage recovery'))
+        self.importer.stage(self.relay.after)
+        original = self.importer._import_event
+        self.importer._import_event = lambda event: (_ for _ in ()).throw(OSError('storage unavailable'))
+        with self.assertRaisesRegex(OSError, 'storage unavailable'):
+            self.importer.drain()
+        self.assertEqual(self.importer.status(), {
+            'staged_remote_seq': 1, 'acknowledged_seq': 0,
+            'staged': 1, 'imported': 0, 'errors': 1,
+        })
+
+        self.importer._import_event = original
+        result = self.importer.drain()
+        self.assertEqual(result['imported'], 1)
+        self.assertEqual(result['pending'], 0)
+        self.assertEqual(result['errors'], 0)
+        self.assertEqual([(row['role'], row['text']) for row in self.book.db.execute(
+            'SELECT role,text FROM transcript ORDER BY seq'
+        )], [('HUMAN', 'durable after storage recovery')])
+
     def test_tampered_remote_digest_fails_before_local_staging(self):
         receipt = self.relay.append(self.event('human', 'hello'))
         event = self.event('human', 'hello')
