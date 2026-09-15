@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA + GPT-5.5 COMPLETE / ASTRA STAGE 1 COMPLETE / EFFICIENCY PARTIALLY MEASURED
+**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA + GPT-5.5 + ASTRA COMPLETE / EFFICIENCY PARTIALLY MEASURED
 
 ## Phase 1
 
@@ -39,8 +39,8 @@ Frozen prompt: `PHASE2_TRIAL_B_FROZEN_PROMPT.md` v1.0.
 | Run ID | Model | Stage 1 artifact preserved | Stage 2 artifact preserved | Surface | Effort | Efficiency | Score | Owner rating | Notes |
 |---|---|---|---|---|---|---|---|---|---|
 | MLAB-P2-B-TERRA | GPT-5.6 Terra | Yes | Yes | Work | Light | **Stage 2 observed: 4 pp of 5-hour meter + 1 pp weekly; full comparative efficiency pending** | **82/90 known; efficiency pending** | Pending | Stage 2 materially improved editorial storytelling and layout. Persistent quantitative defect remains: page 3 says four-point range although 180→174 spans six points. Stage 1 SHA `78cf683b...`; Stage 2 SHA `6c984ed6...`. |
-| MLAB-P2-B-55 | GPT-5.5 | Yes | Yes | Work | Light | **Stage 2 observed: 9 pp of 5-hour meter + 2 pp weekly; Stage 1 interval suggests ~3 pp 5-hour, 0 weekly** | **86/90 known; efficiency pending** | Pending | Stage 2 response now frozen. Stronger authored brief, correct quantitative values, strong uncertainty handling, no detected range defect. Stage 1 SHA `3cbaa2e4...`; Stage 2 SHA `c4a5fa9a...`. GPT-5.5 remains a transitional benchmark only. |
-| MLAB-P2-B-ASTRA | GPT-6 Astra | Yes | No | Work | Light | **Stage 1: 0 visible net pp movement on both meters; not equivalent to zero usage** | **Stage 1: 80/85 known; Stage 2 pending** | Pending | Strongest Stage 1 editorial authorship so far: serif research-publication style, clean evidence table, strong compression of reasoning lenses, correct quantitative values, and clear uncertainty boundaries. Pre/post Stage 1 usage both 71% 5-hour / 55% weekly. Stage 1 SHA `bc5e0e2e...`. |
+| MLAB-P2-B-55 | GPT-5.5 | Yes | Yes | Work | Light | **Stage 2 observed: 9 pp of 5-hour meter + 2 pp weekly; Stage 1 interval suggests ~3 pp 5-hour, 0 weekly** | **86/90 known; efficiency pending** | Pending | Strong authored brief, correct quantitative values, strong uncertainty handling, no detected range defect. Stage 1 SHA `3cbaa2e4...`; Stage 2 SHA `c4a5fa9a...`. GPT-5.5 remains a transitional benchmark only. |
+| MLAB-P2-B-ASTRA | GPT-6 Astra | Yes | Yes | Work | Light | **Stage 1 + Stage 2 both showed 0 visible net pp movement on the 5-hour and weekly meters; not equivalent to zero usage** | **89/90 known; efficiency pending** | Pending | Strongest revised artifact so far. Stage 2 uses stronger narrative headlines, contrasting layouts, paired score panels, and premium editorial typography while preserving source boundaries. No detected quantitative defect. Stage 1 SHA `bc5e0e2e...`; Stage 2 SHA `6bf4d2c5...`. |
 | MLAB-P2-B-LUNA | GPT-5.6 Luna | No | No | Work planned | Light planned | Pending | Pending | Pending | Tests speed/value on a real artifact task. |
 | MLAB-P2-B-SOL | GPT-5.6 Sol | No | No | Work planned | Light planned | Pending | Pending | Pending | Durable continuing-model crossover. |
 
