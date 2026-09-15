@@ -2,18 +2,36 @@
 
 **Model:** GPT-5.6 Luna  
 **Trial:** PDF / Document Creation and Conversation Feel  
-**Status:** STAGE 1 COMPLETE / STAGE 2 PENDING / EFFICIENCY ATTRIBUTION CONTAMINATED  
-**PDF SHA-256:** `206c1f4b0e40bab9488f4e961d6bffb65e31f71f6c831d7e4cc2dc7e3baa8a56`
+**Status:** STAGE 1 COMPLETE / STAGE 2 ARTIFACT RECEIVED LATER / RAW USAGE PRESERVED / MODEL ATTRIBUTION MIXED  
+**Stage 1 PDF SHA-256:** `206c1f4b0e40bab9488f4e961d6bffb65e31f71f6c831d7e4cc2dc7e3baa8a56`
 
-## Usage evidence
+## Usage evidence — raw observation first
 
-The last immediate Astra post-run screenshot showed **71% left** on the 5-hour meter and **55% left** weekly. The Luna post-Stage-1 screenshot at approximately 1:16 PM showed **55% left** on the 5-hour meter and **53% left** weekly.
+The last immediate Astra post-run screenshot showed:
+- **71% left** on the 5-hour meter
+- **55% left** weekly
 
-However, the owner explicitly observed the usage meter fall **before Luna was started**. Therefore the interval movement from 71/55 to 55/53 cannot be attributed cleanly to Luna. It is evidence that at least some prior Astra usage was reported with delay, and it may also contain Luna usage.
+The Luna post-Stage-1 screenshot at approximately 1:16 PM showed:
+- **55% left** on the 5-hour meter
+- **53% left** weekly
 
-Record the interval as **contaminated / unattributable by model**. Do not assign the 16-point 5-hour movement or 2-point weekly movement to Luna, and revise the earlier Astra interpretation: immediate 0-point movement did not imply low usage; delayed meter posting is now directly observed.
+Therefore the raw observed interval is preserved exactly as:
+- **5-hour meter: 71% -> 55% = 16 percentage points visible movement**
+- **weekly meter: 55% -> 53% = 2 percentage points visible movement**
+
+This raw delta remains part of the experiment record even though model attribution is uncertain.
+
+The owner explicitly observed the usage meter fall **before Luna was started**. Therefore the 16/2 interval cannot be assigned wholly to Luna. At least some prior Astra usage was posted with delay, and the interval may also contain Luna usage.
+
+**Interpretation:** raw observation VALID; causal attribution **MIXED / UNKNOWN**.
+
+Do not delete, replace, or 'correct away' the 16/2 observation. The correct provenance model is:
+- UI observation = 16/2 interval movement;
+- attribution = unresolved between delayed prior usage and Luna usage.
 
 Luna post-Stage-1 screenshot SHA-256: `cb79b49f8cd876e6e91fdfd2e8a22fcfcba3e7302bd579275443fdfe4a7f6875`.
+
+A later screenshot at approximately 1:24 PM showed **55% / 53%** again and is separately preserved in `RAW_USAGE_OBSERVATIONS.md`; it must not be collapsed into or substituted for the earlier snapshot.
 
 ## Stage 1 artifact review
 
@@ -48,8 +66,10 @@ Defects / limitations:
   - Most values and boundaries are preserved correctly.
   - Deduction for repeated `two-point band` wording and the ambiguous `2 trial task` summary tile.
 
-Stage 2 will determine creative steering responsiveness and final known /90 score.
+Stage 2 determines creative steering responsiveness and final known /90 score.
 
 ## Efficiency
 
-**UNKNOWN / contaminated.** Meter lag from Astra was observed before Luna began, so the interval cannot be used for a Luna efficiency score.
+**RAW INTERVAL OBSERVED: 16 pp 5-hour / 2 pp weekly. MODEL ATTRIBUTION: MIXED / UNKNOWN.**
+
+The raw telemetry remains preserved even though the meter lag prevents clean causal assignment.
