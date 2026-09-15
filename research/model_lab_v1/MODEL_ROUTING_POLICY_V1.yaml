@@ -1,0 +1,223 @@
+version: 1
+status: specified_not_runtime_implemented
+updated: 2026-09-15
+
+principle: >-
+  Use the least expensive continuing model that reliably meets the quality and risk requirement.
+  Default to Sol when judgment is still required. Escalate to Astra only when consequence, breadth,
+  long-horizon coherence, or expensive-to-miss failure modes justify it.
+
+models:
+  luna:
+    id: GPT-5.6 Luna
+    role: fast_worker
+    preferred_for:
+      - bounded_execution
+      - extraction
+      - formatting
+      - routine_edits
+      - repetitive_tool_use
+      - straightforward_implementation
+    escalate_to: sol
+
+  terra:
+    id: GPT-5.6 Terra
+    role: methodical_systems_engineer
+    preferred_for:
+      - ordinary_engineering
+      - integration
+      - operational_state
+      - reconciliation
+      - maintainability
+      - idempotency
+      - procedural_documentation
+    escalate_to: sol
+
+  sol:
+    id: GPT-5.6 Sol
+    role: lead_model
+    default: true
+    preferred_for:
+      - problem_framing
+      - architecture
+      - security
+      - provenance
+      - authority_boundaries
+      - decision_support
+      - important_documents
+      - synthesis
+      - consequential_review
+    escalate_to: astra
+
+  astra:
+    id: GPT-6 Astra
+    role: senior_escalation
+    preferred_for:
+      - high_consequence_review
+      - cross_system_failure_analysis
+      - long_horizon_review
+      - broad_parallel_investigation
+      - senior_challenge
+      - unresolved_conflict
+
+  gpt_5_5:
+    id: GPT-5.5
+    role: transitional_behavior_benchmark
+    production_dependency_allowed: false
+    expected_retirement: 2026-10
+
+routes:
+  BUILD:
+    primary: luna
+    fallback: terra
+    default_risk_lane: GREEN
+
+  ENGINEER:
+    primary: terra
+    fallback: sol
+    default_risk_lane: AMBER
+
+  DECIDE:
+    primary: sol
+    fallback: astra
+    default_risk_lane: AMBER
+
+  ESCALATE:
+    primary: astra
+    synthesis: sol
+    default_risk_lane: RED
+
+risk_lanes:
+  GREEN:
+    description: bounded_reversible_low_consequence_clear_acceptance_test
+    review_required: false
+    default_primary: luna
+
+  AMBER:
+    description: moderate_ambiguity_or_consequence_or_real_system_change
+    review_required: conditional
+    default_lead: sol
+    worker_options:
+      - luna
+      - terra
+
+  RED:
+    description: security_privacy_authority_irreversible_canonical_migration_cross_system_or_high_consequence
+    review_required: true
+    default_lead: sol
+    default_reviewer: astra
+
+behavior_overlays:
+  COLLABORATIVE_REFRAMER:
+    preferred_models:
+      - sol
+      - astra
+      - terra
+    rules:
+      - identify_real_decision_first
+      - explain_enough_without_padding
+      - challenge_weak_assumptions
+      - avoid_unnecessary_architecture
+      - recommend_concrete_next_move
+      - plain_language_before_specialist_vocabulary
+
+  LEAN_EXECUTOR:
+    preferred_models:
+      - luna
+    rules:
+      - execute_contract
+      - no_brainstorming_unless_blocked
+      - report_evidence
+      - escalate_instead_of_expanding_scope
+
+  METHODICAL_ENGINEER:
+    preferred_models:
+      - terra
+    rules:
+      - explicit_states
+      - explicit_transitions
+      - explicit_invariants
+      - explicit_retries
+      - explicit_idempotency
+      - explicit_reconciliation
+
+  SENIOR_CHALLENGER:
+    preferred_models:
+      - astra
+    rules:
+      - search_expensive_to_miss_failures
+      - challenge_leading_plan
+      - inspect_cross_system_effects
+      - separate_evidence_from_inference
+      - stop_when_extra_depth_no_longer_changes_decision
+
+escalation_triggers:
+  - acceptance_tests_conflict_with_plan
+  - new_authority_or_permission_required
+  - canonical_state_or_provenance_unclear
+  - implementation_becomes_design_selection
+  - repeated_failure_after_bounded_correction
+  - materially_contradictory_evidence
+  - missed_failure_cost_becomes_high
+
+workflows:
+  quick_routine:
+    chain: [luna]
+
+  bounded_implementation:
+    chain: [luna]
+    add_sol_review_if: consequential
+
+  ordinary_stateful_engineering:
+    chain: [terra]
+    add_sol_review_if: architecture_sensitive
+
+  architecture_security_provenance:
+    chain: [sol]
+
+  high_risk_architecture:
+    chain: [sol, astra]
+
+  important_document:
+    chain: [sol]
+
+  premium_editorial_escalation:
+    chain: [sol, astra]
+
+  bulk_research:
+    chain: [luna, sol]
+
+  deep_parallel_investigation:
+    chain: [astra, sol]
+
+  life_notebook_capture_architecture:
+    chain: [sol]
+    add_astra_review_if: RED
+
+  life_notebook_implementation:
+    chain: [luna, sol]
+    alternative_worker: terra
+
+manual_chatgpt_behavior:
+  ask_owner_to_choose_model_for_routine_work: false
+  announce_route_when_material: true
+  continue_if_current_model_is_adequate: true
+  recommend_switch_if_materially_better_model_available: true
+  automatic_model_switching_available: false
+
+routing_event_schema:
+  fields:
+    - task_id
+    - task_class
+    - risk_lane
+    - primary_model
+    - worker_model
+    - reviewer_model
+    - behavior_overlay
+    - route_source
+    - reason_codes
+    - started_at
+    - result_status
+    - corrections
+    - evidence_refs
+    - usage_observations
