@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA + GPT-5.5 COMPLETE / EFFICIENCY PARTIALLY MEASURED
+**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA + GPT-5.5 COMPLETE / ASTRA STAGE 1 COMPLETE / EFFICIENCY PARTIALLY MEASURED
 
 ## Phase 1
 
@@ -9,7 +9,6 @@
 | MLAB-P1-T1-LUNA | 1 | GPT-5.6 Luna | Work | Light | Yes | Objective 60/60; total pending | First-pass accepted; comparative fit scored separately |
 | MLAB-P1-T1-55 | 1 | GPT-5.5 | TBD | TBD | Yes | Objective 60/60; total pending | Raw frozen; model identity follows frozen sequence; surface/effort not independently verified |
 | MLAB-P1-T1-SOL | 1 | GPT-5.6 Sol | TBD | TBD | Yes | Objective 60/60; total pending | Raw frozen and scored; surface/effort not independently verified |
-| MLAB-P1-T1-TERRA | 1 | GPT-5.6 Terra | TBD | TBD | Yes | Objective 60/60; total pending | User corrected model identity to Terra; ingestion was briefly mislabeled Sol, then corrected before scoring |
 | MLAB-P1-T2-TERRA | 2 | GPT-5.6 Terra | Work | Light | Yes | Objective 59/60; total pending | Strong architectural judgment; minor deduction for composite revisit trigger with unspecified SLO threshold |
 | MLAB-P1-T2-ASTRA | 2 | GPT-6 Astra | TBD | TBD | Yes | Objective 60/60; total pending | Strong staged plan and cleaner single measurable revisit trigger; model identity follows frozen sequence |
 | MLAB-P1-T2-LUNA | 2 | GPT-5.6 Luna | Work | Light | Yes | Objective 59/60; total pending | Strong compact architecture judgment; quantified trigger mixes performance/reliability predicates and leaves 3× improvement dimension implicit |
@@ -41,7 +40,7 @@ Frozen prompt: `PHASE2_TRIAL_B_FROZEN_PROMPT.md` v1.0.
 |---|---|---|---|---|---|---|---|---|---|
 | MLAB-P2-B-TERRA | GPT-5.6 Terra | Yes | Yes | Work | Light | **Stage 2 observed: 4 pp of 5-hour meter + 1 pp weekly; full comparative efficiency pending** | **82/90 known; efficiency pending** | Pending | Stage 2 materially improved editorial storytelling and layout. Persistent quantitative defect remains: page 3 says four-point range although 180→174 spans six points. Stage 1 SHA `78cf683b...`; Stage 2 SHA `6c984ed6...`. |
 | MLAB-P2-B-55 | GPT-5.5 | Yes | Yes | Work | Light | **Stage 2 observed: 9 pp of 5-hour meter + 2 pp weekly; Stage 1 interval suggests ~3 pp 5-hour, 0 weekly** | **86/90 known; efficiency pending** | Pending | Stage 2 response now frozen. Stronger authored brief, correct quantitative values, strong uncertainty handling, no detected range defect. Stage 1 SHA `3cbaa2e4...`; Stage 2 SHA `c4a5fa9a...`. GPT-5.5 remains a transitional benchmark only. |
-| MLAB-P2-B-ASTRA | GPT-6 Astra | No | No | Work planned | Light planned | Pending | Pending | Pending | Tests whether extra depth improves editorial/artifact quality enough to justify usage. |
+| MLAB-P2-B-ASTRA | GPT-6 Astra | Yes | No | Work | Light | **Stage 1: 0 visible net pp movement on both meters; not equivalent to zero usage** | **Stage 1: 80/85 known; Stage 2 pending** | Pending | Strongest Stage 1 editorial authorship so far: serif research-publication style, clean evidence table, strong compression of reasoning lenses, correct quantitative values, and clear uncertainty boundaries. Pre/post Stage 1 usage both 71% 5-hour / 55% weekly. Stage 1 SHA `bc5e0e2e...`. |
 | MLAB-P2-B-LUNA | GPT-5.6 Luna | No | No | Work planned | Light planned | Pending | Pending | Pending | Tests speed/value on a real artifact task. |
 | MLAB-P2-B-SOL | GPT-5.6 Sol | No | No | Work planned | Light planned | Pending | Pending | Pending | Durable continuing-model crossover. |
 
