@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1
 
-**Status:** IMPLEMENTED RESEARCH HARNESS / NOT YET RUN
+**Status:** PHASE 1 QUICK SCREEN COMPLETE / JON-FIT PROVISIONALLY SCORED / EFFICIENCY INCOMPLETE
 
 Purpose: determine which OpenAI model is best for which HumanOS task using Jon's actual working preferences rather than vendor positioning alone.
 
@@ -19,10 +19,10 @@ The lab separates three questions that are often incorrectly collapsed into one:
 ## Phases
 
 ### Phase 1 — Quick Screen
-Three short, bounded tasks. Run the exact same prompts in fresh sessions for all available models. No web, repository inspection, memory, or tools unless the task explicitly allows them.
+**Complete.** Three short, bounded tasks were run across all five models. Raw answers are preserved and objective scores are complete. Holistic Jon-fit has been provisionally scored. Efficiency is still incomplete because timing and visible plan usage were not captured consistently.
 
 ### Phase 2 — Role Trials
-Only after Phase 1. Give models tasks matched to likely roles: worker, engineer, architect/reviewer, and long-horizon specialist.
+Next. Give models tasks matched to likely roles: worker, engineer, architect/reviewer, and long-horizon specialist, with at least one cross-over challenge to test the routing hypothesis.
 
 ### Phase 3 — Real HumanOS Work
 Run the finalists on controlled copies of real HumanOS tasks and measure correction burden, execution quality, and plan usage.
@@ -39,5 +39,6 @@ Do not decide that one model is 'best.' The goal is a routing policy:
 - `SCORECARD.md` — capability + fit rubric
 - `RUN_LEDGER.md` — run/evidence log
 - `MODEL_ROUTING_HYPOTHESES.md` — pre-registered hypotheses; do not rewrite after seeing results
+- `PHASE1_COMPARATIVE_RESULTS.md` — post-hoc objective + provisional Jon-fit analysis and routing interpretation
 
 This is research documentation only. It does not alter HumanOS model routing or production behavior.
