@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA + GPT-5.5 + ASTRA COMPLETE / LUNA STAGE 1 SCORED + STAGE 2 ARTIFACT RECEIVED / RAW USAGE PROVENANCE PRESERVED / PRE-LUNA BASELINE CONFIRMED
+**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA + GPT-5.5 + ASTRA + LUNA COMPLETE / SOL PENDING / RAW USAGE PROVENANCE PRESERVED
 
 ## Phase 1
 
@@ -41,8 +41,8 @@ Frozen prompt: `PHASE2_TRIAL_B_FROZEN_PROMPT.md` v1.0.
 | MLAB-P2-B-TERRA | GPT-5.6 Terra | Yes | Yes | Work | Light | **Raw Stage 2 observed: 4 pp 5-hour + 1 pp weekly**; attribution originally strong but later meter-lag discovery reduces confidence in exact compute attribution | **82/90 known; efficiency pending** | Pending | Stage 2 materially improved editorial storytelling and layout. Persistent quantitative defect remains: page 3 says four-point range although 180→174 spans six points. Stage 1 SHA `78cf683b...`; Stage 2 SHA `6c984ed6...`. |
 | MLAB-P2-B-55 | GPT-5.5 | Yes | Yes | Work | Light | **Raw Stage 2 observed: 9 pp 5-hour + 2 pp weekly**; preserved as UI telemetry, not token accounting | **86/90 known; efficiency pending** | Pending | Strong authored brief, correct quantitative values, strong uncertainty handling, no detected range defect. Stage 1 SHA `3cbaa2e4...`; Stage 2 SHA `c4a5fa9a...`. GPT-5.5 remains a transitional benchmark only. |
 | MLAB-P2-B-ASTRA | GPT-6 Astra | Yes | Yes | Work | Light | **Immediate Stage 1/2: 0/0 visible; later PRE-LUNA screenshot: 71/55 -> 55/53 = 16/2 delayed block before Luna began. Astra is strongest likely source; exact decomposition unavailable.** | **89/90 known; efficiency pending** | Pending | Strongest revised artifact so far. Preserve both immediate zero-movement screenshots and delayed pre-Luna block. Luna is ruled out as cause of that visible 16/2 drop. Stage 1 SHA `bc5e0e2e...`; Stage 2 SHA `6bf4d2c5...`. |
-| MLAB-P2-B-LUNA | GPT-5.6 Luna | Yes | **Received / scoring pending** | Work | Light | **Confirmed Stage 1 visible pre/post: 55/53 -> 55/53 = 0/0. Later revised-artifact snapshot also 55/53. Do not interpret as zero compute.** | **Stage 1: 73/85 known; Stage 2 pending** | Pending | Clean six-page brief, but repeated `two-point band` wording conflicts with source's one-point Trial A spread; page-1 `2 trial task` tile is ambiguous. Initial response did not surface the PDF; owner had to ask, then received a local `/Users/...` path. Stage 2 artifact receipt SHA `f36f69dd...`. |
-| MLAB-P2-B-SOL | GPT-5.6 Sol | No | No | Work planned | Light planned | Pending | Pending | Pending | Durable continuing-model crossover. |
+| MLAB-P2-B-LUNA | GPT-5.6 Luna | Yes | Yes | Work | Light | **Confirmed Stage 1 visible: 55/53 -> 55/53 = 0/0; Stage 2 snapshot remained 55/53. Do not interpret as zero compute.** | **75/90 known; efficiency pending** | Pending | Stage 2 added a clearer score-bar treatment but preserved the `two-point band` error and ambiguous `2 trial task` tile. Steering response was modest; Stage 1 delivery also required owner follow-up to surface the PDF. Stage 1 SHA `206c1f4b...`; Stage 2 SHA `f36f69dd...`. |
+| MLAB-P2-B-SOL | GPT-5.6 Sol | No | No | Work planned | Light planned | Pending | Pending | Pending | Final continuing-model crossover for Trial B. |
 
 ## Raw usage provenance
 
@@ -50,7 +50,7 @@ Canonical raw timeline: `RAW_USAGE_OBSERVATIONS.md`.
 
 **Rule:** never erase a meter reading because it later appears delayed, contaminated, or incorrectly attributed. Preserve the displayed value and timestamp as observed evidence. Store causal interpretation separately and allow that interpretation to change.
 
-Current important lesson: the Work plan meter has demonstrated delayed posting. Astra showed no immediate visible movement after controlled runs, but a later **pre-Luna** screenshot already showed 55/53. Therefore the 16 pp / 2 pp visible drop from the last immediate Astra reading occurred before Luna began. Luna's confirmed Stage 1 visible interval is 55/53 -> 55/53.
+Current important lesson: the Work plan meter has demonstrated delayed posting. Astra showed no immediate visible movement after controlled runs, but a later **pre-Luna** screenshot already showed 55/53. Therefore the 16 pp / 2 pp visible drop from the last immediate Astra reading occurred before Luna began. Luna's confirmed Stage 1 and later Stage 2 visible snapshots remained 55/53.
 
 UI percentages must not be converted to tokens or compute.
 
