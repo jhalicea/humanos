@@ -3,7 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mirror_router_adapter import RoutingEventLedger, build_mirror_routing_event, route_for_mirror
+from mirror_router_adapter import (
+    RoutingContext,
+    RoutingEventLedger,
+    build_mirror_routing_event,
+    route_for_mirror,
+)
 from model_router import ExperimentWorkflow, TaskProfile
 
 
@@ -30,6 +35,25 @@ class MirrorRouterAdapterTests(unittest.TestCase):
         self.assertEqual("luna", recommendation["primary_model"])
         self.assertEqual("learning", recommendation["router_mode"])
         self.assertFalse(recommendation["policy_locked"])
+
+    def test_context_is_provenance_only_and_does_not_change_route(self):
+        task = TaskProfile(task_id="M2B", well_defined=False)
+        plain = build_mirror_routing_event(task)
+        enriched = build_mirror_routing_event(
+            task,
+            context=RoutingContext(
+                task_description="Decide how to route a new HumanOS subsystem build.",
+                classifier_source="manual_test",
+                classifier_confidence="HIGH",
+                evidence_refs=("trial-b", "mpc-r3"),
+                assumptions=("No provider execution requested",),
+            ),
+        )
+        self.assertEqual(plain["recommendation"], enriched["recommendation"])
+        context = enriched["routing_context"]
+        self.assertEqual("HIGH", context["classifier_confidence"])
+        self.assertEqual(["trial-b", "mpc-r3"], context["evidence_refs"])
+        self.assertFalse(context["affects_route"])
 
     def test_experimental_workflow_is_preserved_but_not_promoted(self):
         event = build_mirror_routing_event(TaskProfile(
