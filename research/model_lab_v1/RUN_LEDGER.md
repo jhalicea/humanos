@@ -1,10 +1,10 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** 15 OBJECTIVE-SCORED RUNS / TASKS 1–3 COMPLETE / COMPARATIVE SCORING NEXT
+**Status:** 15 OBJECTIVE-SCORED RUNS / TASKS 1–3 COMPLETE / JON-FIT PROVISIONALLY SCORED / EFFICIENCY INCOMPLETE
 
 | Run ID | Task | Model | Surface | Effort | Raw preserved | Score | Notes |
 |---|---|---|---|---|---|---|---|
-| MLAB-P1-T1-LUNA | 1 | GPT-5.6 Luna | Work | Light | Yes | Objective 60/60; total pending | First-pass accepted; Jon-fit + comparative efficiency pending |
+| MLAB-P1-T1-LUNA | 1 | GPT-5.6 Luna | Work | Light | Yes | Objective 60/60; total pending | First-pass accepted; comparative fit scored separately |
 | MLAB-P1-T1-55 | 1 | GPT-5.5 | TBD | TBD | Yes | Objective 60/60; total pending | Raw frozen; model identity follows frozen sequence; surface/effort not independently verified |
 | MLAB-P1-T1-SOL | 1 | GPT-5.6 Sol | TBD | TBD | Yes | Objective 60/60; total pending | Raw frozen and scored; surface/effort not independently verified |
 | MLAB-P1-T1-TERRA | 1 | GPT-5.6 Terra | TBD | TBD | Yes | Objective 60/60; total pending | User corrected model identity to Terra; ingestion was briefly mislabeled Sol, then corrected before scoring |
@@ -19,6 +19,12 @@
 | MLAB-P1-T3-ASTRA | 3 | GPT-6 Astra | TBD | TBD | Yes | Objective 60/60; total pending | Strong scope discipline; defers n8n/agents until intake is reliable; clean replay/failure acceptance test |
 | MLAB-P1-T3-TERRA | 3 | GPT-5.6 Terra | TBD | TBD | Yes | Objective 55/60; total pending | Strong narrow polling-first plan and evidence discipline; acceptance-test first-run accounting is ambiguous around 16 valid items plus 2 transient failures |
 | MLAB-P1-T3-SOL | 3 | GPT-5.6 Sol | TBD | TBD | Yes | Objective 55/60; total pending | Strong unified idempotent intake path and evidence discipline; acceptance-test fixture count is ambiguous (10 items, 2 duplicates, 1 malformed -> expected 8 not unambiguously supported) |
+
+## Phase 1 comparative fit
+
+See `PHASE1_COMPARATIVE_RESULTS.md` for holistic provisional Jon-fit scoring, combined known-quality subtotals, and post-hoc routing interpretation.
+
+Efficiency remains incomplete because wall-clock and visible plan-usage evidence were not captured consistently across the cohort. Do not publish a final /100 ranking yet.
 
 ## Per-run metadata
 Record:
