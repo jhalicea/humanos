@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 TRIALS A-B COMPLETE / OWNER ROUTING PREFERENCE RECORDED / ROUTING POLICY V1 CANDIDATE / ROUTER + MIRROR ADAPTER TESTED / DRY-RUN LAYER IMPLEMENTED, NOT YET RE-VERIFIED
+**Status:** PHASE 1 COMPLETE / PHASE 2 TRIALS A-B COMPLETE / OWNER ROUTING PREFERENCE RECORDED / ROUTING POLICY V1 CANDIDATE / ROUTER + MIRROR ADAPTER + DRY RUN VERIFIED / CONTEXT-PROVENANCE EXTENSION NOT YET RE-VERIFIED
 
 Purpose: determine which model is best for which HumanOS task using Jon's actual working preferences and measured work, while keeping routing recommendations provisional until enough evidence accumulates.
 
@@ -56,42 +56,71 @@ Current example:
 
 The owner followed Astra's recommendation to use Terra High. That recommendation is preserved as provenance and experiment evidence; it is **not automatically promoted into policy**.
 
-## Router + Mirror adapter status
+## Verified router stack
 
-`model_router.py` implements the deterministic recommendation layer. `mirror_router_adapter.py` converts a recommendation into a Mirror-facing routing event and can append it to a hash-chained JSONL ledger using existing HumanOS audit primitives.
+`model_router.py` implements the deterministic recommendation layer. `mirror_router_adapter.py` converts a recommendation into a Mirror-facing routing event and can append it to a hash-chained JSONL ledger using existing HumanOS audit primitives. `routing_dry_run.py` exercises the local path without provider execution.
 
-Neither module executes a model or grants authority.
+None of these components dispatches a model or grants authority.
 
-On 2026-09-15 the owner ran:
+On 2026-09-15 the owner ran the full verified suite:
 
 ```text
 PYTHONPATH=. python3 -m unittest \
   tests.test_model_router \
   tests.test_mirror_router_adapter \
+  tests.test_routing_dry_run \
   -v
 ```
 
-Result: **17/17 PASS** in 0.003s.
+Result: **20/20 PASS** in 0.004s.
 
-Verified properties include:
-- router remains `v1-candidate`, learning-mode, recommendation-only, and unlocked;
-- experimental workflows are recorded without promotion;
-- no model dispatch or authority is granted;
-- routing events persist and hash-chain correctly;
-- multiple events chain correctly;
-- tampering is detected and blocks another append.
+Verified split:
+- deterministic router: **11/11**
+- Mirror adapter: **6/6**
+- local dry-run layer: **3/3**
 
-## Local dry-run layer
+## First persisted real routing recommendation
 
-`routing_dry_run.py` now provides the next local integration step:
+The owner ran:
 
-`task profile -> route -> Mirror event -> optional ledger append -> hash-chain verification -> printed result`
+```text
+PYTHONPATH=. python3 routing_dry_run.py \
+  --task-id HOS-MIRROR-ROUTER-DRY-001
+```
 
-It does **not** dispatch a model.
+HumanOS emitted and persisted a `PROPOSED` routing event with:
+- `DECIDE`
+- `AMBER`
+- primary model `sol`
+- overlay `COLLABORATIVE_REFRAMER`
+- `JUDGMENT_REQUIRED` + `MODERATE_RISK`
+- policy `v1-candidate`
+- router mode `learning`
+- ledger recorded and verified
+- no model dispatch
+- no automatic execution
+- no execution authority
+- no policy promotion
 
-`tests/test_routing_dry_run.py` adds three tests covering an ambiguous Sol recommendation with persistence, no-persist mode, and a RED Sol+Astra-review recommendation with no dispatch.
+Ledger path: `var/model-routing/routing-events.jsonl`.
 
-These dry-run tests were authored **after** the verified 17-test run and are therefore **NOT YET RE-VERIFIED LOCALLY**.
+This is the first verified local end-to-end routing recommendation in this Model Lab sequence. It is still a recommendation path only.
+
+## New routing-context provenance extension
+
+After the 20-test verified run, the Mirror adapter and CLI were extended to carry descriptive provenance about **how the TaskProfile was formed**, while deliberately keeping those fields outside the routing decision itself.
+
+The new `routing_context` can preserve:
+- task description;
+- classifier source;
+- classifier confidence (`UNASSESSED`, `LOW`, `MEDIUM`, `HIGH`);
+- evidence references;
+- assumptions;
+- `affects_route: false`.
+
+This gives HumanOS a place to record why a task was classified a certain way without pretending that free-text understanding or automatic classification is implemented yet.
+
+Two additional tests were authored for this provenance layer, so the next expected total is **22 tests**. Those newest changes are **IMPLEMENTED / NOT YET RE-VERIFIED LOCALLY**.
 
 ## Files
 - `PROTOCOL.md` — experiment controls and run procedure
@@ -102,7 +131,7 @@ These dry-run tests were authored **after** the verified 17-test run and are the
 - `MODEL_ROUTING_WORKFLOW_V0.md` — earlier planner/worker/reviewer workflow
 - `MODEL_ROUTING_POLICY_V1_CANDIDATE.md` — provisional human-readable routing policy
 - `MODEL_ROUTING_POLICY_V1.yaml` — machine-readable candidate policy
-- `ROUTER_TEST_EVIDENCE_2026-09-15.md` — owner-run test evidence
+- `ROUTER_TEST_EVIDENCE_2026-09-15.md` — owner-run test and dry-run evidence
 - `PHASE1_COMPARATIVE_RESULTS.md`
 - `PHASE2_ROLE_TRIALS.md`
 - `PHASE2_TRIAL_A_RESULTS.md`
@@ -121,12 +150,14 @@ These dry-run tests were authored **after** the verified 17-test run and are the
 
 - Routing policy: **SPECIFIED / PROVISIONAL**
 - Deterministic router: **IMPLEMENTED + TESTED — 11/11 PASS**
-- Mirror-facing adapter: **IMPLEMENTED + TESTED — 6/6 PASS**
-- Combined verified suite: **17/17 PASS**
-- Local dry-run CLI: **IMPLEMENTED**
-- Dry-run tests: **AUTHORED / NOT YET RE-VERIFIED LOCALLY**
+- Mirror-facing adapter baseline: **IMPLEMENTED + TESTED — 6/6 PASS**
+- Local dry-run baseline: **IMPLEMENTED + TESTED — 3/3 PASS**
+- Combined verified baseline: **20/20 PASS**
+- First persisted routing recommendation: **VERIFIED LOCALLY**
+- Routing-context provenance extension: **IMPLEMENTED / 2 NEW TESTS AUTHORED / NOT YET RE-VERIFIED LOCALLY**
+- Automatic task-text classification: **NOT IMPLEMENTED**
 - Automatic model dispatch: **NOT IMPLEMENTED**
 - Provider execution: **NOT IMPLEMENTED**
 - Production verification/deployment: **NOT VERIFIED / NOT DEPLOYED**
 
-Next target: run the expanded suite including the dry-run tests, then execute one real local no-dispatch routing dry run and inspect the persisted event plus ledger verification result.
+Next target: re-run the expanded 22-test suite, then generate a second real routing event containing a human-readable task description, evidence references, assumptions, and explicit classifier confidence. Keep routing behavior unchanged and no-dispatch until that provenance path is verified.
