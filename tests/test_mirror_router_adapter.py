@@ -1,7 +1,6 @@
 import json
 import multiprocessing
 import tempfile
-import threading
 import unittest
 from pathlib import Path
 
@@ -124,6 +123,18 @@ class MirrorRouterAdapterTests(unittest.TestCase):
                 ledger.append(action_id="evt-symlink", body={"safe": True})
             self.assertEqual("", target.read_text(encoding="utf-8"))
 
+    def test_symlink_ledger_directory_is_rejected_before_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            real_directory = root / "real"
+            real_directory.mkdir()
+            link_directory = root / "linked"
+            link_directory.symlink_to(real_directory, target_is_directory=True)
+            ledger = RoutingEventLedger(link_directory / "routing-events.jsonl")
+            with self.assertRaises(RoutingLedgerUnsafe):
+                ledger.append(action_id="evt-dir-symlink", body={"safe": True})
+            self.assertFalse((real_directory / "routing-events.jsonl").exists())
+
     def test_symlink_lock_path_is_rejected_before_write(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -156,17 +167,20 @@ class MirrorRouterAdapterTests(unittest.TestCase):
                 ledger.append(action_id="evt-after-corruption", body={"safe": True})
             self.assertEqual(raw, path.read_bytes())
 
-    def test_identical_event_retry_is_idempotent(self):
+    def test_identical_event_retry_is_idempotent_even_if_retry_timestamp_changes(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "routing-events.jsonl"
             ledger = RoutingEventLedger(path)
-            kwargs = {
-                "ledger": ledger,
-                "event_id": "evt-retry",
-                "created_at": "2026-09-15T20:02:00+00:00",
-            }
-            first = route_for_mirror(TaskProfile(task_id="M9", well_defined=True), **kwargs)
-            second = route_for_mirror(TaskProfile(task_id="M9", well_defined=True), **kwargs)
+            first = route_for_mirror(
+                TaskProfile(task_id="M9", well_defined=True),
+                ledger=ledger,
+                event_id="evt-retry",
+            )
+            second = route_for_mirror(
+                TaskProfile(task_id="M9", well_defined=True),
+                ledger=ledger,
+                event_id="evt-retry",
+            )
             self.assertEqual(first["ledger_record"], second["ledger_record"])
             self.assertEqual(1, len(ledger.read_all()))
             self.assertTrue(ledger.verify())
