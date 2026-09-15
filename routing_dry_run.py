@@ -10,7 +10,7 @@ import argparse
 import json
 from pathlib import Path
 
-from mirror_router_adapter import RoutingEventLedger, route_for_mirror
+from mirror_router_adapter import RoutingContext, RoutingEventLedger, route_for_mirror
 from model_router import TaskProfile
 
 DEFAULT_LEDGER = Path("var/model-routing/routing-events.jsonl")
@@ -19,6 +19,15 @@ DEFAULT_LEDGER = Path("var/model-routing/routing-events.jsonl")
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="HumanOS model-router dry run")
     parser.add_argument("--task-id", default="DRY-RUN-001")
+    parser.add_argument("--description")
+    parser.add_argument("--classifier-source", default="manual_cli")
+    parser.add_argument(
+        "--confidence",
+        choices=("unassessed", "low", "medium", "high"),
+        default="unassessed",
+    )
+    parser.add_argument("--evidence-ref", action="append", default=[])
+    parser.add_argument("--assumption", action="append", default=[])
     parser.add_argument("--well-defined", action="store_true")
     parser.add_argument("--operational-state", action="store_true")
     parser.add_argument("--security", action="store_true")
@@ -54,10 +63,21 @@ def task_from_args(args: argparse.Namespace) -> TaskProfile:
     )
 
 
+def context_from_args(args: argparse.Namespace) -> RoutingContext:
+    return RoutingContext(
+        task_description=args.description,
+        classifier_source=args.classifier_source,
+        classifier_confidence=args.confidence.upper(),
+        evidence_refs=tuple(args.evidence_ref),
+        assumptions=tuple(args.assumption),
+    )
+
+
 def run_dry_run(args: argparse.Namespace) -> dict:
     task = task_from_args(args)
+    context = context_from_args(args)
     ledger = None if args.no_persist else RoutingEventLedger(args.ledger)
-    result = route_for_mirror(task, ledger=ledger)
+    result = route_for_mirror(task, context=context, ledger=ledger)
 
     ledger_verified = None
     if ledger is not None:
