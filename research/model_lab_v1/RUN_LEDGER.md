@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** 12 OBJECTIVE-SCORED RUNS / TASKS 1–2 COMPLETE / TASK 3 IN PROGRESS
+**Status:** 13 OBJECTIVE-SCORED RUNS / TASKS 1–2 COMPLETE / TASK 3 IN PROGRESS
 
 | Run ID | Task | Model | Surface | Effort | Raw preserved | Score | Notes |
 |---|---|---|---|---|---|---|---|
@@ -16,7 +16,7 @@
 | MLAB-P1-T2-55 | 2 | GPT-5.5 | TBD | TBD | Yes | Objective 59/60; total pending | Strong trusted-surface framing; trigger is quantified but uses undefined “production-relevant” and weaker “plausibly prevented” causal bar |
 | MLAB-P1-T3-55 | 3 | GPT-5.5 | TBD | TBD | Yes | Objective 55/60; total pending | Excellent real-build scoping and Jon-fit signals; acceptance-test counting is ambiguous/inconsistent (10 items, 2 duplicates, 1 malformed -> expected 8 not unambiguously supported) |
 | MLAB-P1-T3-LUNA | 3 | GPT-5.6 Luna | Work | Light | Yes | Objective 60/60; total pending | Strong implementation-forward plan; coherent acceptance test; breadth/scope pressure flagged for comparative Jon-fit review |
-| MLAB-P1-T3-ASTRA | 3 | GPT-6 Astra | TBD | TBD | No | Pending | |
+| MLAB-P1-T3-ASTRA | 3 | GPT-6 Astra | TBD | TBD | Yes | Objective 60/60; total pending | Strong scope discipline; defers n8n/agents until intake is reliable; clean replay/failure acceptance test |
 | MLAB-P1-T3-TERRA | 3 | GPT-5.6 Terra | TBD | TBD | No | Pending | |
 | MLAB-P1-T3-SOL | 3 | GPT-5.6 Sol | TBD | TBD | No | Pending | |
 
