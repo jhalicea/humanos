@@ -89,6 +89,13 @@ def _safe_open(path: Path, flags: int, mode: int = 0o600) -> int:
     return fd
 
 
+def _retry_body(value: dict) -> dict:
+    """Return event content used to decide whether a repeated event_id is the same intent."""
+    comparable = dict(value)
+    comparable.pop("created_at", None)
+    return comparable
+
+
 def build_mirror_routing_event(
     task: TaskProfile,
     *,
@@ -145,14 +152,23 @@ class RoutingEventLedger:
     def _read_raw_unlocked(self) -> bytes:
         if not self.path.exists():
             return b""
-        _reject_symlink_path(self.path)
+        fd = _safe_open(self.path, os.O_RDONLY)
         try:
-            raw = self.path.read_bytes()
+            chunks = []
+            while True:
+                chunk = os.read(fd, 1024 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            raw = b"".join(chunks)
+        except OSError as error:
+            raise RoutingLedgerUnsafe(f"unable to read routing ledger safely: {error}") from error
+        finally:
+            os.close(fd)
+        try:
             validate_recovery_appendable_bytes(raw)
         except RecoveryLedgerCorrupt as error:
             raise RoutingLedgerCorrupt(str(error)) from error
-        except OSError as error:
-            raise RoutingLedgerUnsafe(f"unable to read routing ledger safely: {error}") from error
         return raw
 
     def _read_all_unlocked(self) -> list[AuditEvent]:
@@ -189,7 +205,7 @@ class RoutingEventLedger:
             _fsync_directory(self.root)
 
     def append(self, *, action_id: str, body: dict) -> AuditEvent:
-        """Append once by action_id; identical retries are idempotent, conflicts fail closed."""
+        """Append once by action_id; equivalent retries are idempotent, conflicts fail closed."""
         with self._lock(exclusive=True):
             events = self._read_all_unlocked()
             if events and not verify_chain(events):
@@ -198,7 +214,7 @@ class RoutingEventLedger:
             for existing in events:
                 if existing.action_id != action_id:
                     continue
-                if existing.body == body:
+                if _retry_body(existing.body) == _retry_body(body):
                     return existing
                 raise RoutingLedgerConflict("routing event id already exists with different content")
 
