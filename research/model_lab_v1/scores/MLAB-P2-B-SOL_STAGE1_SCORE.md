@@ -1,9 +1,10 @@
-# MLAB-P2-B-SOL — Trial B Stage 1 Score
+# MLAB-P2-B-SOL — Phase 2 Trial B Score
 
 **Model:** GPT-5.6 Sol  
 **Trial:** PDF / Document Creation and Conversation Feel  
-**Status:** STAGE 1 COMPLETE / STAGE 2 PENDING / USAGE WINDOW RESET DURING INTERVAL  
-**Stage 1 PDF SHA-256:** `15a8031d6dddcf7f63bab369710309b6cfad1e0586b6f0e8b595f84d66201313`
+**Status:** STAGE 1 + STAGE 2 COMPLETE / COMPARATIVE EFFICIENCY PENDING  
+**Stage 1 PDF SHA-256:** `15a8031d6dddcf7f63bab369710309b6cfad1e0586b6f0e8b595f84d66201313`  
+**Stage 2 PDF SHA-256:** `4156bbcdaedbcac5a6e4e3584b347032a4ddde6a079576138594023068895967`
 
 ## Stage 1 artifact review
 
@@ -26,34 +27,60 @@ Limitations:
 ## Stage 1 known score — 82/85
 
 - **Job outcome quality — 39/40**
-  - Strongest first draft so far in Trial B by this rubric.
-  - Excellent hierarchy, narrative sequencing, evidence labeling, and data visualization discipline.
-
 - **Working fit / conversation — 18/20**
-  - Clear, low-friction, and complete.
-  - Still transactional rather than richly collaborative.
-
 - **Judgment and scope control — 15/15**
-  - Stayed within the supplied packet and maintained the provisional-routing boundary.
-
 - **Evidence / reliability discipline — 10/10**
-  - Correct scores and spreads, explicit chart-baseline disclosure, and no detected quantitative defect.
 
-Stage 2 will measure creative steering responsiveness and produce the final known /90 score.
+## Stage 2 revision
+
+The frozen steering instruction asked for a more alive, intentional, premium document without adding unsupported facts, with improved storytelling, visual rhythm, hierarchy, emphasis, pacing, authorship, and correction of any factual or quantitative defects noticed.
+
+Observed changes:
+- stronger page-to-page contrast and more varied compositions;
+- page 2 becomes a much bolder executive readout, making the measured-vs-interpretation distinction immediately legible;
+- the Phase 1 result remains accurate, including the six-point 180-to-174 field span;
+- Trial A visualization is explicitly corrected to an **89–90 display axis** with dot positioning rather than bars that could visually exaggerate the one-point difference;
+- page 6 reframes the qualitative signal as **Five lenses. One reliability problem**, strengthening authorship while preserving the boundary that these are observed working styles rather than permanent traits;
+- page 7 keeps the routing policy provisional and adds the supplied **October 2026** departure date for GPT-5.5;
+- no unsupported facts added and no factual or quantitative defect detected in the revised artifact;
+- model explicitly reported that it corrected the Trial A visualization and preserved measured-vs-interpretive separation.
+
+## Final known score — 89/90
+
+- **Job outcome quality — 40/40**
+  - Excellent executive brief with strong narrative sequencing, visual discipline, and a more expressive final treatment.
+- **Working fit / conversation — 19/20**
+  - Clear, low-friction, and responsive; the revision note is specific about what changed and why.
+  - Still more task-focused than deeply collaborative, so not full marks.
+- **Judgment and scope control — 15/15**
+  - Stayed within the packet and preserved provisional routing boundaries.
+- **Evidence / reliability discipline — 10/10**
+  - Correct scores, correct spreads, explicit display-axis labeling, and no detected quantitative defect.
+- **Correction burden / steering responsiveness — 5/5**
+  - One steering turn materially improved the artifact and also corrected a visualization-risk issue without being told the exact fix.
 
 ## Usage evidence
 
-The previous stable snapshot before Sol was **55% left** on the 5-hour meter and **53% left** weekly. The Sol post-Stage-1 screenshot at approximately 1:48 PM showed:
+Previous Sol Stage 1 post-run / Stage 2 pre-run observation:
 - **96% left** on the 5-hour meter
 - **52% left** weekly
 - reset countdown **4h55m**
 
-This proves the 5-hour window reset between the previous snapshot and the Sol post-run snapshot. Therefore the 55-to-96 movement is a reset event, not negative usage, and the 5-hour Stage-1 cost cannot be reconstructed from these two endpoints.
+Sol Stage 2 post-run screenshot at approximately 14:03 showed:
+- **92% left** on the 5-hour meter
+- **52% left** weekly
+- reset countdown **4h41m**
 
-Raw post-reset observation: **96% / 52%**.
+Raw observed Stage 2 interval:
+- **5-hour: 96% -> 92% = 4 percentage points displayed movement**
+- **weekly: 52% -> 52% = 0 percentage points displayed movement**
 
-Conditional inference only: if the reset restored the 5-hour limit to 100% before all post-reset Sol work occurred, then the new window had 4 percentage points consumed by the screenshot. However, because the Sol run may have crossed the reset boundary and the UI has demonstrated delayed posting, this must not be treated as Sol's exact cost.
+Screenshot SHA-256: `d225426ce6e12a1c7e301d0d0ba23f62818d1d22f8a963c609e314ccc69f8eca`.
 
-Weekly meter moved from the prior 53% snapshot to 52%, an observed 1-point decrease across the broader interval. Attribution is likely associated with the Sol run but cannot be called exact because delayed posting remains a known confound.
+This is a cleaner same-window observation than Sol Stage 1 because no reset occurred between the two Sol Stage 2 endpoints. It is still UI telemetry, not token or exact compute accounting, and delayed posting remains a known system-level confound.
 
-Stage 2 pre-run raw baseline is the observed **96% / 52%** snapshot.
+## Provisional role signal
+
+**TRUTH-BOUNDARY ARCHITECT / EVIDENCE-DISCIPLINED EDITORIAL SYNTHESIZER**
+
+Sol ties Astra on final known Trial B score at 89/90, while Sol produced the strongest Stage 1 first draft by the current rubric (82/85 vs Astra 80/85). Final comparative routing should still incorporate owner preference and efficiency provenance rather than treat this as a universal ranking.
