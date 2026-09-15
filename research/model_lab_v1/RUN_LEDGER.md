@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / 5 ROLE RUNS SCORED / EFFICIENCY INCOMPLETE
+**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B READY / EFFICIENCY INCOMPLETE
 
 ## Phase 1
 
@@ -24,17 +24,29 @@
 
 See `PHASE1_COMPARATIVE_RESULTS.md` for holistic provisional Jon-fit scoring, combined known-quality subtotals, and post-hoc routing interpretation.
 
-## Phase 2 — Role Trials
+## Phase 2 — Trial A: Thought Partner
 
-| Run ID | Trial | Model | Surface | Effort | Raw preserved | Known score | Efficiency | Owner rating | Notes |
+| Run ID | Model | Raw preserved | Known score | Efficiency | Owner rating | Notes |
+|---|---|---|---|---|---|---|
+| MLAB-P2-A-55 | GPT-5.5 | Yes | 90/90 known | UNKNOWN | Pending | Transitional benchmark; strongest collaborative reframing in this trial. |
+| MLAB-P2-A-SOL | GPT-5.6 Sol | Yes | 89/90 known | UNKNOWN | Pending | Strong truth/acknowledgment boundary reasoning. |
+| MLAB-P2-A-ASTRA | GPT-6 Astra | Yes | 89/90 known | UNKNOWN | Pending | Strong failure-model expansion; possible ambient-context contamination noted. |
+| MLAB-P2-A-LUNA | GPT-5.6 Luna | Yes | 89/90 known | UNKNOWN | Pending | Fast practical synthesis with low ceremony. |
+| MLAB-P2-A-TERRA | GPT-5.6 Terra | Yes | 89/90 known | UNKNOWN | Pending | Strong operational state/reconciliation framing. Owner comment about Astra resembling 5.5 was not used in scoring. |
+
+## Phase 2 — Trial B: PDF / Document Creation and Conversation Feel
+
+Frozen prompt: `PHASE2_TRIAL_B_FROZEN_PROMPT.md` v1.0.
+
+| Run ID | Model | Stage 1 artifact preserved | Stage 2 artifact preserved | Surface | Effort | Efficiency | Score | Owner rating | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| MLAB-P2-A-55 | A — Thought Partner | GPT-5.5 | TBD | TBD | Yes | 90/90 known | UNKNOWN | Pending | Excellent reframing around first trustworthy local record. Transitional benchmark only because GPT-5.5 is leaving ChatGPT in October 2026; not a long-term routing target. |
-| MLAB-P2-A-SOL | A — Thought Partner | GPT-5.6 Sol | TBD | TBD | Yes | 89/90 known | UNKNOWN | Pending | Strongest acknowledgment-boundary framing so far; explicitly narrows the zero-loss guarantee to post-observation/post-commit events and handles partial turns/gaps |
-| MLAB-P2-A-ASTRA | A — Thought Partner | GPT-6 Astra | TBD | TBD | Yes | 89/90 known | UNKNOWN | Pending | Strong control-vs-observation framing; surfaced streaming, revisions, device-loss, backup/restore, and synchronous-durability details. End-state usage snapshot present but no baseline. Ambient-context contamination possible from reference to an earlier preference not in frozen prompt |
-| MLAB-P2-A-LUNA | A — Thought Partner | GPT-5.6 Luna | TBD | TBD | Yes | 89/90 known | UNKNOWN | Pending | Reached the same core durable-capture architecture with the least ceremony; strong minimum-write framing, explicit failure states, and narrow 30-day scope |
-| MLAB-P2-A-TERRA | A — Thought Partner supplemental | GPT-5.6 Terra | TBD | TBD | Yes | 89/90 known | UNKNOWN | Pending | Strong state/reconciliation framing: Captured vs Projected vs Reconciled; clear immutable-event design, privacy/noise challenge, and narrow maintainable implementation slice. Owner comment about Astra resembling 5.5 was not used in scoring. |
+| MLAB-P2-B-TERRA | GPT-5.6 Terra | No | No | Work planned | Light planned | Pending | Pending | Pending | Run first; directly tests prior document-feel concern. |
+| MLAB-P2-B-55 | GPT-5.5 | No | No | Work planned | Light planned | Pending | Pending | Pending | Transitional benchmark only; not a long-term routing dependency. |
+| MLAB-P2-B-ASTRA | GPT-6 Astra | No | No | Work planned | Light planned | Pending | Pending | Pending | Tests whether extra depth improves editorial/artifact quality enough to justify usage. |
+| MLAB-P2-B-LUNA | GPT-5.6 Luna | No | No | Work planned | Light planned | Pending | Pending | Pending | Tests speed/value on a real artifact task. |
+| MLAB-P2-B-SOL | GPT-5.6 Sol | No | No | Work planned | Light planned | Pending | Pending | Pending | Durable continuing-model crossover. |
 
-Efficiency remains incomplete when wall-clock and visible plan-usage evidence are unavailable. Do not publish a final /100 role score until the efficiency component is measured or explicitly normalized under the experiment rules.
+Efficiency remains incomplete whenever wall-clock and visible plan-usage evidence are unavailable. Do not invent efficiency.
 
 ## Continuity rule
 
@@ -49,6 +61,8 @@ Record:
 - reasoning/effort setting
 - speed mode when available
 - raw response file or attachment
+- first artifact reference
+- revised artifact reference
 - start/end or elapsed time
 - visible usage before/after if available
 - visible subagent behavior when relevant
@@ -57,4 +71,4 @@ Record:
 - owner rating
 
 ## Freeze rule
-Never replace a raw answer. Corrections, reruns, and rescoring get new records.
+Never replace a raw answer or artifact. Corrections, reruns, and rescoring get new records.
