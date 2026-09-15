@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 TRIALS A-B COMPLETE / OWNER ROUTING PREFERENCE RECORDED / ROUTING POLICY V1 CANDIDATE / ROUTER + MIRROR ADAPTER + DRY RUN VERIFIED / CONTEXT-PROVENANCE EXTENSION NOT YET RE-VERIFIED
+**Status:** PHASE 1 COMPLETE / PHASE 2 TRIALS A-B COMPLETE / OWNER ROUTING PREFERENCE RECORDED / ROUTING POLICY V1 CANDIDATE / IMPLEMENTATION MOVED TO FOCUSED FEATURE PR
 
 Purpose: determine which model is best for which HumanOS task using Jon's actual working preferences and measured work, while keeping routing recommendations provisional until enough evidence accumulates.
 
@@ -46,7 +46,7 @@ Core rule:
 
 `use the least expensive continuing model that reliably meets the quality/risk requirement; default to Sol when judgment is still required`
 
-This is not locked. Model Lab evidence can change roles, effort defaults, workflow order, and reviewer choices.
+This is not locked. Model Lab evidence can change roles, effort defaults, workflow order, reviewer choices, or the rule itself.
 
 ## Experimental workflow evidence
 
@@ -56,71 +56,35 @@ Current example:
 
 The owner followed Astra's recommendation to use Terra High. That recommendation is preserved as provenance and experiment evidence; it is **not automatically promoted into policy**.
 
-## Verified router stack
+## Implementation boundary
 
-`model_router.py` implements the deterministic recommendation layer. `mirror_router_adapter.py` converts a recommendation into a Mirror-facing routing event and can append it to a hash-chained JSONL ledger using existing HumanOS audit primitives. `routing_dry_run.py` exercises the local path without provider execution.
+The Model Lab branch is research/evaluation only.
 
-None of these components dispatches a model or grants authority.
+A router prototype was developed here during experimentation and reached a locally verified 20-test baseline plus a real no-dispatch dry run. To restore the established HumanOS SDLC boundary, runtime implementation has now been moved to the focused branch:
 
-On 2026-09-15 the owner ran the full verified suite:
+`feature/model-router-v1`
 
-```text
-PYTHONPATH=. python3 -m unittest \
-  tests.test_model_router \
-  tests.test_mirror_router_adapter \
-  tests.test_routing_dry_run \
-  -v
-```
+Draft implementation PR:
 
-Result: **20/20 PASS** in 0.004s.
+`#63 — Model Router v1 — recommendation-only runtime slice`
 
-Verified split:
-- deterministic router: **11/11**
-- Mirror adapter: **6/6**
-- local dry-run layer: **3/3**
+PR #63 is based directly on `runtime-0.1` and reconstructs the locally verified checkpoint `d932808409ddec353341bb769b5e45d21d7596d7`. The research branch no longer carries the runtime router/adapter/dry-run files at its head.
 
-## First persisted real routing recommendation
+The implementation PR must independently satisfy the repository SDLC: focused scope, acceptance criteria, full test suite, local interaction checks, diff review, evidence, independent review, rollback, and owner approval before merge.
 
-The owner ran:
+## Research evidence from the router prototype
 
-```text
-PYTHONPATH=. python3 routing_dry_run.py \
-  --task-id HOS-MIRROR-ROUTER-DRY-001
-```
+Historical evidence remains preserved in this research branch because it informed the routing hypothesis:
 
-HumanOS emitted and persisted a `PROPOSED` routing event with:
-- `DECIDE`
-- `AMBER`
-- primary model `sol`
-- overlay `COLLABORATIVE_REFRAMER`
-- `JUDGMENT_REQUIRED` + `MODERATE_RISK`
-- policy `v1-candidate`
-- router mode `learning`
-- ledger recorded and verified
-- no model dispatch
-- no automatic execution
-- no execution authority
-- no policy promotion
+- deterministic router baseline: 11/11 targeted tests passed locally;
+- Mirror adapter baseline: 6/6 targeted tests passed locally;
+- dry-run baseline: 3/3 targeted tests passed locally;
+- combined targeted baseline: 20/20 passed locally;
+- one real local routing recommendation was persisted and hash-chain verified;
+- no model dispatch, automatic execution, authority grant, or policy promotion occurred;
+- later unverified routing-context provenance experiments remain branch-history evidence only and were not promoted into the focused implementation baseline.
 
-Ledger path: `var/model-routing/routing-events.jsonl`.
-
-This is the first verified local end-to-end routing recommendation in this Model Lab sequence. It is still a recommendation path only.
-
-## New routing-context provenance extension
-
-After the 20-test verified run, the Mirror adapter and CLI were extended to carry descriptive provenance about **how the TaskProfile was formed**, while deliberately keeping those fields outside the routing decision itself.
-
-The new `routing_context` can preserve:
-- task description;
-- classifier source;
-- classifier confidence (`UNASSESSED`, `LOW`, `MEDIUM`, `HIGH`);
-- evidence references;
-- assumptions;
-- `affects_route: false`.
-
-This gives HumanOS a place to record why a task was classified a certain way without pretending that free-text understanding or automatic classification is implemented yet.
-
-Two additional tests were authored for this provenance layer, so the next expected total is **22 tests**. Those newest changes are **IMPLEMENTED / NOT YET RE-VERIFIED LOCALLY**.
+These observations are research/provenance evidence, not production certification.
 
 ## Files
 - `PROTOCOL.md` — experiment controls and run procedure
@@ -131,7 +95,7 @@ Two additional tests were authored for this provenance layer, so the next expect
 - `MODEL_ROUTING_WORKFLOW_V0.md` — earlier planner/worker/reviewer workflow
 - `MODEL_ROUTING_POLICY_V1_CANDIDATE.md` — provisional human-readable routing policy
 - `MODEL_ROUTING_POLICY_V1.yaml` — machine-readable candidate policy
-- `ROUTER_TEST_EVIDENCE_2026-09-15.md` — owner-run test and dry-run evidence
+- `ROUTER_TEST_EVIDENCE_2026-09-15.md` — historical owner-run router test and dry-run evidence
 - `PHASE1_COMPARATIVE_RESULTS.md`
 - `PHASE2_ROLE_TRIALS.md`
 - `PHASE2_TRIAL_A_RESULTS.md`
@@ -139,25 +103,17 @@ Two additional tests were authored for this provenance layer, so the next expect
 - `OWNER_RATINGS_TRIAL_B.md`
 - `RAW_USAGE_OBSERVATIONS.md`
 - `MPC_WORKFLOW_USAGE_OBSERVATIONS_2026-09-15.md`
-- `/model_router.py`
-- `/mirror_router_adapter.py`
-- `/routing_dry_run.py`
-- `/tests/test_model_router.py`
-- `/tests/test_mirror_router_adapter.py`
-- `/tests/test_routing_dry_run.py`
 
 ## Status boundary
 
-- Routing policy: **SPECIFIED / PROVISIONAL**
-- Deterministic router: **IMPLEMENTED + TESTED — 11/11 PASS**
-- Mirror-facing adapter baseline: **IMPLEMENTED + TESTED — 6/6 PASS**
-- Local dry-run baseline: **IMPLEMENTED + TESTED — 3/3 PASS**
-- Combined verified baseline: **20/20 PASS**
-- First persisted routing recommendation: **VERIFIED LOCALLY**
-- Routing-context provenance extension: **IMPLEMENTED / 2 NEW TESTS AUTHORED / NOT YET RE-VERIFIED LOCALLY**
-- Automatic task-text classification: **NOT IMPLEMENTED**
+- Model Lab research: **ACTIVE**
+- Routing policy: **SPECIFIED / PROVISIONAL / NOT LOCKED**
+- Runtime implementation on this branch: **REMOVED FROM HEAD / MOVED TO FEATURE PR #63**
+- Focused implementation branch: **feature/model-router-v1**
+- Focused implementation status: **DRAFT / REQUIRES FRESH SDLC VERIFICATION**
+- Automatic task-text classification: **NOT IMPLEMENTED IN VERIFIED BASELINE**
 - Automatic model dispatch: **NOT IMPLEMENTED**
 - Provider execution: **NOT IMPLEMENTED**
 - Production verification/deployment: **NOT VERIFIED / NOT DEPLOYED**
 
-Next target: re-run the expanded 22-test suite, then generate a second real routing event containing a human-readable task description, evidence references, assumptions, and explicit classifier confidence. Keep routing behavior unchanged and no-dispatch until that provenance path is verified.
+Next research target: continue model/role/effort testing and record evidence without changing the focused runtime implementation unless a new SDLC increment is explicitly opened.
