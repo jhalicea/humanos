@@ -28,6 +28,10 @@ An observation can be valid provenance even when it is not valid causal attribut
 | 2026-09-15 13:24 | Luna revised-artifact / Stage 2 snapshot | 55% | 53% | **0 pp / 0 pp from 13:16** | Screenshot SHA-256 `0fb9bda5ca24d1462bcce6a95d1ece3f4a1a1a788212695f2c82ac1736af0420`. Through this snapshot, Luna's two visible post-start intervals produced no additional displayed percentage-point movement. |
 | 2026-09-15 13:48 | Sol Stage 1 post; 5-hour window has reset | **96%** | **52%** | 5-hour value not comparable to 55 because reset occurred; weekly -1 pp from 53 | Screenshot shows reset countdown **4h55m**, proving the rolling 5-hour allowance reset before this snapshot. Preserve `96/52` exactly. Sol Stage 1 may have crossed the reset boundary, so total Sol 5-hour usage cannot be reconstructed from the endpoints. Screenshot SHA-256 `c057c7c96d80f372a97c02b9171c9e52c40402076e64d9cee713553698143f12`. |
 | 2026-09-15 14:03 | Sol Stage 2 post | **92%** | **52%** | **-4 pp / 0 pp from Sol Stage 2 baseline 96/52** | Same reset window: countdown **4h41m**. This is a cleaner same-window raw interval for Sol Stage 2. Screenshot SHA-256 `d225426ce6e12a1c7e301d0d0ba23f62818d1d22f8a963c609e314ccc69f8eca`. Preserve as UI telemetry, not exact compute accounting. |
+| 2026-09-15 14:35 | GPT-5.5 CAL1 pre-run / start | **92%** | **52%** | 0 pp / 0 pp from 14:03 | Owner identified this as the actual calibration-run start. Screenshot SHA-256 `f49263a86afff8d637b1c84cee7163e8ee6a2f0d25084f58beb5c427bf82eed8`. |
+| 2026-09-15 14:42 | GPT-5.5 CAL1 first post-run | **83%** | **50%** | **-9 pp / -2 pp from 14:35** | Clean calibration interval for a repeated Stage-1 PDF task. Screenshot SHA-256 `115d829de6ff48f9feb2049b06424dc0ada33f71f8b617cddff4c1cbba0b34e7`. |
+| 2026-09-15 14:44 | GPT-5.5 CAL1 second post-run | **83%** | **50%** | **0 pp / 0 pp from 14:42** | Short-settle confirmation. Screenshot SHA-256 `51acd4fc8eab4f021eb330776d72ae905d4b6ea045d302e85899ea8a7014c1da`. |
+| 2026-09-15 14:51 | GPT-5.5 CAL1 later settle check | **83%** | **50%** | **0 pp / 0 pp from 14:44** | Usage remained stable for about nine minutes after the first post-run observation. Screenshot SHA-256 `4e410d0e0ad9204f2b59583d425b1debd9bd4d18b91ccb11f46820f197c6dfc9`. |
 
 ## Attribution analysis after pre-Luna evidence
 
@@ -58,10 +62,23 @@ Sol Stage 2 has a cleaner same-window pair:
 
 No reset occurred between those Stage 2 endpoints. This improves attribution confidence relative to Stage 1, but it is still rounded UI telemetry and delayed posting remains possible.
 
+## GPT-5.5 calibration interpretation
+
+The repeated GPT-5.5 calibration run produced a notably clean and repeatable usage signal:
+
+- pre-run / start at approximately 14:35: **92/52**;
+- first post-run at approximately 14:42: **83/50**;
+- later readings at approximately 14:44 and 14:51 remained **83/50**;
+- displayed movement: **9 pp five-hour / 2 pp weekly**;
+- visible stability after completion: about **9 minutes** from the first post-run observation through the latest settle check.
+
+This independently reproduces the original GPT-5.5 Stage 2 visible interval of **9/2** for a substantial PDF-generation task. That repetition raises confidence that `9/2` is a meaningful UI-level signal for this task class under these conditions, while still not establishing tokens, FLOPs, or exact compute cost.
+
 ## Interpretation state
 
 - **Terra:** observed Stage 2 UI delta preserved as 4 pp 5-hour / 1 pp weekly. Exact compute attribution is not guaranteed because later runs revealed meter lag.
-- **GPT-5.5:** observed Stage 2 UI delta preserved as 9 pp / 2 pp. It remains an observed interval, not a token count.
+- **GPT-5.5 original Stage 2:** observed Stage 2 UI delta preserved as 9 pp / 2 pp.
+- **GPT-5.5 CAL1 replication:** clean displayed pair **92/52 -> 83/50 = 9 pp / 2 pp**, stable through 14:51. Attribution confidence is high at the UI-telemetry level.
 - **Astra:** immediate Stage 1 and Stage 2 observations of 0 pp / 0 pp are preserved. A later **pre-Luna** screenshot already showed 55/53, proving that the 16 pp / 2 pp delayed movement occurred before Luna. Astra is the most likely dominant source, but exact causal accounting remains unavailable.
 - **Luna Stage 1:** confirmed raw pre/post visible meter values are **55/53 -> 55/53 = 0 pp / 0 pp**. Do not interpret as zero compute; only zero displayed movement in that interval.
 - **Luna Stage 2 / revised-artifact interval:** **55/53 -> 55/53 = 0 pp / 0 pp** through the 13:24 snapshot.
