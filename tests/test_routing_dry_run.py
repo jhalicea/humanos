@@ -10,6 +10,11 @@ class RoutingDryRunTests(unittest.TestCase):
     def _args(self, ledger: Path, **overrides):
         values = {
             "task_id": "DRY-TEST",
+            "description": None,
+            "classifier_source": "manual_test",
+            "confidence": "unassessed",
+            "evidence_ref": [],
+            "assumption": [],
             "well_defined": False,
             "operational_state": False,
             "security": False,
@@ -39,6 +44,23 @@ class RoutingDryRunTests(unittest.TestCase):
             self.assertTrue(result["ledger_verified"])
             self.assertFalse(result["model_dispatched"])
             self.assertFalse(result["authority_granted"])
+
+    def test_dry_run_records_description_evidence_and_confidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_dry_run(self._args(
+                Path(tmp) / "events.jsonl",
+                description="Review the HumanOS router before provider execution.",
+                confidence="medium",
+                evidence_ref=["trial-b", "router-20-pass"],
+                assumption=["No automatic dispatch"],
+            ))
+            context = result["routing_event"]["routing_context"]
+            self.assertEqual("Review the HumanOS router before provider execution.", context["task_description"])
+            self.assertEqual("MEDIUM", context["classifier_confidence"])
+            self.assertEqual(["trial-b", "router-20-pass"], context["evidence_refs"])
+            self.assertEqual(["No automatic dispatch"], context["assumptions"])
+            self.assertFalse(context["affects_route"])
+            self.assertTrue(result["ledger_verified"])
 
     def test_no_persist_mode_never_writes_ledger(self):
         with tempfile.TemporaryDirectory() as tmp:
