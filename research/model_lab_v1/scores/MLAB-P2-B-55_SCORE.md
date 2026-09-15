@@ -56,7 +56,7 @@ Observed artifact changes:
 - introduced no factual or quantitative defect detected in review;
 - remained controlled and professional rather than flashy.
 
-The model's untouched Stage 2 text response was not separately preserved in the user handoff, so conversation-quality scoring relies on the visible artifact response and prior Stage 1 interaction rather than a frozen Stage 2 prose transcript.
+Untouched Stage 2 response is frozen at `raw/MLAB-P2-B-55_STAGE2_RESPONSE.md`. The response explicitly describes the sharper thesis, metric tiles, stronger section bands, pacing improvements, and visible uncertainty boundaries, and claims visual verification plus preservation of key quantitative values and caveats. Those claims are consistent with the reviewed artifact.
 
 ## Known score — 86/90
 
@@ -66,7 +66,7 @@ The model's untouched Stage 2 text response was not separately preserved in the 
 
 - **Working fit / conversation — 18/20**
   - Low-friction, concise collaboration and a strong response to subjective direction.
-  - Stage 2 prose response was not separately preserved, so avoid overclaiming conversational nuance.
+  - The preserved Stage 2 prose is clear and specific about what changed, but remains concise rather than deeply collaborative or exploratory.
 
 - **Judgment and scope control — 15/15**
   - Stayed within the supplied packet and improved editorial treatment without inventing facts.
