@@ -2,11 +2,13 @@
 
 **Status:** SPECIFIED / NOT IMPLEMENTED IN RUNTIME
 
-Purpose: define a simple, explainable rule for choosing GPT-5.6 Luna, Terra, Sol, GPT-5.5, or GPT-6 Astra by job type. This is a research routing specification only. It does not change production HumanOS behavior.
+Purpose: define a simple, explainable rule for choosing GPT-5.6 Luna, Terra, Sol, GPT-6 Astra, and any temporary benchmark models by job type. This is a research routing specification only. It does not change production HumanOS behavior.
 
 ## Principle
 
-Use the least expensive model that reliably meets the quality/risk requirement. Escalate only when ambiguity, consequence, breadth, or unresolved failure justifies it.
+Use the least expensive continuing model that reliably meets the quality/risk requirement. Escalate only when ambiguity, consequence, breadth, or unresolved failure justifies it.
+
+A model scheduled for retirement may remain in Model Lab as a behavioral benchmark, but HumanOS must not create a long-term routing dependency on it.
 
 ## Human shortcut
 
@@ -15,7 +17,7 @@ If the owner says or means:
 - **"I know what to do; build it."** -> Luna
 - **"I need a steady engineer, not a brainstorm."** -> Terra
 - **"Help me think through this architecture/security decision."** -> Sol
-- **"Think with me; I am still figuring out the real problem."** -> GPT-5.5, with Sol as second opinion when architecture/security dominates
+- **"Think with me; I am still figuring out the real problem."** -> route among Sol / Terra / Luna according to Phase 2 evidence; use Astra when the uncertainty is broad or consequential. GPT-5.5 is retained only as a temporary reference profile while available.
 - **"This is high-risk, long-horizon, or needs independent parallel investigation."** -> Astra
 
 Owner preference may override the default model when working feel matters, but the override is recorded separately from objective correctness.
@@ -36,16 +38,16 @@ Score each task on four dimensions: LOW or HIGH.
 | Low ambiguity + low consequence + high execution volume | Luna |
 | Medium ordinary engineering where a balanced style is useful | Terra |
 | High ambiguity with architecture/security/authority implications | Sol |
-| High ambiguity where conversational framing and problem definition matter most | GPT-5.5 |
+| High ambiguity where conversational framing/problem definition matters | Phase 2 successor route among continuing models; GPT-5.5 is benchmark only |
 | High consequence + high breadth, or difficult long-horizon agentic work | Astra |
-| High execution volume after Sol/Astra/5.5 has already resolved the plan | Luna worker |
+| High execution volume after Sol/Astra/Terra has already resolved the plan | Luna worker |
 
 ## Planner -> Worker -> Reviewer workflow
 
 For substantial HumanOS work:
 
 1. **ROUTE** — Mirror classifies ambiguity, consequence, breadth, and execution volume.
-2. **PLAN** — If uncertainty is material, select GPT-5.5, Sol, or Astra to produce a bounded Work Contract.
+2. **PLAN** — If uncertainty is material, select a continuing planner model (normally Sol, Terra, or Astra depending on task shape) to produce a bounded Work Contract. GPT-5.5 may be compared while available but is not a production dependency.
 3. **WORK CONTRACT** — The planner outputs: goal, known facts, assumptions, scope, ordered jobs, acceptance tests, permissions, stop conditions, and unresolved questions.
 4. **EXECUTE** — Luna performs well-defined implementation/research jobs whenever practical. Terra may be used for ordinary engineering if Luna is too broad/aggressive or the task benefits from a more methodical pass.
 5. **VERIFY** — Sol reviews architecture/security/authority-sensitive work. Astra reviews only when the risk, breadth, or unresolved uncertainty justifies the additional usage.
@@ -81,7 +83,7 @@ Escalate **Luna -> Sol** when:
 - a permission/provenance/canonical-state boundary is unclear;
 - the task requires choosing among materially different designs.
 
-Escalate **Sol/GPT-5.5 -> Astra** when:
+Escalate **Sol/Terra -> Astra** when:
 - several independent workstreams must be investigated in parallel;
 - the consequence of missing a cross-cutting issue is high;
 - long-horizon coherence or multi-agent coordination is central to the job;
@@ -89,10 +91,27 @@ Escalate **Sol/GPT-5.5 -> Astra** when:
 
 De-escalate **Astra/Sol -> Luna** once uncertainty is resolved and the remaining jobs are explicit and testable.
 
+## GPT-5.5 continuity treatment
+
+GPT-5.5 is useful as a research reference because the owner strongly values its conversational reframing style. Because it is scheduled to leave ChatGPT in October 2026, the Model Lab should extract the properties that made it valuable rather than build workflows that require the model itself.
+
+The replacement question is therefore not `Which model is identical to GPT-5.5?` but:
+
+`Which continuing model, or combination of continuing models, reproduces the useful properties of GPT-5.5 for each job at acceptable cost?`
+
+Those properties currently include:
+- natural problem reframing;
+- identifying the real decision before formalizing architecture;
+- concise but substantive conversation;
+- low bureaucracy;
+- willingness to challenge the owner's premise without derailing the task.
+
+Trial A now includes Terra as a required supplemental crossover specifically to help answer this succession question.
+
 ## Important distinction
 
 Model selection is not authority. No model may expand its own permissions or silently change the route. Routing chooses computational capability; HumanOS governance still controls actions.
 
 ## Current evidence basis
 
-Phase 1 suggests Luna is stronger at general engineering than originally expected; GPT-5.5 has strong conversational/problem-framing fit; Sol is strong on authority and architecture boundaries; Astra is strongest on proof-oriented senior review; Terra is technically competent but currently less preferred by the owner conversationally. These are provisional findings pending Phase 2 role trials and efficiency measurements.
+Phase 1 suggests Luna is stronger at general engineering than originally expected; GPT-5.5 is a strong but temporary conversational/problem-framing benchmark; Sol is strong on authority and architecture boundaries; Astra is strongest on proof-oriented senior review; Terra is technically competent but currently less preferred by the owner conversationally. Phase 2 is now explicitly testing which continuing model(s) should inherit GPT-5.5's useful roles before retirement.
