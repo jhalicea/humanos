@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 TRIALS A-B COMPLETE / OWNER ROUTING PREFERENCE RECORDED / ROUTING POLICY V1 CANDIDATE / DETERMINISTIC ROUTER TESTED / MIRROR INTEGRATION NOT IMPLEMENTED
+**Status:** PHASE 1 COMPLETE / PHASE 2 TRIALS A-B COMPLETE / OWNER ROUTING PREFERENCE RECORDED / ROUTING POLICY V1 CANDIDATE / DETERMINISTIC ROUTER TESTED / MIRROR ADAPTER IMPLEMENTED / MIRROR ADAPTER TESTS NOT YET RUN
 
 Purpose: determine which model is best for which HumanOS task using Jon's actual working preferences and measured work, while keeping routing recommendations provisional until enough evidence accumulates.
 
@@ -63,15 +63,31 @@ The owner followed Astra's recommendation to use Terra High. That recommendation
 
 `model_router.py` implements the deterministic recommendation layer. It does not execute models or grant authority.
 
-On 2026-09-15 the original router test suite ran under macOS `/usr/bin/python3` 3.9.6 and passed 8/8 tests.
+On 2026-09-15 the expanded router suite ran under macOS `/usr/bin/python3` 3.9.6 and passed **11/11 tests**.
 
-The latest revision keeps the router explicitly in **learning mode**:
+The current router remains explicitly in **learning mode**:
 - policy version: `v1-candidate`
 - recommendation only: true
 - policy locked: false
 - authority granted: false
 
-It also supports recording an `ExperimentWorkflow` containing advisor model/effort, worker model/effort, whether the owner accepted the recommendation, and an experiment ID. Recording experimental provenance does not change the default policy.
+It supports recording an `ExperimentWorkflow` containing advisor model/effort, worker model/effort, whether the owner accepted the recommendation, and an experiment ID. Recording experimental provenance does not change the default policy.
+
+## Mirror adapter status
+
+`mirror_router_adapter.py` is now implemented as a thin learning-mode adapter around the router.
+
+It can:
+- convert a `TaskProfile` into a Mirror-consumable routing event;
+- preserve the full provisional recommendation and experimental-workflow provenance;
+- explicitly mark every event as `PROPOSED`;
+- force `dispatch_allowed: false`, `automatic_execution: false`, `authority_granted: false`, and `policy_promotion: false`;
+- optionally append the event to a small JSONL ledger using the existing HumanOS audit hash-chain functions;
+- refuse further append if the existing ledger fails verification.
+
+It does **not** dispatch Sol/Luna/Terra/Astra, invoke a provider, grant authority, or promote a workflow into policy.
+
+A six-test adapter suite has been authored in `tests/test_mirror_router_adapter.py`, covering no-dispatch guarantees, route preservation, experiment preservation, single-event persistence, multi-event chaining, and tamper detection. Those tests have **not yet been run locally by the owner**.
 
 ## Files
 - `PROTOCOL.md` — experiment controls and run procedure
@@ -82,7 +98,7 @@ It also supports recording an `ExperimentWorkflow` containing advisor model/effo
 - `MODEL_ROUTING_WORKFLOW_V0.md` — earlier specified planner/worker/reviewer workflow; preserved for provenance
 - `MODEL_ROUTING_POLICY_V1_CANDIDATE.md` — evidence-based human-readable routing policy after Trials A-B
 - `MODEL_ROUTING_POLICY_V1.yaml` — machine-readable candidate policy
-- `ROUTER_TEST_EVIDENCE_2026-09-15.md` — owner-run unit-test evidence for the original deterministic router
+- `ROUTER_TEST_EVIDENCE_2026-09-15.md` — owner-run unit-test evidence for the deterministic router
 - `PHASE1_COMPARATIVE_RESULTS.md` — post-hoc Phase 1 analysis
 - `PHASE2_ROLE_TRIALS.md` — job-specific trial protocol
 - `PHASE2_TRIAL_A_RESULTS.md` — thought-partner results
@@ -90,16 +106,21 @@ It also supports recording an `ExperimentWorkflow` containing advisor model/effo
 - `OWNER_RATINGS_TRIAL_B.md` — owner preferences kept separate from correctness scoring
 - `RAW_USAGE_OBSERVATIONS.md` — immutable observed plan-meter provenance and later attribution updates
 - `MPC_WORKFLOW_USAGE_OBSERVATIONS_2026-09-15.md` — combined Astra-Light + Terra-High workflow usage provenance
+- `/model_router.py` — deterministic learning-mode router
+- `/mirror_router_adapter.py` — Mirror-facing recommendation/event adapter
+- `/tests/test_model_router.py` — router tests
+- `/tests/test_mirror_router_adapter.py` — Mirror adapter tests
 
 ## Status boundary
 
 - Routing policy: **SPECIFIED / PROVISIONAL**
 - Deterministic router: **IMPLEMENTED**
-- Original router unit tests: **TESTED — 8/8 PASS**
-- Latest learning-mode / experiment-provenance changes: **IMPLEMENTED / NEW TESTS AUTHORED / NOT YET RE-VERIFIED LOCALLY**
-- Mirror integration: **NOT IMPLEMENTED**
+- Router unit tests: **TESTED — 11/11 PASS**
+- Mirror-facing routing adapter: **IMPLEMENTED**
+- Mirror adapter tests: **AUTHORED / NOT YET RUN LOCALLY**
 - Automatic model dispatch: **NOT IMPLEMENTED**
-- Routing-event persistence: **NOT IMPLEMENTED**
+- Provider execution: **NOT IMPLEMENTED**
+- Routing-event persistence primitive: **IMPLEMENTED IN ADAPTER / NOT YET TESTED LOCALLY**
 - Production verification/deployment: **NOT VERIFIED / NOT DEPLOYED**
 
-Next target: re-run the expanded router test suite, then add a Mirror-facing adapter that emits routing recommendations and experiment provenance without automatic execution authority.
+Next target: run the six Mirror adapter tests. If they pass, test one real routing event locally without dispatching a model, inspect the persisted evidence, and only then consider any provider/model execution bridge.
