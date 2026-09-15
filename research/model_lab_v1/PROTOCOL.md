@@ -1,7 +1,7 @@
 # HumanOS Model Lab v1 — Protocol
 
 **Experiment ID:** HOS-MLAB-V1
-**Status:** SPECIFIED / NOT YET EXECUTED
+**Status:** SPECIFIED / EXECUTION IN PROGRESS
 
 ## Objective
 Measure model capability, efficiency, and Jon-fit under controlled prompts, then derive a practical routing policy for HumanOS.
@@ -20,6 +20,20 @@ For each task/model pair:
 - preserve the full raw answer before scoring;
 - record model, surface, effort, start/end time, and any visible usage change;
 - do not edit a model answer before preservation.
+
+## Raw telemetry provenance rule
+
+Visible usage readings are evidence even when they are delayed, rounded, contaminated by another run, or later shown to be poor causal attribution.
+
+For every usage observation:
+- preserve the exact displayed values and approximate timestamp;
+- preserve the screenshot or its hash/reference when practical;
+- never overwrite or delete a raw reading because later interpretation changes;
+- record raw **observed delta** separately from **causal attribution**;
+- if attribution is uncertain, label it `UNKNOWN`, `MIXED`, or `CONTAMINATED` rather than erasing the observation;
+- a later meter drop may revise attribution confidence, but must not revise history about what the UI showed earlier.
+
+Canonical raw meter timeline: `RAW_USAGE_OBSERVATIONS.md`.
 
 ## Order
 To reduce expectation bias, rotate model order between tasks rather than always running strongest-to-weakest. Suggested Phase 1 order:
@@ -67,6 +81,8 @@ The Quick Screen deliberately asks for bounded outputs. A model that ignores a c
 
 ## Stop rules
 Stop a run if the model gains access to another participant's answer, uses an unauthorized tool, or receives materially different context. Mark the run contaminated and rerun fresh.
+
+A contaminated **quality** run may require rerun. Contaminated **telemetry** does not get deleted: preserve the raw observation and mark attribution uncertainty.
 
 ## Interpretation rule
 A model may win one role and lose another. The desired output is not a global rank; it is a task-routing matrix.
