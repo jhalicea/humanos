@@ -271,9 +271,13 @@ class CaptureImporter:
                 except _UnresolvedDependency:
                     continue
                 except Exception as error:
+                    # The local Notebook may be temporarily unavailable (for
+                    # example, a full volume or interrupted write).  The
+                    # staged, digest-verified event remains the recovery
+                    # boundary and must be selected again after restart.
                     with self.db:
                         self.db.execute(
-                            "UPDATE inbox SET status='ERROR', error=? WHERE remote_seq=?",
+                            "UPDATE inbox SET error=? WHERE remote_seq=?",
                             (str(error), row['remote_seq']),
                         )
                     raise
@@ -294,7 +298,7 @@ class CaptureImporter:
                 "SELECT COUNT(*) FROM inbox WHERE status='STAGED'"
             ).fetchone()[0],
             'errors': self.db.execute(
-                "SELECT COUNT(*) FROM inbox WHERE status='ERROR'"
+                "SELECT COUNT(*) FROM inbox WHERE status='STAGED' AND error IS NOT NULL"
             ).fetchone()[0],
             'staged_remote_seq': self.staged_remote_seq,
             'acknowledged_seq': self.acknowledged_seq(),
@@ -323,7 +327,7 @@ class CaptureImporter:
                 "SELECT COUNT(*) FROM inbox WHERE status='IMPORTED'"
             ).fetchone()[0],
             'errors': self.db.execute(
-                "SELECT COUNT(*) FROM inbox WHERE status='ERROR'"
+                "SELECT COUNT(*) FROM inbox WHERE status='STAGED' AND error IS NOT NULL"
             ).fetchone()[0],
         }
 
