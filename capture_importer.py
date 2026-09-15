@@ -27,6 +27,7 @@ from conversation_capture import UniversalConversationCapture
 STAGED = 'STAGED'
 IMPORTED = 'IMPORTED'
 ERROR = 'ERROR'
+RETRYABLE_IMPORT_ERRORS = (OSError, sqlite3.OperationalError, TimeoutError)
 
 
 class _UnresolvedDependency(Exception):
@@ -250,11 +251,38 @@ class CaptureImporter:
         capture.finish_turn(tx, event.text)
         return tx
 
+    @staticmethod
+    def _retryable(error: Exception) -> bool:
+        """Only failures that can change without changing evidence are retried."""
+        return isinstance(error, RETRYABLE_IMPORT_ERRORS)
+
+    def requeue_error(self, remote_seq: int) -> None:
+        """Explicitly return one terminally failed event to the staged queue.
+
+        This is for an owner who has resolved the recorded cause. It validates
+        the preserved event before changing its queue state, so a malformed or
+        tampered ERROR row cannot be silently retried.
+        """
+        if type(remote_seq) is not int or remote_seq < 1:
+            raise ValueError('remote_seq must be a positive integer')
+        row = self.db.execute('SELECT * FROM inbox WHERE remote_seq=?', (remote_seq,)).fetchone()
+        if not row or row['status'] != ERROR:
+            raise ValueError('Only an existing ERROR event can be requeued')
+        event = CaptureEvent.from_mapping(json.loads(row['payload']))
+        if event.digest() != row['payload_digest']:
+            raise RuntimeError('Terminal capture payload digest mismatch')
+        with self.db:
+            self.db.execute(
+                "UPDATE inbox SET status=?, error=? WHERE remote_seq=?",
+                (STAGED, None, remote_seq),
+            )
+
     def drain(self, max_passes=4) -> dict:
         """Import staged events, tolerating temporary out-of-order dependencies."""
         if type(max_passes) is not int or not 1 <= max_passes <= 20:
             raise ValueError('max_passes must be from 1 to 20')
         imported = 0
+        retryable_failure = False
         for _ in range(max_passes):
             progress = False
             rows = self.db.execute(
@@ -271,16 +299,20 @@ class CaptureImporter:
                 except _UnresolvedDependency:
                     continue
                 except Exception as error:
-                    # The local Notebook may be temporarily unavailable (for
-                    # example, a full volume or interrupted write).  The
-                    # staged, digest-verified event remains the recovery
-                    # boundary and must be selected again after restart.
+                    retryable = self._retryable(error)
+                    # A transient local-storage failure leaves the event staged
+                    # for a later drain. Evidence conflicts and unknown failures
+                    # stay visible as ERROR and do not block later captures.
                     with self.db:
                         self.db.execute(
-                            "UPDATE inbox SET error=? WHERE remote_seq=?",
-                            (str(error), row['remote_seq']),
+                            "UPDATE inbox SET status=?, error=? WHERE remote_seq=?",
+                            (STAGED if retryable else ERROR, str(error), row['remote_seq']),
                         )
-                    raise
+                    if retryable:
+                        retryable_failure = True
+                        break
+                    progress = True
+                    continue
                 with self.db:
                     self.db.execute(
                         "UPDATE inbox SET status='IMPORTED', imported_tx=?, error=NULL "
@@ -289,16 +321,28 @@ class CaptureImporter:
                     )
                 imported += 1
                 progress = True
+            if retryable_failure:
+                break
             if not progress:
                 break
-        self.book.verify()
+        # A storage failure may prevent even read verification. The staged event
+        # and its error are durable in the importer before this result returns.
+        if not retryable_failure:
+            self.book.verify()
         return {
             'imported': imported,
             'pending': self.db.execute(
                 "SELECT COUNT(*) FROM inbox WHERE status='STAGED'"
             ).fetchone()[0],
             'errors': self.db.execute(
+                "SELECT COUNT(*) FROM inbox WHERE status='ERROR' OR "
+                "(status='STAGED' AND error IS NOT NULL)"
+            ).fetchone()[0],
+            'retryable_errors': self.db.execute(
                 "SELECT COUNT(*) FROM inbox WHERE status='STAGED' AND error IS NOT NULL"
+            ).fetchone()[0],
+            'permanent_errors': self.db.execute(
+                "SELECT COUNT(*) FROM inbox WHERE status='ERROR'"
             ).fetchone()[0],
             'staged_remote_seq': self.staged_remote_seq,
             'acknowledged_seq': self.acknowledged_seq(),
@@ -327,7 +371,14 @@ class CaptureImporter:
                 "SELECT COUNT(*) FROM inbox WHERE status='IMPORTED'"
             ).fetchone()[0],
             'errors': self.db.execute(
+                "SELECT COUNT(*) FROM inbox WHERE status='ERROR' OR "
+                "(status='STAGED' AND error IS NOT NULL)"
+            ).fetchone()[0],
+            'retryable_errors': self.db.execute(
                 "SELECT COUNT(*) FROM inbox WHERE status='STAGED' AND error IS NOT NULL"
+            ).fetchone()[0],
+            'permanent_errors': self.db.execute(
+                "SELECT COUNT(*) FROM inbox WHERE status='ERROR'"
             ).fetchone()[0],
         }
 

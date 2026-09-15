@@ -1,4 +1,5 @@
 from pathlib import Path
+import sqlite3
 import tempfile
 import unittest
 
@@ -110,19 +111,26 @@ class CaptureImporterTests(unittest.TestCase):
         self.assertEqual(result['imported'], 0)
         self.assertEqual(result['acknowledged_seq'], 2)
 
-    def test_unavailable_local_storage_stays_staged_and_retries(self):
+    def test_locked_notebook_storage_stays_staged_and_retries(self):
         self.relay.append(self.event('human', 'durable after storage recovery'))
         self.importer.stage(self.relay.after)
-        original = self.importer._import_event
-        self.importer._import_event = lambda event: (_ for _ in ()).throw(OSError('storage unavailable'))
-        with self.assertRaisesRegex(OSError, 'storage unavailable'):
-            self.importer.drain()
+        self.book.db.execute('PRAGMA busy_timeout=1')
+        blocker = sqlite3.connect(str(self.book.root / 'notebook.sqlite3'), timeout=0)
+        blocker.execute('BEGIN EXCLUSIVE')
+        result = self.importer.drain()
+        blocker.rollback()
+        blocker.close()
+        self.book.db.execute('PRAGMA busy_timeout=5000')
+        self.assertEqual(result['pending'], 1)
+        self.assertEqual(result['errors'], 1)
+        self.assertEqual(result['retryable_errors'], 1)
+        self.assertEqual(result['permanent_errors'], 0)
         self.assertEqual(self.importer.status(), {
             'staged_remote_seq': 1, 'acknowledged_seq': 0,
             'staged': 1, 'imported': 0, 'errors': 1,
+            'retryable_errors': 1, 'permanent_errors': 0,
         })
 
-        self.importer._import_event = original
         result = self.importer.drain()
         self.assertEqual(result['imported'], 1)
         self.assertEqual(result['pending'], 0)
@@ -130,6 +138,48 @@ class CaptureImporterTests(unittest.TestCase):
         self.assertEqual([(row['role'], row['text']) for row in self.book.db.execute(
             'SELECT role,text FROM transcript ORDER BY seq'
         )], [('HUMAN', 'durable after storage recovery')])
+
+    def test_permanent_error_does_not_block_later_capture_and_can_be_requeued(self):
+        self.relay.append(self.event('human', 'bad evidence', turn='turn-bad'))
+        self.relay.append(self.event('human', 'good evidence', turn='turn-good'))
+        self.importer.stage(self.relay.after)
+        original = self.importer._import_event
+
+        def import_with_permanent_failure(event):
+            if event.turn_id == 'turn-bad':
+                raise ValueError('preserved evidence conflict')
+            return original(event)
+
+        self.importer._import_event = import_with_permanent_failure
+        result = self.importer.drain()
+        self.assertEqual(result['imported'], 1)
+        self.assertEqual(result['acknowledged_seq'], 0)
+        self.assertEqual(result['permanent_errors'], 1)
+        self.assertEqual(self.importer.db.execute(
+            'SELECT status FROM inbox WHERE remote_seq=1').fetchone()[0], 'ERROR')
+        self.assertEqual([(role, text) for _, role, text in self.transcript()], [
+            ('HUMAN', 'good evidence')])
+
+        self.importer._import_event = original
+        self.importer.requeue_error(1)
+        self.assertEqual(self.importer.status()['errors'], 0)
+        result = self.importer.drain()
+        self.assertEqual(result['acknowledged_seq'], 2)
+        self.assertEqual(result['errors'], 0)
+        self.assertEqual([(role, text) for _, role, text in self.transcript()], [
+            ('HUMAN', 'good evidence'), ('HUMAN', 'bad evidence')])
+
+    def test_legacy_error_is_visible_and_requires_explicit_requeue(self):
+        self.relay.append(self.event('human', 'legacy failed record'))
+        self.importer.stage(self.relay.after)
+        with self.importer.db:
+            self.importer.db.execute(
+                "UPDATE inbox SET status='ERROR', error='legacy storage failure' WHERE remote_seq=1"
+            )
+        self.assertEqual(self.importer.status()['permanent_errors'], 1)
+        self.assertEqual(self.importer.drain()['imported'], 0)
+        self.importer.requeue_error(1)
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 1)
 
     def test_tampered_remote_digest_fails_before_local_staging(self):
         receipt = self.relay.append(self.event('human', 'hello'))
