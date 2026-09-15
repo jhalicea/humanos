@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -18,15 +18,46 @@ from audit import AuditEvent, canonical_json, hash_event, verify_chain
 from model_router import TaskProfile, route_task
 
 ROUTING_EVENT_SCHEMA = "routing-event-v0"
+VALID_CONFIDENCE = {"UNASSESSED", "LOW", "MEDIUM", "HIGH"}
+
+
+@dataclass(frozen=True)
+class RoutingContext:
+    """Provenance about how a TaskProfile was formed.
+
+    These fields are descriptive only in v0. They do not alter routing logic.
+    """
+
+    task_description: Optional[str] = None
+    classifier_source: str = "manual"
+    classifier_confidence: str = "UNASSESSED"
+    evidence_refs: tuple[str, ...] = ()
+    assumptions: tuple[str, ...] = ()
 
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _normalize_context(context: Optional[RoutingContext]) -> dict:
+    ctx = context or RoutingContext()
+    confidence = ctx.classifier_confidence.strip().upper()
+    if confidence not in VALID_CONFIDENCE:
+        raise ValueError("classifier_confidence must be one of: UNASSESSED, LOW, MEDIUM, HIGH")
+    return {
+        "task_description": ctx.task_description,
+        "classifier_source": ctx.classifier_source,
+        "classifier_confidence": confidence,
+        "evidence_refs": list(ctx.evidence_refs),
+        "assumptions": list(ctx.assumptions),
+        "affects_route": False,
+    }
+
+
 def build_mirror_routing_event(
     task: TaskProfile,
     *,
+    context: Optional[RoutingContext] = None,
     event_id: Optional[str] = None,
     created_at: Optional[str] = None,
 ) -> dict:
@@ -40,6 +71,7 @@ def build_mirror_routing_event(
         "status": "PROPOSED",
         "task_id": task.task_id,
         "task_profile": asdict(task),
+        "routing_context": _normalize_context(context),
         "recommendation": recommendation,
         "dispatch_allowed": False,
         "automatic_execution": False,
@@ -98,6 +130,7 @@ class RoutingEventLedger:
 def route_for_mirror(
     task: TaskProfile,
     *,
+    context: Optional[RoutingContext] = None,
     ledger: Optional[RoutingEventLedger] = None,
     event_id: Optional[str] = None,
     created_at: Optional[str] = None,
@@ -105,6 +138,7 @@ def route_for_mirror(
     """Emit a recommendation and optionally record it; never execute the route."""
     event = build_mirror_routing_event(
         task,
+        context=context,
         event_id=event_id,
         created_at=created_at,
     )
