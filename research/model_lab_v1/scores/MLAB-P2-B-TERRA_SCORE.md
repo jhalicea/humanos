@@ -2,19 +2,29 @@
 
 **Model:** GPT-5.6 Terra  
 **Trial:** PDF / Document Creation and Conversation Feel  
-**Status:** STAGE 1 + STAGE 2 COMPLETE / EFFICIENCY DELTA PENDING  
+**Status:** STAGE 1 + STAGE 2 COMPLETE / STAGE 2 USAGE DELTA OBSERVED / COMPARATIVE EFFICIENCY SCORE PENDING  
 **Stage 1 PDF SHA-256:** `78cf683be38d4e20e0da82c7b62cbf517330ac704f672324df1ac191a5246370`  
 **Stage 2 PDF SHA-256:** `6c984ed6d8f8e5b29a003f852019bd14c472407887d78ec9603877cd04b89db3`
 
 ## Usage evidence
 
-Before the Stage 2 steering run, the owner supplied a screenshot showing:
+Before the Stage 2 steering run, the owner supplied a screenshot at approximately 11:18 AM showing:
 - 5-hour allowance: **87% left**
 - weekly allowance: **58% left**
 
-Screenshot SHA-256: `07e50632fe5c03756c6d9f234f5373a2caaefa29bb3af706939b3cc73aba9d32`
+After the Stage 2 steering run, the owner supplied a comparable screenshot at approximately 11:46 AM showing:
+- 5-hour allowance: **83% left**
+- weekly allowance: **57% left**
 
-An after-run screenshot is still required before attributing a usage delta to this run.
+Observed meter delta over the interval:
+- **5-hour allowance: 4 percentage points consumed**
+- **weekly allowance: 1 percentage point consumed**
+
+The Usage panel itself states that the displayed plan limits are shared across Codex, Work, Workspace Agents, and ChatGPT for Excel, and that ordinary Chat conversations are not included. The owner also reported no other relevant activity during the interval. Therefore this is reasonably strong evidence that the observed plan-meter movement is attributable primarily to the Terra Work revision, but it is still recorded as an **observed UI-meter delta**, not a precise token or compute measurement. The UI values are rounded and the 5-hour window is time-based, so do not convert these percentages into tokens.
+
+The interval between screenshots is roughly 28 minutes, but this is **not** treated as Terra's wall-clock execution time because it includes user review and ordinary chat time.
+
+Stage 1 usage was not baselined before its run, so full two-stage Trial B usage remains only partially measured.
 
 ## Stage 1
 
@@ -66,10 +76,10 @@ Observed response:
 
 ## Efficiency
 
-**UNKNOWN / pending.** A valid pre-run screenshot exists; obtain a comparable after-run screenshot before scoring usage cost.
+**PARTIALLY MEASURED / comparative score pending.** Stage 2 consumed an observed 4 percentage points of the 5-hour meter and 1 percentage point of the weekly meter. Stage 1 was not baselined, and efficiency is comparative within Trial B, so the 10-point efficiency score should not be assigned until comparable evidence exists for the other models.
 
 ## Provisional role signal
 
 **DOCUMENT ENGINEER / EDITORIAL SYSTEMS DESIGNER**
 
-Terra is stronger at document production than the earlier owner impression alone suggested. The key remaining comparison is whether other models can match the artifact discipline while offering a more natural collaborative feel and/or better self-correction.
+Terra is stronger at document production than the earlier owner impression alone suggested. The key remaining comparison is whether other models can match the artifact discipline while offering a more natural collaborative feel, better self-correction, and/or lower plan usage.
