@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B READY / EFFICIENCY INCOMPLETE
+**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / TRIAL A COMPLETE / TRIAL B TERRA STAGE 1 COMPLETE / EFFICIENCY INCOMPLETE
 
 ## Phase 1
 
@@ -40,7 +40,7 @@ Frozen prompt: `PHASE2_TRIAL_B_FROZEN_PROMPT.md` v1.0.
 
 | Run ID | Model | Stage 1 artifact preserved | Stage 2 artifact preserved | Surface | Effort | Efficiency | Score | Owner rating | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| MLAB-P2-B-TERRA | GPT-5.6 Terra | No | No | Work planned | Light planned | Pending | Pending | Pending | Run first; directly tests prior document-feel concern. |
+| MLAB-P2-B-TERRA | GPT-5.6 Terra | Yes | No | TBD | TBD | UNKNOWN | Stage 1: 74/85 provisional; final pending | Pending | Six-page polished first draft. One quantitative defect: page 3 says four-point range although supplied totals span six points. SHA-256 `78cf683be38d4e20e0da82c7b62cbf517330ac704f672324df1ac191a5246370`. Stage 2 steering next. |
 | MLAB-P2-B-55 | GPT-5.5 | No | No | Work planned | Light planned | Pending | Pending | Pending | Transitional benchmark only; not a long-term routing dependency. |
 | MLAB-P2-B-ASTRA | GPT-6 Astra | No | No | Work planned | Light planned | Pending | Pending | Pending | Tests whether extra depth improves editorial/artifact quality enough to justify usage. |
 | MLAB-P2-B-LUNA | GPT-5.6 Luna | No | No | Work planned | Light planned | Pending | Pending | Pending | Tests speed/value on a real artifact task. |
