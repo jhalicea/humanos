@@ -29,7 +29,7 @@ This change is limited to the local Capture Fabric importer. It must preserve ex
 
 ## Validation
 
-Validated locally at commit `947a748` plus this uncommitted review follow-up:
+Validated locally for implementation commit `fe4fe21b869668fb79d40b90bcf5d9677bb2f384`:
 
 ```text
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.test_capture_importer tests.test_capture_mcp_recovery tests.test_capture_fabric tests.test_conversation_capture tests.test_conversation_transport tests.test_external_capture tests.test_recovery_jsonl_tail
