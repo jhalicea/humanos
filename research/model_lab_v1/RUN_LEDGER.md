@@ -1,6 +1,8 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** 15 OBJECTIVE-SCORED RUNS / TASKS 1–3 COMPLETE / JON-FIT PROVISIONALLY SCORED / EFFICIENCY INCOMPLETE
+**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / 1 ROLE RUN SCORED / EFFICIENCY INCOMPLETE
+
+## Phase 1
 
 | Run ID | Task | Model | Surface | Effort | Raw preserved | Score | Notes |
 |---|---|---|---|---|---|---|---|
@@ -20,11 +22,18 @@
 | MLAB-P1-T3-TERRA | 3 | GPT-5.6 Terra | TBD | TBD | Yes | Objective 55/60; total pending | Strong narrow polling-first plan and evidence discipline; acceptance-test first-run accounting is ambiguous around 16 valid items plus 2 transient failures |
 | MLAB-P1-T3-SOL | 3 | GPT-5.6 Sol | TBD | TBD | Yes | Objective 55/60; total pending | Strong unified idempotent intake path and evidence discipline; acceptance-test fixture count is ambiguous (10 items, 2 duplicates, 1 malformed -> expected 8 not unambiguously supported) |
 
-## Phase 1 comparative fit
-
 See `PHASE1_COMPARATIVE_RESULTS.md` for holistic provisional Jon-fit scoring, combined known-quality subtotals, and post-hoc routing interpretation.
 
-Efficiency remains incomplete because wall-clock and visible plan-usage evidence were not captured consistently across the cohort. Do not publish a final /100 ranking yet.
+## Phase 2 — Role Trials
+
+| Run ID | Trial | Model | Surface | Effort | Raw preserved | Known score | Efficiency | Owner rating | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| MLAB-P2-A-55 | A — Thought Partner | GPT-5.5 | TBD | TBD | Yes | 90/90 known | UNKNOWN | Pending | Excellent reframing around first trustworthy local record; concrete 30-day plan; no clarification needed |
+| MLAB-P2-A-SOL | A — Thought Partner | GPT-5.6 Sol | TBD | TBD | No | Pending | UNKNOWN | Pending | |
+| MLAB-P2-A-ASTRA | A — Thought Partner | GPT-6 Astra | TBD | TBD | No | Pending | UNKNOWN | Pending | |
+| MLAB-P2-A-LUNA | A — Thought Partner | GPT-5.6 Luna | TBD | TBD | No | Pending | UNKNOWN | Pending | |
+
+Efficiency remains incomplete when wall-clock and visible plan-usage evidence are unavailable. Do not publish a final /100 role score until the efficiency component is measured or explicitly normalized under the experiment rules.
 
 ## Per-run metadata
 Record:
@@ -33,11 +42,14 @@ Record:
 - exact model label shown by product
 - surface (Work, Codex, other)
 - reasoning/effort setting
+- speed mode when available
 - raw response file or attachment
 - start/end or elapsed time
 - visible usage before/after if available
+- visible subagent behavior when relevant
 - contamination/tool-use notes
 - scorer notes
+- owner rating
 
 ## Freeze rule
 Never replace a raw answer. Corrections, reruns, and rescoring get new records.
