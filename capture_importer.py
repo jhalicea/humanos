@@ -12,6 +12,8 @@ No language model is called.
 
 from __future__ import annotations
 
+import errno
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -27,11 +29,16 @@ from conversation_capture import UniversalConversationCapture
 STAGED = 'STAGED'
 IMPORTED = 'IMPORTED'
 ERROR = 'ERROR'
-RETRYABLE_IMPORT_ERRORS = (OSError, sqlite3.OperationalError, TimeoutError)
+RETRYABLE_ERRNOS = frozenset({errno.EAGAIN, errno.EBUSY, errno.EINTR, errno.ENOSPC, errno.ETIMEDOUT})
+RETRYABLE_SQLITE_MESSAGES = frozenset({'database is locked', 'database is busy'})
 
 
 class _UnresolvedDependency(Exception):
     pass
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _private_dir(path: Path) -> Path:
@@ -88,6 +95,19 @@ class CaptureImporter:
                 hcid TEXT NOT NULL,
                 PRIMARY KEY(source, conversation_key, turn_key, variant_key)
             );
+            CREATE TABLE IF NOT EXISTS failure_history(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                remote_seq INTEGER NOT NULL REFERENCES inbox(remote_seq),
+                classification TEXT NOT NULL CHECK(classification IN ('RETRYABLE','TERMINAL','OWNER_REQUEUE')),
+                message TEXT NOT NULL,
+                created TEXT NOT NULL
+            );
+            CREATE TRIGGER IF NOT EXISTS failure_history_no_update
+              BEFORE UPDATE ON failure_history
+              BEGIN SELECT RAISE(ABORT, 'capture failure history is append-only'); END;
+            CREATE TRIGGER IF NOT EXISTS failure_history_no_delete
+              BEFORE DELETE ON failure_history
+              BEGIN SELECT RAISE(ABORT, 'capture failure history is append-only'); END;
         ''')
         self.db.commit()
         if self._meta('staged_remote_seq') is None:
@@ -253,8 +273,28 @@ class CaptureImporter:
 
     @staticmethod
     def _retryable(error: Exception) -> bool:
-        """Only failures that can change without changing evidence are retried."""
-        return isinstance(error, RETRYABLE_IMPORT_ERRORS)
+        """Retry only named storage conditions that may resolve without new evidence."""
+        if isinstance(error, TimeoutError):
+            return True
+        if isinstance(error, sqlite3.OperationalError):
+            text = str(error).casefold()
+            return any(message in text for message in RETRYABLE_SQLITE_MESSAGES)
+        if isinstance(error, OSError):
+            return error.errno in RETRYABLE_ERRNOS
+        return False
+
+    def _record_failure(self, row, error: Exception, retryable: bool) -> None:
+        classification = 'RETRYABLE' if retryable else 'TERMINAL'
+        message = str(error) or error.__class__.__name__
+        with self.db:
+            self.db.execute(
+                "UPDATE inbox SET status=?, error=? WHERE remote_seq=?",
+                (STAGED if retryable else ERROR, message, row['remote_seq']),
+            )
+            self.db.execute(
+                'INSERT INTO failure_history(remote_seq,classification,message,created) VALUES(?,?,?,?)',
+                (row['remote_seq'], classification, message, _now()),
+            )
 
     def requeue_error(self, remote_seq: int) -> None:
         """Explicitly return one terminally failed event to the staged queue.
@@ -272,6 +312,10 @@ class CaptureImporter:
         if event.digest() != row['payload_digest']:
             raise RuntimeError('Terminal capture payload digest mismatch')
         with self.db:
+            self.db.execute(
+                'INSERT INTO failure_history(remote_seq,classification,message,created) VALUES(?,?,?,?)',
+                (remote_seq, 'OWNER_REQUEUE', row['error'] or 'No recorded error', _now()),
+            )
             self.db.execute(
                 "UPDATE inbox SET status=?, error=? WHERE remote_seq=?",
                 (STAGED, None, remote_seq),
@@ -303,11 +347,7 @@ class CaptureImporter:
                     # A transient local-storage failure leaves the event staged
                     # for a later drain. Evidence conflicts and unknown failures
                     # stay visible as ERROR and do not block later captures.
-                    with self.db:
-                        self.db.execute(
-                            "UPDATE inbox SET status=?, error=? WHERE remote_seq=?",
-                            (STAGED if retryable else ERROR, str(error), row['remote_seq']),
-                        )
+                    self._record_failure(row, error, retryable)
                     if retryable:
                         retryable_failure = True
                         break
@@ -344,6 +384,9 @@ class CaptureImporter:
             'permanent_errors': self.db.execute(
                 "SELECT COUNT(*) FROM inbox WHERE status='ERROR'"
             ).fetchone()[0],
+            'failure_history': self.db.execute(
+                'SELECT COUNT(*) FROM failure_history'
+            ).fetchone()[0],
             'staged_remote_seq': self.staged_remote_seq,
             'acknowledged_seq': self.acknowledged_seq(),
         }
@@ -379,6 +422,9 @@ class CaptureImporter:
             ).fetchone()[0],
             'permanent_errors': self.db.execute(
                 "SELECT COUNT(*) FROM inbox WHERE status='ERROR'"
+            ).fetchone()[0],
+            'failure_history': self.db.execute(
+                'SELECT COUNT(*) FROM failure_history'
             ).fetchone()[0],
         }
 

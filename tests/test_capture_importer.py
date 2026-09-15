@@ -1,4 +1,5 @@
 from pathlib import Path
+import errno
 import sqlite3
 import tempfile
 import unittest
@@ -128,13 +129,14 @@ class CaptureImporterTests(unittest.TestCase):
         self.assertEqual(self.importer.status(), {
             'staged_remote_seq': 1, 'acknowledged_seq': 0,
             'staged': 1, 'imported': 0, 'errors': 1,
-            'retryable_errors': 1, 'permanent_errors': 0,
+            'retryable_errors': 1, 'permanent_errors': 0, 'failure_history': 1,
         })
 
         result = self.importer.drain()
         self.assertEqual(result['imported'], 1)
         self.assertEqual(result['pending'], 0)
         self.assertEqual(result['errors'], 0)
+        self.assertEqual(result['failure_history'], 1)
         self.assertEqual([(row['role'], row['text']) for row in self.book.db.execute(
             'SELECT role,text FROM transcript ORDER BY seq'
         )], [('HUMAN', 'durable after storage recovery')])
@@ -163,6 +165,16 @@ class CaptureImporterTests(unittest.TestCase):
         self.importer._import_event = original
         self.importer.requeue_error(1)
         self.assertEqual(self.importer.status()['errors'], 0)
+        history = list(self.importer.db.execute(
+            'SELECT classification,message FROM failure_history WHERE remote_seq=1 ORDER BY id'))
+        self.assertEqual([tuple(row) for row in history], [
+            ('TERMINAL', 'preserved evidence conflict'),
+            ('OWNER_REQUEUE', 'preserved evidence conflict'),
+        ])
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.importer.db.execute('UPDATE failure_history SET message="changed" WHERE remote_seq=1')
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.importer.db.execute('DELETE FROM failure_history WHERE remote_seq=1')
         result = self.importer.drain()
         self.assertEqual(result['acknowledged_seq'], 2)
         self.assertEqual(result['errors'], 0)
@@ -179,7 +191,16 @@ class CaptureImporterTests(unittest.TestCase):
         self.assertEqual(self.importer.status()['permanent_errors'], 1)
         self.assertEqual(self.importer.drain()['imported'], 0)
         self.importer.requeue_error(1)
+        self.assertEqual(self.importer.db.execute(
+            'SELECT message FROM failure_history WHERE classification="OWNER_REQUEUE"').fetchone()[0],
+            'legacy storage failure')
         self.assertEqual(self.importer.drain()['acknowledged_seq'], 1)
+
+    def test_retry_policy_excludes_permission_and_schema_errors(self):
+        self.assertFalse(self.importer._retryable(PermissionError(errno.EACCES, 'access denied')))
+        self.assertFalse(self.importer._retryable(sqlite3.OperationalError('no such table: transcript')))
+        self.assertTrue(self.importer._retryable(sqlite3.OperationalError('database is locked')))
+        self.assertTrue(self.importer._retryable(OSError(errno.ENOSPC, 'disk full')))
 
     def test_tampered_remote_digest_fails_before_local_staging(self):
         receipt = self.relay.append(self.event('human', 'hello'))
