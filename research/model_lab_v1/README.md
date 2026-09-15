@@ -1,8 +1,8 @@
 # HumanOS Model Lab v1
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 TRIALS A-B COMPLETE / OWNER ROUTING PREFERENCE RECORDED / ROUTING POLICY V1 CANDIDATE SPECIFIED / DETERMINISTIC ROUTER IMPLEMENTED + UNIT-TESTED / MIRROR INTEGRATION NOT IMPLEMENTED
+**Status:** PHASE 1 COMPLETE / PHASE 2 TRIALS A-B COMPLETE / OWNER ROUTING PREFERENCE RECORDED / ROUTING POLICY V1 CANDIDATE / DETERMINISTIC ROUTER TESTED / MIRROR INTEGRATION NOT IMPLEMENTED
 
-Purpose: determine which OpenAI model is best for which HumanOS task using Jon's actual working preferences rather than vendor positioning alone.
+Purpose: determine which model is best for which HumanOS task using Jon's actual working preferences and measured work, while keeping routing recommendations provisional until enough evidence accumulates.
 
 Initial comparison cohort:
 - GPT-5.6 Luna
@@ -11,10 +11,11 @@ Initial comparison cohort:
 - GPT-5.5
 - GPT-6 Astra
 
-The lab separates three questions that are often incorrectly collapsed into one:
+The lab separates questions that are often incorrectly collapsed:
 1. **Capability** — did the model solve the task correctly?
 2. **Efficiency** — how much time/plan usage did the task consume?
 3. **Working fit** — was the model useful, natural, decisive, appropriately skeptical, and easy for Jon to work with?
+4. **Workflow fit** — which model + role + effort combination works best in a multi-model chain?
 
 ## Phases
 
@@ -31,15 +32,15 @@ The lab separates three questions that are often incorrectly collapsed into one:
 Trial B also produced a first usable owner-routing preference and a refreshed-page usage-calibration procedure. Usage percentages remain UI telemetry, not exact token/compute accounting.
 
 ### Phase 3 — Real HumanOS Work
-Run role finalists on controlled copies of real HumanOS tasks and measure correction burden, execution quality, plan usage, and routing-regret cases.
+Run role finalists and experimental workflows on controlled copies of real HumanOS tasks. Measure correction burden, execution quality, plan usage, elapsed time, owner fit, and routing-regret cases.
 
-## Current routing direction
+## Current routing direction — provisional
 
-The current v1 candidate uses a simple role hierarchy:
+The current candidate uses a simple role hierarchy:
 
 - **Sol** — default lead / thought partner / architecture / important synthesis
 - **Luna** — fast bounded worker
-- **Terra** — methodical systems engineer
+- **Terra** — methodical systems engineer / implementation candidate
 - **Astra** — senior escalation / high-risk review / broad failure analysis
 - **GPT-5.5** — transitional behavior benchmark only; never a durable production dependency
 
@@ -47,23 +48,30 @@ Core rule:
 
 `use the least expensive continuing model that reliably meets the quality/risk requirement; default to Sol when judgment is still required`
 
+This is not locked. Model Lab evidence can change roles, effort defaults, workflow order, and reviewer choices.
+
+## Experimental workflow evidence
+
+HumanOS records tested combinations separately from routing defaults. Current example:
+
+- Astra / Light — engineer/advisor
+- Terra / High — coder/implementer
+
+The owner followed Astra's recommendation to use Terra High. That recommendation is preserved as provenance and experiment evidence; it is **not automatically promoted into policy**.
+
 ## Router implementation status
 
-`model_router.py` now implements the deterministic routing decision layer. It does not execute models or grant authority.
+`model_router.py` implements the deterministic recommendation layer. It does not execute models or grant authority.
 
-On 2026-09-15 the owner ran:
+On 2026-09-15 the original router test suite ran under macOS `/usr/bin/python3` 3.9.6 and passed 8/8 tests.
 
-`PYTHONPATH=. python3 -m unittest tests.test_model_router -v`
+The latest revision keeps the router explicitly in **learning mode**:
+- policy version: `v1-candidate`
+- recommendation only: true
+- policy locked: false
+- authority granted: false
 
-using macOS `/usr/bin/python3` version 3.9.6. All 8 router tests passed.
-
-Therefore:
-- routing logic: **IMPLEMENTED**
-- router unit tests: **TESTED — PASS**
-- Mirror/runtime integration: **NOT IMPLEMENTED**
-- automatic model dispatch: **NOT IMPLEMENTED**
-- routing-event persistence: **NOT IMPLEMENTED**
-- production verification/deployment: **NOT VERIFIED / NOT DEPLOYED**
+It also supports recording an `ExperimentWorkflow` containing advisor model/effort, worker model/effort, whether the owner accepted the recommendation, and an experiment ID. Recording experimental provenance does not change the default policy.
 
 ## Files
 - `PROTOCOL.md` — experiment controls and run procedure
@@ -74,18 +82,24 @@ Therefore:
 - `MODEL_ROUTING_WORKFLOW_V0.md` — earlier specified planner/worker/reviewer workflow; preserved for provenance
 - `MODEL_ROUTING_POLICY_V1_CANDIDATE.md` — evidence-based human-readable routing policy after Trials A-B
 - `MODEL_ROUTING_POLICY_V1.yaml` — machine-readable candidate policy
-- `ROUTER_TEST_EVIDENCE_2026-09-15.md` — owner-run unit-test evidence for the deterministic router
+- `ROUTER_TEST_EVIDENCE_2026-09-15.md` — owner-run unit-test evidence for the original deterministic router
 - `PHASE1_COMPARATIVE_RESULTS.md` — post-hoc Phase 1 analysis
 - `PHASE2_ROLE_TRIALS.md` — job-specific trial protocol
 - `PHASE2_TRIAL_A_RESULTS.md` — thought-partner results
 - `PHASE2_TRIAL_B_RESULTS.md` — artifact/document results
 - `OWNER_RATINGS_TRIAL_B.md` — owner preferences kept separate from correctness scoring
 - `RAW_USAGE_OBSERVATIONS.md` — immutable observed plan-meter provenance and later attribution updates
+- `MPC_WORKFLOW_USAGE_OBSERVATIONS_2026-09-15.md` — combined Astra-Light + Terra-High workflow usage provenance
 
 ## Status boundary
 
-The routing policy is **SPECIFIED** and the deterministic recommendation engine is **IMPLEMENTED + UNIT-TESTED** on the research branch. It currently only returns a routing recommendation with `authority_granted: false`.
+- Routing policy: **SPECIFIED / PROVISIONAL**
+- Deterministic router: **IMPLEMENTED**
+- Original router unit tests: **TESTED — 8/8 PASS**
+- Latest learning-mode / experiment-provenance changes: **IMPLEMENTED / NEW TESTS AUTHORED / NOT YET RE-VERIFIED LOCALLY**
+- Mirror integration: **NOT IMPLEMENTED**
+- Automatic model dispatch: **NOT IMPLEMENTED**
+- Routing-event persistence: **NOT IMPLEMENTED**
+- Production verification/deployment: **NOT VERIFIED / NOT DEPLOYED**
 
-Automatic model selection inside Mirror, provider dispatch, review chaining, routing-event persistence, and production governance integration are **NOT IMPLEMENTED** yet.
-
-Next implementation target: connect the tested router to a thin Mirror-facing adapter that emits and records a routing event without dispatching any model automatically. Validate that integration before adding provider/model execution.
+Next target: re-run the expanded router test suite, then add a Mirror-facing adapter that emits routing recommendations and experiment provenance without automatic execution authority.
