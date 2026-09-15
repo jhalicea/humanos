@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1
 
-**Status:** PHASE 1 COMPLETE / OWNER PREFERENCE RECORDED / PHASE 2 ROLE TRIALS PLANNED / EFFICIENCY INCOMPLETE
+**Status:** PHASE 1 COMPLETE / OWNER PREFERENCE RECORDED / PHASE 2 ROLE TRIALS PLANNED / ROUTING WORKFLOW V0 SPECIFIED / EFFICIENCY INCOMPLETE
 
 Purpose: determine which OpenAI model is best for which HumanOS task using Jon's actual working preferences rather than vendor positioning alone.
 
@@ -47,6 +47,7 @@ Do not decide that one model is 'best.' The goal is a routing policy:
 - `SCORECARD.md` — capability + fit rubric
 - `RUN_LEDGER.md` — run/evidence log
 - `MODEL_ROUTING_HYPOTHESES.md` — pre-registered hypotheses; do not rewrite after seeing results
+- `MODEL_ROUTING_WORKFLOW_V0.md` — specified planner/worker/reviewer model routing workflow; not implemented in runtime
 - `PHASE1_COMPARATIVE_RESULTS.md` — post-hoc objective + owner-fit analysis and routing interpretation
 - `PHASE2_ROLE_TRIALS.md` — job-specific trials, including PDF collaboration and agentic-orchestration tests
 
