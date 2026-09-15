@@ -1,7 +1,8 @@
 """Deterministic HumanOS model router.
 
-This module does not execute models or grant authority. It only emits a routing
-recommendation that can be audited before any model/tool execution occurs.
+This module does not execute models or grant authority. It only emits an auditable
+routing recommendation. The policy is intentionally PROVISIONAL while Model Lab
+continues testing models, effort levels, and multi-model workflows.
 """
 from dataclasses import dataclass
 from typing import Optional
@@ -9,6 +10,26 @@ from typing import Optional
 VALID_ROUTES = {"BUILD", "ENGINEER", "DECIDE", "ESCALATE"}
 VALID_LANES = {"GREEN", "AMBER", "RED"}
 VALID_MODELS = {"luna", "terra", "sol", "astra"}
+VALID_EFFORTS = {"light", "low", "medium", "high", "xhigh", "max"}
+
+POLICY_VERSION = "v1-candidate"
+ROUTER_MODE = "learning"
+
+
+@dataclass(frozen=True)
+class ExperimentWorkflow:
+    """Optional provenance for a workflow being tested.
+
+    This is evidence capture, not a rule. Recording a model-recommended workflow
+    must never silently promote it into the default router policy.
+    """
+
+    advisor_model: str
+    advisor_effort: Optional[str] = None
+    worker_model: Optional[str] = None
+    worker_effort: Optional[str] = None
+    owner_accepted: bool = False
+    experiment_id: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -26,6 +47,7 @@ class TaskProfile:
     expensive_to_miss_failures: bool = False
     important_artifact: bool = False
     owner_override: Optional[str] = None
+    experiment_workflow: Optional[ExperimentWorkflow] = None
 
 
 def _risk_lane(task: TaskProfile) -> str:
@@ -66,11 +88,21 @@ def _automatic_route(task: TaskProfile, risk_lane: str) -> tuple[str, str, Optio
     return "DECIDE", "sol", None, None, "COLLABORATIVE_REFRAMER"
 
 
+def _validate_experiment(workflow: ExperimentWorkflow) -> None:
+    if workflow.advisor_model.strip().lower() not in VALID_MODELS:
+        raise ValueError("experiment advisor_model must be one of: luna, terra, sol, astra")
+    if workflow.worker_model is not None and workflow.worker_model.strip().lower() not in VALID_MODELS:
+        raise ValueError("experiment worker_model must be one of: luna, terra, sol, astra")
+    for effort in (workflow.advisor_effort, workflow.worker_effort):
+        if effort is not None and effort.strip().lower() not in VALID_EFFORTS:
+            raise ValueError("experiment effort must be one of: light, low, medium, high, xhigh, max")
+
+
 def route_task(task: TaskProfile) -> dict:
     """Create an auditable routing recommendation with no execution authority."""
     lane = _risk_lane(task)
     route, primary, worker, reviewer, overlay = _automatic_route(task, lane)
-    route_source = "automatic"
+    route_source = "automatic_candidate"
     reason_codes = []
 
     if not task.well_defined:
@@ -99,6 +131,23 @@ def route_task(task: TaskProfile) -> dict:
         if lane == "RED" and primary != "astra" and reviewer is None:
             reviewer = "astra"
 
+    experimental_workflow = None
+    if task.experiment_workflow is not None:
+        exp = task.experiment_workflow
+        _validate_experiment(exp)
+        experimental_workflow = {
+            "experiment_id": exp.experiment_id,
+            "advisor_model": exp.advisor_model.strip().lower(),
+            "advisor_effort": exp.advisor_effort.strip().lower() if exp.advisor_effort else None,
+            "worker_model": exp.worker_model.strip().lower() if exp.worker_model else None,
+            "worker_effort": exp.worker_effort.strip().lower() if exp.worker_effort else None,
+            "owner_accepted": exp.owner_accepted,
+            "promoted_to_policy": False,
+        }
+        reason_codes.append("EXPERIMENTAL_WORKFLOW_RECORDED")
+        if exp.owner_accepted:
+            reason_codes.append("OWNER_ACCEPTED_EXPERIMENT")
+
     return {
         "task_id": task.task_id,
         "task_class": route,
@@ -109,5 +158,10 @@ def route_task(task: TaskProfile) -> dict:
         "behavior_overlay": overlay,
         "route_source": route_source,
         "reason_codes": reason_codes,
+        "policy_version": POLICY_VERSION,
+        "router_mode": ROUTER_MODE,
+        "recommendation_only": True,
+        "policy_locked": False,
+        "experimental_workflow": experimental_workflow,
         "authority_granted": False,
     }
