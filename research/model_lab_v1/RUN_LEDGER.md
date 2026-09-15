@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1 — Run Ledger
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / 2 ROLE RUNS SCORED / EFFICIENCY INCOMPLETE
+**Status:** PHASE 1 COMPLETE / PHASE 2 IN PROGRESS / 3 ROLE RUNS SCORED / EFFICIENCY INCOMPLETE
 
 ## Phase 1
 
@@ -30,7 +30,7 @@ See `PHASE1_COMPARATIVE_RESULTS.md` for holistic provisional Jon-fit scoring, co
 |---|---|---|---|---|---|---|---|---|---|
 | MLAB-P2-A-55 | A — Thought Partner | GPT-5.5 | TBD | TBD | Yes | 90/90 known | UNKNOWN | Pending | Excellent reframing around first trustworthy local record; concrete 30-day plan; no clarification needed |
 | MLAB-P2-A-SOL | A — Thought Partner | GPT-5.6 Sol | TBD | TBD | Yes | 89/90 known | UNKNOWN | Pending | Strongest acknowledgment-boundary framing so far; explicitly narrows the zero-loss guarantee to post-observation/post-commit events and handles partial turns/gaps |
-| MLAB-P2-A-ASTRA | A — Thought Partner | GPT-6 Astra | TBD | TBD | No | Pending | UNKNOWN | Pending | |
+| MLAB-P2-A-ASTRA | A — Thought Partner | GPT-6 Astra | TBD | TBD | Yes | 89/90 known | UNKNOWN | Pending | Strong control-vs-observation framing; surfaced streaming, revisions, device-loss, backup/restore, and synchronous-durability details. End-state usage snapshot present but no baseline. Ambient-context contamination possible from reference to an earlier preference not in frozen prompt |
 | MLAB-P2-A-LUNA | A — Thought Partner | GPT-5.6 Luna | TBD | TBD | No | Pending | UNKNOWN | Pending | |
 
 Efficiency remains incomplete when wall-clock and visible plan-usage evidence are unavailable. Do not publish a final /100 role score until the efficiency component is measured or explicitly normalized under the experiment rules.
