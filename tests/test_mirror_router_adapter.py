@@ -1,10 +1,32 @@
 import json
+import multiprocessing
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
-from mirror_router_adapter import RoutingEventLedger, build_mirror_routing_event, route_for_mirror
+from mirror_router_adapter import (
+    RoutingEventLedger,
+    RoutingLedgerConflict,
+    RoutingLedgerCorrupt,
+    RoutingLedgerUnsafe,
+    build_mirror_routing_event,
+    route_for_mirror,
+)
 from model_router import ExperimentWorkflow, TaskProfile
+
+
+def _process_append_worker(path, event_id, start_event, result_queue):
+    try:
+        start_event.wait(5)
+        route_for_mirror(
+            TaskProfile(task_id=event_id, well_defined=True),
+            ledger=RoutingEventLedger(path),
+            event_id=event_id,
+        )
+        result_queue.put(None)
+    except Exception as error:  # pragma: no cover - only returned to parent for assertion
+        result_queue.put(repr(error))
 
 
 class MirrorRouterAdapterTests(unittest.TestCase):
@@ -87,8 +109,114 @@ class MirrorRouterAdapterTests(unittest.TestCase):
             path.write_text(json.dumps(raw) + "\n", encoding="utf-8")
 
             self.assertFalse(ledger.verify())
-            with self.assertRaises(ValueError):
+            with self.assertRaises(RoutingLedgerCorrupt):
                 ledger.append(action_id="evt-M8", body={"tampered": True})
+
+    def test_symlink_ledger_path_is_rejected_before_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "target.jsonl"
+            target.write_text("", encoding="utf-8")
+            link = root / "routing-events.jsonl"
+            link.symlink_to(target)
+            ledger = RoutingEventLedger(link)
+            with self.assertRaises(RoutingLedgerUnsafe):
+                ledger.append(action_id="evt-symlink", body={"safe": True})
+            self.assertEqual("", target.read_text(encoding="utf-8"))
+
+    def test_symlink_lock_path_is_rejected_before_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "lock-target"
+            target.write_text("do-not-touch", encoding="utf-8")
+            (root / ".routing-events.lock").symlink_to(target)
+            ledger = RoutingEventLedger(root / "routing-events.jsonl")
+            with self.assertRaises(RoutingLedgerUnsafe):
+                ledger.append(action_id="evt-lock-symlink", body={"safe": True})
+            self.assertFalse((root / "routing-events.jsonl").exists())
+            self.assertEqual("do-not-touch", target.read_text(encoding="utf-8"))
+
+    def test_unterminated_tail_blocks_append_without_mutation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "routing-events.jsonl"
+            raw = b'{"seq":1'
+            path.write_bytes(raw)
+            ledger = RoutingEventLedger(path)
+            with self.assertRaises(RoutingLedgerCorrupt):
+                ledger.append(action_id="evt-after-tail", body={"safe": True})
+            self.assertEqual(raw, path.read_bytes())
+
+    def test_malformed_complete_record_blocks_append_without_mutation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "routing-events.jsonl"
+            raw = b'not-json\n'
+            path.write_bytes(raw)
+            ledger = RoutingEventLedger(path)
+            with self.assertRaises(RoutingLedgerCorrupt):
+                ledger.append(action_id="evt-after-corruption", body={"safe": True})
+            self.assertEqual(raw, path.read_bytes())
+
+    def test_identical_event_retry_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "routing-events.jsonl"
+            ledger = RoutingEventLedger(path)
+            kwargs = {
+                "ledger": ledger,
+                "event_id": "evt-retry",
+                "created_at": "2026-09-15T20:02:00+00:00",
+            }
+            first = route_for_mirror(TaskProfile(task_id="M9", well_defined=True), **kwargs)
+            second = route_for_mirror(TaskProfile(task_id="M9", well_defined=True), **kwargs)
+            self.assertEqual(first["ledger_record"], second["ledger_record"])
+            self.assertEqual(1, len(ledger.read_all()))
+            self.assertTrue(ledger.verify())
+
+    def test_same_event_id_with_different_body_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = RoutingEventLedger(Path(tmp) / "routing-events.jsonl")
+            route_for_mirror(
+                TaskProfile(task_id="M10", well_defined=True),
+                ledger=ledger,
+                event_id="evt-conflict",
+                created_at="2026-09-15T20:03:00+00:00",
+            )
+            with self.assertRaises(RoutingLedgerConflict):
+                route_for_mirror(
+                    TaskProfile(task_id="M10", well_defined=False),
+                    ledger=ledger,
+                    event_id="evt-conflict",
+                    created_at="2026-09-15T20:03:00+00:00",
+                )
+            self.assertEqual(1, len(ledger.read_all()))
+            self.assertTrue(ledger.verify())
+
+    def test_concurrent_process_appends_keep_one_valid_chain(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "routing-events.jsonl")
+            context = multiprocessing.get_context("spawn")
+            start_event = context.Event()
+            result_queue = context.Queue()
+            processes = [
+                context.Process(
+                    target=_process_append_worker,
+                    args=(path, f"evt-concurrent-{index}", start_event, result_queue),
+                )
+                for index in range(6)
+            ]
+            for process in processes:
+                process.start()
+            start_event.set()
+            for process in processes:
+                process.join(10)
+                self.assertEqual(0, process.exitcode)
+            errors = [result_queue.get(timeout=2) for _ in processes]
+            self.assertEqual([None] * len(processes), errors)
+
+            ledger = RoutingEventLedger(path)
+            events = ledger.read_all()
+            self.assertEqual(6, len(events))
+            self.assertEqual(list(range(1, 7)), [event.seq for event in events])
+            self.assertTrue(ledger.verify())
 
 
 if __name__ == "__main__":
