@@ -32,6 +32,8 @@ An observation can be valid provenance even when it is not valid causal attribut
 | 2026-09-15 14:42 | GPT-5.5 CAL1 first post-run | **83%** | **50%** | **-9 pp / -2 pp from 14:35** | Clean calibration interval for a repeated Stage-1 PDF task. Screenshot SHA-256 `115d829de6ff48f9feb2049b06424dc0ada33f71f8b617cddff4c1cbba0b34e7`. |
 | 2026-09-15 14:44 | GPT-5.5 CAL1 second post-run | **83%** | **50%** | **0 pp / 0 pp from 14:42** | Short-settle confirmation. Screenshot SHA-256 `51acd4fc8eab4f021eb330776d72ae905d4b6ea045d302e85899ea8a7014c1da`. |
 | 2026-09-15 14:51 | GPT-5.5 CAL1 later settle check | **83%** | **50%** | **0 pp / 0 pp from 14:44** | Usage remained stable for about nine minutes after the first post-run observation. Screenshot SHA-256 `4e410d0e0ad9204f2b59583d425b1debd9bd4d18b91ccb11f46820f197c6dfc9`. |
+| 2026-09-15 15:50 | Mixed Work run baseline/post-state around MPC-branch work | **69%** | **48%** | — | Owner later clarified that the subsequent interval involved Work using **Astra Light and Terra High** on the **MPC branch**. This reading is preserved as the earlier endpoint for that mixed-model interval. |
+| 2026-09-15 15:58 | Mixed Work run after Astra Light + Terra High activity on MPC branch | **59%** | **47%** | **-10 pp / -1 pp from 15:50** | **Mixed attribution only.** Owner explicitly states the Work activity in this interval involved both Astra Light and Terra High on the MPC branch. Do not assign the 10/1 movement to either model individually. Preserve as combined-workload telemetry. |
 
 ## Attribution analysis after pre-Luna evidence
 
@@ -74,6 +76,21 @@ The repeated GPT-5.5 calibration run produced a notably clean and repeatable usa
 
 This independently reproduces the original GPT-5.5 Stage 2 visible interval of **9/2** for a substantial PDF-generation task. That repetition raises confidence that `9/2` is a meaningful UI-level signal for this task class under these conditions, while still not establishing tokens, FLOPs, or exact compute cost.
 
+## Mixed Astra Light + Terra High MPC-branch interval
+
+The 15:50 -> 15:58 interval is **not a single-model calibration run**.
+
+- 15:50: **69/48**
+- 15:58: **59/47**
+- raw displayed movement: **10 pp five-hour / 1 pp weekly**
+- owner states the Work activity in that interval involved **Astra Light and Terra High** on the **MPC branch**.
+
+Therefore:
+- the interval is valid combined-workload provenance;
+- it must not be used to estimate Astra-only or Terra-only cost;
+- it may later be useful for estimating the cost of a multi-model workflow if the exact orchestration sequence and task are preserved elsewhere;
+- refresh state should be recorded on future measurements because prior experiments showed stale-page state can confound interpretation.
+
 ## Interpretation state
 
 - **Terra:** observed Stage 2 UI delta preserved as 4 pp 5-hour / 1 pp weekly. Exact compute attribution is not guaranteed because later runs revealed meter lag.
@@ -84,7 +101,8 @@ This independently reproduces the original GPT-5.5 Stage 2 visible interval of *
 - **Luna Stage 2 / revised-artifact interval:** **55/53 -> 55/53 = 0 pp / 0 pp** through the 13:24 snapshot.
 - **Sol Stage 1:** post-run raw observation is **96/52** after a 5-hour reset. The reset prevents a direct 5-hour delta from the prior 55% baseline. Weekly raw movement from the previous snapshot is -1 pp. Exact Sol Stage 1 usage remains unresolved.
 - **Sol Stage 2:** confirmed same-window visible pair is **96/52 -> 92/52 = 4 pp / 0 pp**. Cleaner attribution than Stage 1, but not token or exact compute accounting.
+- **Mixed Astra Light + Terra High MPC-branch Work:** observed combined interval **69/48 -> 59/47 = 10 pp / 1 pp**. Attribution to either model individually is **UNRESOLVED BY DESIGN** because both participated in the same Work interval.
 
 ## Measurement lesson
 
-The plan-usage UI is useful provenance but not a real-time accounting API. Preserve every visible reading and timestamp, then model meter latency, rounding, and window resets as confounds instead of deleting or "correcting" inconvenient observations. Establish a true model boundary using a screenshot **after prior delayed movement has appeared and before the next model begins** whenever possible.
+The plan-usage UI is useful provenance but not a real-time accounting API. Preserve every visible reading and timestamp, then model meter latency, rounding, refresh state, mixed-model workflows, and window resets as confounds instead of deleting or "correcting" inconvenient observations. Establish a true model boundary using a refreshed screenshot **after prior delayed movement has appeared and before the next model begins** whenever possible.
