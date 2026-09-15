@@ -83,7 +83,7 @@ class MirrorRouterAdapterTests(unittest.TestCase):
             route_for_mirror(TaskProfile(task_id="M7", well_defined=True), ledger=ledger, event_id="evt-M7")
 
             raw = json.loads(path.read_text(encoding="utf-8").strip())
-            raw["body"]["routing_event"]["status"] = "EXECUTED"
+            raw["body"]["status"] = "EXECUTED"
             path.write_text(json.dumps(raw) + "\n", encoding="utf-8")
 
             self.assertFalse(ledger.verify())
