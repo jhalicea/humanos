@@ -1,6 +1,6 @@
 # HumanOS Model Lab v1
 
-**Status:** PHASE 1 COMPLETE / PHASE 2 TRIALS A-B COMPLETE / OWNER ROUTING PREFERENCE RECORDED / ROUTING POLICY V1 CANDIDATE SPECIFIED / RUNTIME ROUTER NOT IMPLEMENTED
+**Status:** PHASE 1 COMPLETE / PHASE 2 TRIALS A-B COMPLETE / OWNER ROUTING PREFERENCE RECORDED / ROUTING POLICY V1 CANDIDATE SPECIFIED / DETERMINISTIC ROUTER IMPLEMENTED + UNIT-TESTED / MIRROR INTEGRATION NOT IMPLEMENTED
 
 Purpose: determine which OpenAI model is best for which HumanOS task using Jon's actual working preferences rather than vendor positioning alone.
 
@@ -47,6 +47,24 @@ Core rule:
 
 `use the least expensive continuing model that reliably meets the quality/risk requirement; default to Sol when judgment is still required`
 
+## Router implementation status
+
+`model_router.py` now implements the deterministic routing decision layer. It does not execute models or grant authority.
+
+On 2026-09-15 the owner ran:
+
+`PYTHONPATH=. python3 -m unittest tests.test_model_router -v`
+
+using macOS `/usr/bin/python3` version 3.9.6. All 8 router tests passed.
+
+Therefore:
+- routing logic: **IMPLEMENTED**
+- router unit tests: **TESTED — PASS**
+- Mirror/runtime integration: **NOT IMPLEMENTED**
+- automatic model dispatch: **NOT IMPLEMENTED**
+- routing-event persistence: **NOT IMPLEMENTED**
+- production verification/deployment: **NOT VERIFIED / NOT DEPLOYED**
+
 ## Files
 - `PROTOCOL.md` — experiment controls and run procedure
 - `QUICKSCREEN_TASKS.md` — frozen Phase 1 prompts
@@ -55,7 +73,8 @@ Core rule:
 - `MODEL_ROUTING_HYPOTHESES.md` — pre-registered hypotheses; do not rewrite after seeing results
 - `MODEL_ROUTING_WORKFLOW_V0.md` — earlier specified planner/worker/reviewer workflow; preserved for provenance
 - `MODEL_ROUTING_POLICY_V1_CANDIDATE.md` — evidence-based human-readable routing policy after Trials A-B
-- `MODEL_ROUTING_POLICY_V1.yaml` — machine-readable candidate policy for a future deterministic runtime router
+- `MODEL_ROUTING_POLICY_V1.yaml` — machine-readable candidate policy
+- `ROUTER_TEST_EVIDENCE_2026-09-15.md` — owner-run unit-test evidence for the deterministic router
 - `PHASE1_COMPARATIVE_RESULTS.md` — post-hoc Phase 1 analysis
 - `PHASE2_ROLE_TRIALS.md` — job-specific trial protocol
 - `PHASE2_TRIAL_A_RESULTS.md` — thought-partner results
@@ -65,6 +84,8 @@ Core rule:
 
 ## Status boundary
 
-The routing policy is **SPECIFIED** and can be followed manually during Model Lab / HumanOS work. Automatic model selection, dispatch, review chaining, and routing-event persistence are **NOT IMPLEMENTED IN THE HUMANOS RUNTIME** yet.
+The routing policy is **SPECIFIED** and the deterministic recommendation engine is **IMPLEMENTED + UNIT-TESTED** on the research branch. It currently only returns a routing recommendation with `authority_granted: false`.
 
-Next implementation target: a local deterministic router that reads `MODEL_ROUTING_POLICY_V1.yaml`, emits a routing recommendation/event, and is validated against recorded Model Lab cases before any automatic execution authority is considered.
+Automatic model selection inside Mirror, provider dispatch, review chaining, routing-event persistence, and production governance integration are **NOT IMPLEMENTED** yet.
+
+Next implementation target: connect the tested router to a thin Mirror-facing adapter that emits and records a routing event without dispatching any model automatically. Validate that integration before adding provider/model execution.
