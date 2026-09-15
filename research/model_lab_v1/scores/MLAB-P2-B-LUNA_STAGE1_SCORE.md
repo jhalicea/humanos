@@ -1,71 +1,79 @@
-# MLAB-P2-B-LUNA — Trial B Stage 1 Score
+# MLAB-P2-B-LUNA — Phase 2 Trial B Score
 
 **Model:** GPT-5.6 Luna  
 **Trial:** PDF / Document Creation and Conversation Feel  
-**Status:** STAGE 1 COMPLETE / STAGE 2 ARTIFACT RECEIVED LATER / RAW USAGE PRESERVED / PRE-LUNA BASELINE NOW CONFIRMED  
-**Stage 1 PDF SHA-256:** `206c1f4b0e40bab9488f4e961d6bffb65e31f71f6c831d7e4cc2dc7e3baa8a56`
+**Status:** STAGE 1 + STAGE 2 COMPLETE / COMPARATIVE EFFICIENCY SCORE PENDING  
+**Stage 1 PDF SHA-256:** `206c1f4b0e40bab9488f4e961d6bffb65e31f71f6c831d7e4cc2dc7e3baa8a56`  
+**Stage 2 PDF SHA-256:** `f36f69ddcf9a9c14ede073c7dfc7043fe2f7b5d5666f899fa1c1e698d92f0440`
 
-## Usage evidence — raw observation first
+## Usage evidence — provenance first
 
-The last immediate Astra post-run screenshot showed:
-- **71% left** on the 5-hour meter
-- **55% left** weekly
+The confirmed pre-Luna usage reading was **55% left** on the 5-hour meter and **53% left** weekly. Luna Stage 1 post-run showed **55/53**, and the later Stage 2 / revised-artifact snapshot also showed **55/53**.
 
-Later evidence supplied by the owner includes a usage screenshot showing **55% left / 53% left before Luna was started**.
+Raw visible intervals:
+- Luna Stage 1: **55/53 -> 55/53 = 0 pp / 0 pp displayed movement**
+- Luna Stage 2 through the 13:24 snapshot: **55/53 -> 55/53 = 0 pp / 0 pp displayed movement**
 
-This is the decisive attribution boundary. Therefore:
-- the visible **71/55 -> 55/53 = 16 pp / 2 pp** movement occurred before Luna;
-- Luna did **not** cause that visible drop;
-- it is delayed posting from prior agentic work, most likely dominated by Astra Stage 1 + Stage 2 given the run sequence and no other relevant activity reported;
-- exact decomposition among prior runs still cannot be proven from the rounded/delayed UI.
+Do not interpret this as zero compute. The UI is rounded and has demonstrated delayed posting. Preserve the broader pre-Luna 71/55 -> 55/53 delayed movement separately in `RAW_USAGE_OBSERVATIONS.md`; that drop occurred before Luna began and therefore cannot be attributed to Luna.
 
-The Luna post-Stage-1 screenshot at approximately 1:16 PM showed **55% / 53%**. Therefore Luna Stage 1's confirmed raw visible pre/post interval is:
-- **5-hour meter: 55% -> 55% = 0 percentage points displayed movement**
-- **weekly meter: 53% -> 53% = 0 percentage points displayed movement**
+## Stage 1
 
-A later screenshot at approximately 1:24 PM also showed **55% / 53%** after the revised Luna artifact was supplied. This is separately preserved in `RAW_USAGE_OBSERVATIONS.md`.
-
-Do **not** interpret 0/0 visible movement as zero compute. It means only that no additional whole-percentage movement was displayed across those snapshots; Luna usage may be below rounding resolution or may post later.
-
-Luna post-Stage-1 screenshot SHA-256: `cb79b49f8cd876e6e91fdfd2e8a22fcfcba3e7302bd579275443fdfe4a7f6875`.
-
-## Stage 1 artifact review
+Stage 1 known score: **73/85**.
 
 Strengths:
 - finished six-page executive brief;
-- clean navy/teal visual system and strong overall legibility;
-- useful one-view summary, score tables, working-style profiles, routing table, and unresolved-questions close;
-- preserves the distinction between measured results, owner-fit interpretation, and provisional routing;
-- treats GPT-5.5 as transitional rather than a future dependency;
-- source scope remains disciplined.
+- clean navy/teal visual system and strong legibility;
+- useful score tables, working-style profiles, routing table, and unresolved-questions close;
+- preserves measured-vs-interpreted-vs-provisional distinctions;
+- treats GPT-5.5 as transitional;
+- source scope remained disciplined.
 
-Defects / limitations:
-- page 1 says Trial A scores landed within a **two-point band**, although the supplied values are 89 and 90 and the source packet explicitly describes a **one-point spread**; page 2 repeats the two-point-band wording;
-- page 1 contains a `5 / 3 / 2 / 1` experiment summary in which the **2** is labeled `trial task`, which is ambiguous/misleading because the supplied packet describes one shared Trial A problem rather than two trial tasks;
-- visually polished but more conventional and template-like than Astra's Stage 1 artifact;
-- the initial completion response did not surface the PDF. The owner had to ask `where is the pdf?`; the follow-up exposed a local `/Users/...` path rather than a portable artifact link.
+Limitations:
+- repeated `two-point band` wording for Trial A even though the supplied 89–90 values constitute a one-point spread;
+- page-1 `5 / 3 / 2 / 1` summary labels `2` as `trial task`, which is ambiguous/misleading;
+- more conventional/template-like than Astra's first draft;
+- initial completion response failed to surface the PDF, requiring an owner follow-up; the follow-up exposed a local `/Users/...` path.
 
-## Stage 1 known score — 73/85
+## Stage 2 artifact review
+
+The revised six-page PDF is visually cleaner on the measured-results page, including a compact score-bar treatment, but the overall document remains substantially the same editorial system and narrative as Stage 1.
+
+Observed strengths:
+- retained a coherent executive-brief structure;
+- page 2 gained a clearer visual comparison for Phase 1 objective totals;
+- routing and owner-fit boundaries remained disciplined;
+- no unsupported external facts were introduced;
+- GPT-5.5 remained correctly framed as a temporary benchmark.
+
+Persistent limitations:
+- the `two-point band` wording remains on pages 1 and 2 despite the revision instruction explicitly asking the model to correct factual or quantitative errors it noticed;
+- the ambiguous `2 trial task` summary tile remains on page 1;
+- creative steering produced a modest visual refinement rather than the stronger change in storytelling, pacing, hierarchy, and authorship seen from GPT-5.5, Terra, and especially Astra;
+- the untouched Stage 2 prose response was not separately preserved, so conversation scoring is based on the observed workflow and artifact behavior rather than invented text.
+
+## Known score — 75/90
 
 - **Job outcome quality — 35/40**
-  - Strong, usable executive brief with good information architecture.
-  - Deduction for conventional editorial personality and the small quantitative/summary issues.
+  - Usable, polished, and clear, but still more conventional than the strongest artifacts and still contains the same small evidence defects.
 
 - **Working fit / conversation — 15/20**
-  - Initial response was concise and useful, but the owner had to ask for the actual PDF.
-  - Follow-up artifact link used a local filesystem path, creating avoidable friction.
+  - Fast and low-ceremony, but the Stage 1 delivery friction remains relevant and Stage 2 response prose was not preserved.
 
 - **Judgment and scope control — 15/15**
-  - Stayed within the supplied packet and did not expand into unsupported claims.
+  - Stayed within the supplied packet and maintained the intended evidence boundaries.
 
 - **Evidence / reliability discipline — 8/10**
-  - Most values and boundaries are preserved correctly.
-  - Deduction for repeated `two-point band` wording and the ambiguous `2 trial task` summary tile.
+  - Most values and caveats are correct, but the repeated `two-point band` wording and ambiguous trial-count tile persist.
 
-Stage 2 determines creative steering responsiveness and final known /90 score.
+- **Correction burden / steering responsiveness — 2/5**
+  - Revision made a visible but limited improvement and did not catch the known quantitative/summary issues despite an explicit correction instruction.
 
 ## Efficiency
 
-**CONFIRMED RAW VISIBLE STAGE-1 INTERVAL: 0 pp 5-hour / 0 pp weekly (55/53 -> 55/53).**
+**Comparative efficiency score pending.** Raw Luna snapshots show 0 pp / 0 pp displayed movement across both confirmed post-start intervals, but meter lag and rounding prevent interpreting this as zero usage. Preserve the observation as telemetry rather than converting it to compute or token cost.
 
-This supersedes only the earlier **causal interpretation**, not the preserved historical observation that the broader 12:59-to-13:16 window moved 16/2. The new pre-Luna screenshot proves that broader drop occurred before Luna began.
+## Provisional role signal
+
+**FAST PRACTICAL ARTIFACT WORKER / LOW-CEREMONY SYNTHESIZER**
+
+Luna remains attractive for bounded, economical work, but on this editorial-document trial it did not match Astra's authorship, self-correction, or steering response.
