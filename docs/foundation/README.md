@@ -35,50 +35,68 @@ No model, reviewer, external service, repository document, or historical artifac
 
 ### HOS-DOC-001 — Document Workflow / Registry candidate
 
-- `HOS-DOC-001_PREFLIGHT.md` — duplicate/identity/authority/privacy preflight for the candidate Instrument.
-- `HD-0100_HumanOS_Document_and_Artifact_Governance_v0.1.md` — candidate human-readable Instrument; **not ratified**.
-- `HD-0100_Document_Registry_Schema_v0.1.yaml` — non-authoritative structured projection.
-- `HD-0100_Artifact_Registry_Schema_v0.1.yaml` — non-authoritative structured projection.
-- `HOS-DOC-001_SLICE_VERIFICATION.md` — bounded verification/evidence record for this documentation slice.
+- `HOS-DOC-001_PREFLIGHT.md`
+- `HD-0100_HumanOS_Document_and_Artifact_Governance_v0.1.md` — candidate; **not ratified**.
+- `HD-0100_Document_Registry_Schema_v0.1.yaml` — non-authoritative projection.
+- `HD-0100_Artifact_Registry_Schema_v0.1.yaml` — non-authoritative projection.
+- `HOS-DOC-001_SLICE_VERIFICATION.md`
 
 ### HOS-GOV-001 — Constitutional Branches reconciliation
 
-- `HOS-GOV-001_PREFLIGHT.md` — prevents creation of a duplicate government/separation-of-functions Instrument.
-- `HOS-GOV-001_BRANCHES_RECONCILIATION.md` — reconciles the historical Constitutional Branches / Review Court charter with current local-first, FRIENDS, and resource-governance concepts; **not constitutional law and not ratification**.
+- `HOS-GOV-001_PREFLIGHT.md`
+- `HOS-GOV-001_BRANCHES_RECONCILIATION.md` — historical-source reconciliation; **not constitutional law and not ratification**.
+- `HOS-GOV-001_SLICE_VERIFICATION.md`
+
+### HOS-CONST-001 — Local Constitutional Baseline reconciliation
+
+- `HOS-CONST-001_PREFLIGHT.md` — confirms successor/reconciliation operation and source boundary.
+- `HOS-CONST-001_RECONCILIATION_MATRIX.md` — compares the August ratified Constitution, HF-0200 reconstruction, Foundation ratification, local transition, HOS-GOV-001, HD-0100, and current owner direction.
+- `HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc1.md` — **local constitutional candidate; NOT RATIFIED**.
+- `HOS-CONST-001_FRIENDS_CHALLENGE_PACKET.md` — independent challenge/resilience packet; **ready but not executed**.
+- `HOS-CONST-001_SLICE_VERIFICATION.md` — evidence/limitations for this slice.
 
 ## Local-first rule
 
-HumanOS is built, tested, and canonically controlled locally. Git is the version-controlled code/documentation record. Private evidence, Notebook content, secrets, sensitive model transcripts, and protected artifact-vault contents do not belong in the public repository.
+HumanOS is built, tested, and canonically controlled locally. Git is the version-controlled engineering and sanitized governance record. Private evidence, Notebook content, secrets, sensitive model transcripts, and protected artifact-vault contents do not belong in the public repository.
 
 External services may research, review, challenge, or propose. They do not directly mutate constitutional authority, permissions, or canonical runtime state.
 
-## Current slice status
+## Current candidate state
 
-### HOS-DOC-001
+### HD-0100
 
-Document/Artifact governance candidate is drafted and registered. It remains **CANDIDATE / NOT RATIFIED / NOT IMPLEMENTED**.
+Document/Artifact governance is **CANDIDATE / NOT RATIFIED / NOT IMPLEMENTED**.
 
-### HOS-GOV-001
+### Government / branches
 
-Historical branch/government architecture has been reconciled as source lineage. The key outcome is deliberately conservative:
+The historical government architecture has been reconciled as source lineage. Human sovereignty; branches as functions rather than personalities; standards/rulemaking, executive/runtime, judicial/review, investigation, and oversight separation; external AI subordination; due process; and explicit human ratification are preserved without creating a second government Instrument.
 
-> Reuse the existing separation-of-functions architecture; do not create a competing government Instrument before the local constitutional baseline is reconciled.
+### HF-0200 v0.2-rc1
 
-Durable concepts retained for the next constitutional slice include human sovereignty; branches as functions rather than personalities; legislative/standards, executive/runtime, judicial/review, investigation, and oversight separation; external AI subordination; due process; and explicit human ratification.
+The local constitutional candidate preserves the durable August Constitution while adding or clarifying only constitutional-level issues identified during reconciliation:
 
-New clarifications include FRIENDS as challengers rather than the Court, location-neutral governance modules, no model/provider office by capability, and no resource-router power to weaken safeguards.
+- historical ratification remains historical provenance rather than automatic local ratification;
+- current governing authority is local-first and human-controlled;
+- third-party dignity is explicit;
+- truthful status and false-memory protections are stronger;
+- Mirror is the primary continuity/executive identity rather than an exclusive recovery monopoly;
+- emergency stays must be bounded and owner-visible;
+- documents, source evidence, representations, and registry metadata cannot silently impersonate one another;
+- FRIENDS/reviewers may challenge but do not become constitutional authorities;
+- models cannot self-certify authority;
+- scarcity, tokens, price, quotas, or provider retirement may alter routing but not rights;
+- historical readiness claims are not inherited as current local readiness.
 
-## Next active slice
+The candidate remains **NOT RATIFIED**.
 
-**HOS-CONST-001 — Local Constitutional Baseline Reconciliation**
+## Current active slice / one next action
 
-Scope should remain documentary and bounded:
+**Execute the HOS-CONST-001 FRIENDS Constitutional Challenge against an immutable candidate commit, preserving raw independent first-pass reviews before synthesis.**
 
-1. preserve the historically ratified Founding Constitution v0.2 as source/preflight evidence;
-2. compare it against HF-0200 Reconstruction Candidate;
-3. incorporate controlling Foundation ratification records and current local authority transition;
-4. incorporate HOS-GOV-001 separation-of-functions findings without creating parallel sovereignty;
-5. identify conflicts, additions, omissions, and unresolved questions;
-6. produce one reviewable local constitutional baseline **candidate**;
-7. keep it unratified until explicit Jon approval;
-8. only after that baseline stabilizes should FRIENDS constitutional challenge and adversarial resilience testing be promoted into the formal review workflow.
+After challenge:
+
+1. dispose CRITICAL/HIGH findings;
+2. version HF-0200 if repairs are required;
+3. present the exact final candidate plus unresolved risks for Jon’s explicit local ratification or rejection;
+4. reconcile HD-0100 and later Foundation Instruments against the locally ratified constitutional baseline;
+5. then return to the interrupted implementation sequence instead of continuing architecture indefinitely.
