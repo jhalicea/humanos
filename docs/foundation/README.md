@@ -23,32 +23,53 @@ It does not erase or rewrite the earlier ChatGPT / Google Drive Foundation perio
 
 No model, reviewer, external service, repository document, or historical artifact can grant itself authority.
 
-## Controlled records in this slice
+## Controlled records
+
+### Foundation Registry & Document-Control Recovery
 
 - `MASTER_FOUNDATION_REGISTER.md` — identity/status registry for Foundation instruments.
 - `LOCAL_AUTHORITY_AND_BOOTSTRAP_TRANSITION.md` — transition rule from historical ChatGPT/Drive bootstrap to local-first governance.
 - `IDENTIFIER_AND_LIFECYCLE_STANDARD.md` — stable ID, chronology, lifecycle, and representation rules.
 - `FDR-0004_CORRECTION_RECORD.md` — non-destructive correction for the mistaken HF-0100-unresolved claim.
+- `SLICE_VERIFICATION.md` — evidence and limitations for the initial registry-recovery slice.
+
+### HOS-DOC-001 — Document Workflow / Registry candidate
+
+- `HOS-DOC-001_PREFLIGHT.md` — duplicate/identity/authority/privacy preflight for the candidate Instrument.
+- `HD-0100_HumanOS_Document_and_Artifact_Governance_v0.1.md` — candidate human-readable Instrument; **not ratified**.
+- `HD-0100_Document_Registry_Schema_v0.1.yaml` — non-authoritative structured projection.
+- `HD-0100_Artifact_Registry_Schema_v0.1.yaml` — non-authoritative structured projection.
+- `HOS-DOC-001_SLICE_VERIFICATION.md` — bounded verification/evidence record for this documentation slice.
 
 ## Local-first rule
 
-HumanOS is built, tested, and canonically controlled locally. Git is the version-controlled code/documentation record. Private evidence, Notebook content, secrets, and sensitive artifacts do not belong in the public repository.
+HumanOS is built, tested, and canonically controlled locally. Git is the version-controlled code/documentation record. Private evidence, Notebook content, secrets, sensitive model transcripts, and protected artifact-vault contents do not belong in the public repository.
 
 External services may research, review, challenge, or propose. They do not directly mutate constitutional authority, permissions, or canonical runtime state.
 
 ## Current active slice
 
-**Foundation Registry & Document-Control Recovery**
+**HOS-DOC-001 — Document Workflow / Document Registry / Artifact Registry governance candidate**
 
 Done criteria for this slice:
 
-- one Foundation register exists;
-- prior stable IDs are preserved;
-- historical ratification is distinguished from local re-ratification;
-- HF-0100 retrieval error is corrected without deleting history;
-- no document is silently promoted to local ratified authority;
-- the next Foundation/document artifact can be created without creating a competing source of truth.
+- preflight confirms the work is not an accidental duplicate;
+- historical document-control standards are reused as lineage rather than silently replaced;
+- the Document Registry and Artifact Registry have distinct contracts;
+- Instruments, representations, artifacts, and registry records are distinguished;
+- historical authority, local authority, implementation, and verification remain separate;
+- current candidate status is visible and no runtime capability is claimed;
+- private data boundaries are preserved;
+- rollback is branch non-promotion/reversion.
 
-## Next action after this slice
+## Important recovered governance source
 
-Resume the interrupted Foundation-document sequence with the governed Document Workflow / Document Registry design, then reconcile the remaining planned Foundation instruments before runtime enforcement work resumes.
+The August 2026 `Constitutional Branches, Review Court, and Governance Runtime Charter v0.1` already defines legislative, executive, judicial/review, investigation, and meta-investigation functions under human sovereignty. It is historical bootstrap/preflight evidence, not automatically current local law.
+
+Therefore HumanOS should **reconcile that charter next rather than create a competing new government/separation-of-functions standard**.
+
+## Next action after HOS-DOC-001
+
+Review HD-0100 as a candidate. Do not ratify it implicitly.
+
+Then open a bounded reconciliation slice for the existing Constitutional Branches / Review Court charter, integrating the newer FRIENDS challenge model and local-first authority rules without duplicating the government architecture.
