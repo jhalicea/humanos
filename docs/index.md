@@ -5,6 +5,7 @@ HumanOS is a local-first personal AI runtime and applied research project focuse
 ## Start here
 
 - [Getting started](getting-started.md)
+- [Developer environment](developer-environment.md)
 - [Architecture](architecture.md)
 - [Security and privacy](security-and-privacy.md)
 - [Life Notebook](life-notebook.md)
