@@ -1,0 +1,142 @@
+# Non-authoritative structured projection of HD-0100 v0.1.
+# Canonical meaning remains in HD-0100_HumanOS_Document_and_Artifact_Governance_v0.1.md.
+# Status: CANDIDATE / NOT RATIFIED / NOT IMPLEMENTED.
+
+schema_id: HD-0100-DOCREG-SCHEMA
+schema_version: "0.1"
+source_instrument: HD-0100
+source_instrument_version: "0.1"
+projection_status: candidate
+canonical_meaning_source: HD-0100_HumanOS_Document_and_Artifact_Governance_v0.1.md
+
+required_concepts:
+  - instrument_id
+  - title
+  - version
+  - instrument_family
+  - canonical_role
+  - historical_authority_state
+  - local_authority_state
+  - implementation_state
+  - verification_state
+  - owner
+  - classification
+
+record:
+  instrument_id:
+    type: string
+    description: Stable semantic Instrument identity; not chronology or location.
+  title:
+    type: string
+    description: Canonical human-readable title.
+  version:
+    type: string
+    description: Controlled content revision.
+  instrument_family:
+    type: string
+    suggested_values:
+      - foundation
+      - constitution
+      - workflow
+      - engineering
+      - documents
+      - standards
+      - kernel
+      - research
+      - other
+  canonical_role:
+    type: string
+    description: Role and scope for which the Instrument may govern.
+  historical_authority_state:
+    type: string
+    suggested_values:
+      - ratified
+      - candidate
+      - draft
+      - superseded
+      - rejected
+      - unknown
+  local_authority_state:
+    type: string
+    suggested_values:
+      - discovered
+      - imported
+      - reconciled
+      - candidate
+      - ratified
+      - superseded
+      - rejected
+      - archived
+      - disputed
+  implementation_state:
+    type: string
+    suggested_values:
+      - documented
+      - planned
+      - prototype
+      - implemented
+      - tested
+      - verified
+      - unknown
+  verification_state:
+    type: string
+    suggested_values:
+      - unverified
+      - partial
+      - verified_source
+      - verified_reconciliation
+      - failed
+      - disputed
+  owner:
+    type: string
+  canonical_human_source:
+    type: [string, 'null']
+  representations:
+    type: array
+    item_fields:
+      - artifact_id
+      - representation_type
+      - locator
+      - hash_ref
+      - verification_state
+  source_refs:
+    type: array
+  predecessor_refs:
+    type: array
+  successor_refs:
+    type: array
+  supersession_scope:
+    type: [string, 'null']
+  aliases:
+    type: array
+  external_locations:
+    type: array
+  hash_refs:
+    type: array
+  classification:
+    type: string
+    suggested_values:
+      - public
+      - internal
+      - private
+      - restricted
+      - unknown
+  created_at:
+    type: [string, 'null']
+  effective_at:
+    type: [string, 'null']
+  ratified_at:
+    type: [string, 'null']
+  last_verified_at:
+    type: [string, 'null']
+
+invariants:
+  - registration_is_not_ratification
+  - recency_is_not_authority
+  - location_is_not_identity
+  - historical_authority_is_separate_from_local_authority
+  - implementation_state_is_separate_from_authority
+  - verification_state_is_separate_from_authority
+  - representations_do_not_self_promote
+  - supersession_preserves_lineage
+  - unknown_values_are_not_invented
