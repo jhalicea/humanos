@@ -4,6 +4,7 @@ HumanOS is a local-first personal AI runtime and applied research project focuse
 
 ## Start here
 
+- [Foundation control plane](foundation/README.md)
 - [Getting started](getting-started.md)
 - [Architecture](architecture.md)
 - [Security and privacy](security-and-privacy.md)
@@ -18,6 +19,10 @@ HumanOS is a local-first personal AI runtime and applied research project focuse
 ## Capability labels
 
 HumanOS documentation distinguishes **verified**, **tested**, **implemented**, **documented**, **specified**, and **planned** work. A design document is not proof of runtime behavior; tests, repository history, and runtime readback provide the evidence.
+
+## Foundation / governance boundary
+
+The local Foundation control plane separates historical/bootstrap authority from current local authority. Historical ChatGPT/Drive artifacts may be preserved as evidence without silently becoming current local law. See the Master Foundation Register before creating or promoting new Foundation instruments.
 
 ## Public-documentation boundary
 
