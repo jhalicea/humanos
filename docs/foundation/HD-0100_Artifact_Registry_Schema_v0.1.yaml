@@ -1,0 +1,163 @@
+# Non-authoritative structured projection of HD-0100 v0.1.
+# Canonical meaning remains in HD-0100_HumanOS_Document_and_Artifact_Governance_v0.1.md.
+# Status: CANDIDATE / NOT RATIFIED / NOT IMPLEMENTED.
+
+schema_id: HD-0100-ARTREG-SCHEMA
+schema_version: "0.1"
+source_instrument: HD-0100
+source_instrument_version: "0.1"
+projection_status: candidate
+canonical_meaning_source: HD-0100_HumanOS_Document_and_Artifact_Governance_v0.1.md
+
+required_concepts:
+  - artifact_id
+  - artifact_type
+  - artifact_role
+  - owner_domain
+  - classification
+  - canonical_status
+  - verification_state
+
+record:
+  artifact_id:
+    type: string
+    description: Stable non-secret local artifact identity. ART-* namespace reserved; suffix strategy not yet ratified.
+  label:
+    type: [string, 'null']
+  safe_label:
+    type: [string, 'null']
+  artifact_type:
+    type: string
+    suggested_values:
+      - document
+      - pdf
+      - image
+      - audio
+      - video
+      - model_output
+      - test_log
+      - dataset
+      - report
+      - code_snapshot
+      - configuration
+      - archive
+      - other
+  artifact_role:
+    type: string
+    suggested_values:
+      - source_evidence
+      - canonical_source
+      - representation
+      - derivative
+      - working_copy
+      - review
+      - test_evidence
+      - backup
+      - publication
+      - archive
+      - external_authority
+      - other
+  owner_domain:
+    type: string
+  classification:
+    type: string
+    suggested_values:
+      - public
+      - internal
+      - private
+      - restricted
+      - unknown
+  canonical_status:
+    type: string
+    suggested_values:
+      - canonical_for_role
+      - noncanonical_reference
+      - derivative
+      - replica
+      - backup
+      - external_authority
+      - unknown
+  canonical_home:
+    type: [string, 'null']
+    description: Logical role/location or external authoritative system; not the artifact identity.
+  locators:
+    type: array
+    item_fields:
+      - locator_type
+      - provider
+      - value
+      - status
+      - first_seen
+      - last_verified
+  source_artifact_ids:
+    type: array
+  derived_artifact_ids:
+    type: array
+  related_instrument_ids:
+    type: array
+  creator:
+    type: string
+    suggested_values:
+      - human
+      - model_runtime
+      - script
+      - external_service
+      - organization
+      - unknown
+  provider_model_metadata:
+    type: object
+    optional_fields:
+      - provider
+      - product
+      - model
+      - version
+      - runtime
+      - task_id
+      - role
+      - timestamp
+      - assumptions
+      - unknowns
+      - disposition
+  created_at:
+    type: [string, 'null']
+  captured_at:
+    type: [string, 'null']
+  last_verified_at:
+    type: [string, 'null']
+  hashes:
+    type: array
+    item_fields:
+      - algorithm
+      - value
+  size_bytes:
+    type: [integer, 'null']
+  verification_state:
+    type: string
+    suggested_values:
+      - unverified
+      - partial
+      - verified_source
+      - verified_integrity
+      - failed
+      - disputed
+  retention_state:
+    type: string
+    suggested_values:
+      - active
+      - archived
+      - deletion_pending
+      - deleted_with_tombstone
+      - external_only
+  notes:
+    type: [string, 'null']
+
+invariants:
+  - source_and_derivative_are_distinct
+  - raw_model_output_and_synthesis_are_distinct
+  - hash_proves_bytes_not_truth_or_authority
+  - locator_change_does_not_change_identity
+  - external_storage_does_not_create_humanos_authority
+  - private_content_is_not_copied_to_public_registry_for_convenience
+  - missing_metadata_remains_unknown
+  - model_output_cannot_self_ratify
+  - deleted_or_hidden_content_follows_governing_privacy_rules
