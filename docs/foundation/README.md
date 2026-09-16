@@ -41,35 +41,44 @@ No model, reviewer, external service, repository document, or historical artifac
 - `HD-0100_Artifact_Registry_Schema_v0.1.yaml` — non-authoritative structured projection.
 - `HOS-DOC-001_SLICE_VERIFICATION.md` — bounded verification/evidence record for this documentation slice.
 
+### HOS-GOV-001 — Constitutional Branches reconciliation
+
+- `HOS-GOV-001_PREFLIGHT.md` — prevents creation of a duplicate government/separation-of-functions Instrument.
+- `HOS-GOV-001_BRANCHES_RECONCILIATION.md` — reconciles the historical Constitutional Branches / Review Court charter with current local-first, FRIENDS, and resource-governance concepts; **not constitutional law and not ratification**.
+
 ## Local-first rule
 
 HumanOS is built, tested, and canonically controlled locally. Git is the version-controlled code/documentation record. Private evidence, Notebook content, secrets, sensitive model transcripts, and protected artifact-vault contents do not belong in the public repository.
 
 External services may research, review, challenge, or propose. They do not directly mutate constitutional authority, permissions, or canonical runtime state.
 
-## Current active slice
+## Current slice status
 
-**HOS-DOC-001 — Document Workflow / Document Registry / Artifact Registry governance candidate**
+### HOS-DOC-001
 
-Done criteria for this slice:
+Document/Artifact governance candidate is drafted and registered. It remains **CANDIDATE / NOT RATIFIED / NOT IMPLEMENTED**.
 
-- preflight confirms the work is not an accidental duplicate;
-- historical document-control standards are reused as lineage rather than silently replaced;
-- the Document Registry and Artifact Registry have distinct contracts;
-- Instruments, representations, artifacts, and registry records are distinguished;
-- historical authority, local authority, implementation, and verification remain separate;
-- current candidate status is visible and no runtime capability is claimed;
-- private data boundaries are preserved;
-- rollback is branch non-promotion/reversion.
+### HOS-GOV-001
 
-## Important recovered governance source
+Historical branch/government architecture has been reconciled as source lineage. The key outcome is deliberately conservative:
 
-The August 2026 `Constitutional Branches, Review Court, and Governance Runtime Charter v0.1` already defines legislative, executive, judicial/review, investigation, and meta-investigation functions under human sovereignty. It is historical bootstrap/preflight evidence, not automatically current local law.
+> Reuse the existing separation-of-functions architecture; do not create a competing government Instrument before the local constitutional baseline is reconciled.
 
-Therefore HumanOS should **reconcile that charter next rather than create a competing new government/separation-of-functions standard**.
+Durable concepts retained for the next constitutional slice include human sovereignty; branches as functions rather than personalities; legislative/standards, executive/runtime, judicial/review, investigation, and oversight separation; external AI subordination; due process; and explicit human ratification.
 
-## Next action after HOS-DOC-001
+New clarifications include FRIENDS as challengers rather than the Court, location-neutral governance modules, no model/provider office by capability, and no resource-router power to weaken safeguards.
 
-Review HD-0100 as a candidate. Do not ratify it implicitly.
+## Next active slice
 
-Then open a bounded reconciliation slice for the existing Constitutional Branches / Review Court charter, integrating the newer FRIENDS challenge model and local-first authority rules without duplicating the government architecture.
+**HOS-CONST-001 — Local Constitutional Baseline Reconciliation**
+
+Scope should remain documentary and bounded:
+
+1. preserve the historically ratified Founding Constitution v0.2 as source/preflight evidence;
+2. compare it against HF-0200 Reconstruction Candidate;
+3. incorporate controlling Foundation ratification records and current local authority transition;
+4. incorporate HOS-GOV-001 separation-of-functions findings without creating parallel sovereignty;
+5. identify conflicts, additions, omissions, and unresolved questions;
+6. produce one reviewable local constitutional baseline **candidate**;
+7. keep it unratified until explicit Jon approval;
+8. only after that baseline stabilizes should FRIENDS constitutional challenge and adversarial resilience testing be promoted into the formal review workflow.
