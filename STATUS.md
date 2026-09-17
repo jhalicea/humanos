@@ -1,24 +1,19 @@
 # HumanOS Status Snapshot
 
-Status: VERIFIED IMPLEMENTATION / PROMOTION PENDING
+Status: PROMOTED / CANONICAL RUNTIME BASELINE
 Date: 2026-09-17
 Global routing/index control plane: GitHub issue #67
-Current branch: `feature/context-runtime-routing-v1`
+Current canonical branch: `runtime-0.1`
+HOS-CTX-002 promotion PR: #69
+Promotion merge commit: `cd1075fdf0407588b6808bcc50b08325f8b4130a`
 
-This file is the commit-scoped status snapshot for this workstream/session. HumanOS may have multiple open workstreams; unrelated work remains independently preserved.
+This file is the commit-scoped status snapshot for the canonical HumanOS runtime branch. HumanOS may have multiple open workstreams; no unrelated stream is implicitly paused or made active by this promotion.
 
-## Selected workstream
+## Promoted foundation/context capability
 
-- Work order: `HOS-CTX-002 — Runtime Context Routing Bridge`
-- Workspace: `WS-HUMANOS`
-- Parent: promoted `HOS-CTX-001`
-- Baseline: `runtime-0.1` at `aa7a81f00ab21cb6c582391d41603b84b70c5f7f`
-- Verified implementation commit: `ae8edd93c20e6bc98ad3ab32ea500575fc220b6d`
-- State: **VERIFIED / PROMOTION PENDING**
+`HOS-FND-001`, `HOS-CTX-001`, and `HOS-CTX-002` are promoted into `runtime-0.1`.
 
-## What this slice makes operational
-
-Normal Mirror turns now have a deterministic Context Registry gate before model/tool execution:
+HOS-CTX-002 makes the promoted development Context Registry operational for normal Mirror turns before model/tool execution:
 
 1. inspect the exact request without rewriting it;
 2. determine whether development-context routing applies;
@@ -46,14 +41,13 @@ Ordinary conversation with no registry relevance proceeds normally.
 - `server_core.py`: preserved pre-bridge runtime implementation used by the composition layer;
 - `tests/test_context_runtime_bridge.py`: focused bridge/security tests.
 
-## Verification evidence
+## Promotion evidence
 
-Exact implementation commit `ae8edd93c20e6bc98ad3ab32ea500575fc220b6d` passed:
-
-- HumanOS regression workflow run `35268955403`: Ubuntu 24.04 + macOS 15, Python 3.11 + 3.13;
-- encrypted-backup/full-suite run `35268955541`: the same four OS/Python combinations.
-
-The exact implementation diff was reviewed. It does not add Life Notebook transcripts, credentials, real confidential client/employer identities, private local roots, or proprietary workspace data.
+- Exact implementation commit: `ae8edd93c20e6bc98ad3ab32ea500575fc220b6d`.
+- HumanOS regression workflow run `35268955403`: Ubuntu 24.04 + macOS 15, Python 3.11 + 3.13 — passed.
+- Encrypted-backup/full-suite run `35268955541`: the same four OS/Python combinations — passed.
+- PR #69 merged the verified candidate into `runtime-0.1` at `cd1075fdf0407588b6808bcc50b08325f8b4130a`.
+- No Life Notebook transcripts, credentials, real confidential client/employer identities, private local roots, or proprietary workspace data were introduced.
 
 ## Known boundaries
 
@@ -65,11 +59,11 @@ The exact implementation diff was reviewed. It does not add Life Notebook transc
 
 ## Continuity behavior
 
-Jon does not need to say “continue HumanOS.” For HumanOS development, use issue #67 plus the context registry to determine workspace and related workstream before implementation. HOS-CTX-002 itself is now the relevant stream for runtime/Mirror context-routing changes.
+Jon does not need to say “continue HumanOS.” For HumanOS development, use issue #67 plus the context registry to determine workspace and related workstream before implementation. Repository evidence outranks mutable registry/index metadata if they disagree.
 
 ## Next action
 
-Jon decides whether to promote/merge this verified HOS-CTX-002 candidate into `runtime-0.1`. Do not merge automatically.
+Route the next actual HumanOS request through the promoted runtime context bridge. Create a new bounded context workstream only when a concrete gap requires one; do not reopen HOS-CTX-001 or HOS-CTX-002 as unlimited feature streams.
 
 ## Privacy boundary
 
