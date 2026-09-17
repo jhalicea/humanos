@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import sys
 
+from server_core import *  # Preserve the original server module's public API.
 import server_core as _core
 from context_runtime import RuntimeContextRouter
 from permissions import task_scope
