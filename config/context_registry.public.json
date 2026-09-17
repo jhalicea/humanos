@@ -37,14 +37,14 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-runtime-routing-v1",
       "work_order": "docs/work-orders/HOS-CTX-002.md",
-      "status": "PROMOTION_PENDING",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": ["context", "runtime", "routing", "mirror", "workspace", "workstream", "continuity", "chatgpt", "development"],
       "components": ["context_runtime.py", "server.py", "server_core.py", "tests/test_context_runtime_bridge.py", "config/context_registry.public.json", "docs/work-orders/HOS-CTX-002.md"],
       "relations": [{"relation": "EXTENDS", "target_workstream_id": "HOS-CTX-001"}],
       "last_verified_commit": "ae8edd93c20e6bc98ad3ab32ea500575fc220b6d",
-      "resume_point": "Verified runtime bridge routes normal Mirror turns before model/tool execution, preserves exact input, redacts private workstream details from model context, and fails closed across ambiguous workspace boundaries.",
-      "next_action": "Jon decides whether to promote the verified HOS-CTX-002 candidate into runtime-0.1."
+      "resume_point": "Promoted into runtime-0.1 by PR #69 at merge commit cd1075fdf0407588b6808bcc50b08325f8b4130a. Normal Mirror turns now route through the deterministic Context Registry bridge before model/tool execution, with private routing metadata redaction and fail-closed workspace ambiguity.",
+      "next_action": "No direct continuation required; route future requests through the promoted bridge and create a new bounded context workstream only when a concrete gap requires one."
     },
     {
       "workstream_id": "HOS-FND-001",
