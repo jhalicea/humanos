@@ -1,85 +1,67 @@
 # HOS-FND-001 — Foundation Workflow & Cross-Chat Continuity
 
-Status: ACTIVE
+Status: VERIFIED CANDIDATE / AMENDED BY HOS-CTX-001
 Branch: `foundation/workflow-continuity-v1`
-Live operational cursor: GitHub issue #67
-Owner instruction: organize HumanOS so Agile, SDLC, artifact tracking, and cross-chat continuation operate as one coherent workflow with no loose parallel processes.
+Live operational index: GitHub issue #67
+
+> Amendment, 2026-09-17: HOS-CTX-001 supersedes the original global WIP=1 and
+> single-active-slice continuation rule. The durable parts of this work order
+> remain valid: repository-driven continuity, SDLC evidence, work orders, status
+> snapshots, artifact governance, and owner promotion gates. Current routing is
+> workspace/topic aware and permits multiple preserved/open workstreams.
 
 ## Outcome
 
-Create a minimal control plane that lets a new HumanOS chat/session reliably recover the current implementation state from repository evidence instead of conversational memory, while enforcing one ACTIVE slice and one NEXT ACTION.
+Create a minimal control plane that lets a new HumanOS chat/session recover
+implementation state from repository evidence instead of conversational memory.
 
 ## Baseline
 
 - Base branch: `runtime-0.1`
 - Baseline commit: `9ddc6477bba70dd4c86104a0565da848d7cbacff`
 - Foundation Contract v0.1 is ratified but incrementally implemented.
-- `AGENTS.md` already defines repository preservation and core SDLC rules.
-- Work orders, reviews, CI, and documentation exist, but no single live operational cursor/WIP state model previously tied them together.
-- HOS-MAL-001 is preserved on `experiment/webllm-inspired-model-loader` at reviewed commit `018c9c57e40e91395defe6222f38bd2b99c83905` and is PAUSED while this slice is ACTIVE.
+- `AGENTS.md` already defined repository preservation and core SDLC rules.
+- Work orders, reviews, CI, and documentation existed before this slice.
 
-## Scope
+## Preserved results
 
-Included:
+HOS-FND-001 established:
 
-- one live cross-chat Control Room issue;
-- one commit-scoped root `STATUS.md` fallback/snapshot;
-- one unified Lean Agile + HumanOS SDLC workflow standard;
-- strict WIP limit of one ACTIVE implementation slice;
-- explicit state vocabulary and Definition of Ready/Done;
-- one artifact register and placement rules;
-- start-of-session and end-of-session continuation procedure;
-- update `AGENTS.md` so repository work follows the continuity/control-plane rules;
-- documentation index links;
-- preserve paused/deferred work with explicit resume points.
+- GitHub issue #67 as a durable cross-chat control surface;
+- root `STATUS.md` branch snapshots;
+- a unified Lean Agile + HumanOS SDLC standard;
+- explicit lifecycle states and Definition of Ready/Done;
+- an artifact register and placement rules;
+- start/end-of-session evidence preservation;
+- updates to `AGENTS.md`;
+- CI-backed verification on the exact candidate commit.
 
-Excluded:
+Verified candidate commit:
+`c5abd74572b8a4fde2b3c4fdaaf7e5035829dcb2`
 
-- modifying runtime behavior;
-- changing the Life Notebook storage model;
-- automatic ChatGPT memory synchronization;
-- automatic GitHub issue updates by local HumanOS runtime;
-- merging/promoting without Jon approval;
-- resuming the model-loader implementation in this slice;
-- creating a second backlog/project-management system.
+## Superseded assumptions
 
-## Lean Agile model
+The following original assumptions are superseded by HOS-CTX-001:
 
-Use Kanban-style flow with `BACKLOG`, `READY`, `ACTIVE`, `BLOCKED`, `PAUSED`, `REVIEW`, `VERIFIED`, `PROMOTION_PENDING`, `PROMOTED`, and `DEFERRED` states. Exactly one implementation slice may be ACTIVE. Issue #67 holds the live cursor. Work orders hold slice contracts. Evidence lives in commits/tests/CI/reviews/runtime readback.
+- one global ACTIVE implementation slice for all HumanOS work;
+- one global NEXT ACTION for all HumanOS work;
+- requiring a new chat to begin from the globally ACTIVE branch;
+- treating issue #67 primarily as a single-task cursor.
 
-## Acceptance criteria
+Current behavior is defined in `docs/foundation/WORKFLOW_STANDARD.md` and
+`docs/foundation/CONTEXT_REGISTRY.md`.
 
-1. GitHub issue #67 exists and identifies one ACTIVE slice, one NEXT ACTION, paused/deferred work, branch, and evidence references.
-2. Root `STATUS.md` documents the same active slice and continuation fallback without becoming a competing live ledger.
-3. `docs/foundation/WORKFLOW_STANDARD.md` unifies Agile flow, WIP=1, SDLC, continuation, multi-model review, evidence, and promotion gates.
-4. `docs/foundation/ARTIFACT_REGISTER.md` maps durable artifacts and forbids a second operational status ledger.
-5. `AGENTS.md` requires HumanOS work to read/reconcile Control Room + STATUS + active work order before implementation and update continuity state after meaningful work.
-6. `docs/index.md` links the new foundation workflow/control documents.
-7. No runtime source code or Notebook data is changed by this slice.
-8. Full regression CI remains green on the exact branch commit.
-9. Diff review confirms no conflicting workflow authority, privacy regression, or second source of truth was introduced.
-10. Control Room issue #67 is updated with the exact tested commit and the single next action after verification.
+## Security/preservation rules that remain in force
 
-## Risks and controls
-
-- **Drift between issue and STATUS:** issue is live cursor; STATUS is commit snapshot. Any conflict stops implementation until reconciled.
-- **Issue unavailable offline:** STATUS + work order provide fallback; do not guess newer state.
-- **Process overhead:** WIP=1 and one NEXT ACTION keep the control plane intentionally small.
-- **Repository pollution:** project metadata only; private Life Notebook/personal evidence remains outside Git.
-- **False continuity claim:** a new chat still has to read issue #67/repo evidence; this workflow does not claim invisible automatic memory transfer.
+- repository evidence outranks conversational memory;
+- private Life Notebook/client/employer content stays out of the public repository;
+- meaningful changes use focused branches and bounded acceptance criteria;
+- tests, diff review, exact commits, and runtime readback establish implementation truth;
+- consequential merge/release still requires Jon's approval;
+- paused/unknown work is preserved with explicit resume state rather than forgotten.
 
 ## Rollback
 
-Before promotion, rollback is branch deletion. Issue #67 can be updated to point back to the previously active preserved slice. No production runtime data is modified.
-
-## Verification plan
-
-- inspect final diff against baseline;
-- confirm files/links/state terminology are internally consistent;
-- run `python3 -m unittest discover -s tests -v` through CI on the exact commit;
-- confirm no runtime files changed;
-- update issue #67 with exact commit and CI result.
-
-## Next action
-
-Complete the foundation files and `AGENTS.md`/docs-index integration, commit atomically, run CI, review the diff, then update issue #67. Do not merge until Jon approves promotion.
+This historical work order remains preserved for provenance. HOS-CTX-001 is a
+separate child branch and can be rolled back independently without rewriting this
+candidate's verified commit.

@@ -7,3 +7,8 @@ evidence/
 .env
 *.sqlite3*
 .DS_Store
+
+# HumanOS context registry private overlays must stay outside Git.
+config/context_registry.private.json
+context_registry.private.json
+*.context-registry.private.json

@@ -1,48 +1,107 @@
-# HumanOS Lean Agile + SDLC Workflow Standard v1
+# HumanOS Lean Agile + SDLC Workflow Standard v1.1
 
 Status: FOUNDATION STANDARD CANDIDATE
 Scope: repository work, foundation documents, runtime changes, experiments, reviews, and promotions.
 
 ## Purpose
 
-HumanOS uses one workflow, not separate Agile, SDLC, research, and handoff processes. Lean Agile controls flow and work-in-progress; the HumanOS SDLC controls evidence, safety, verification, and promotion.
+HumanOS uses one coherent workflow, but many workstreams may coexist. Lean Agile
+controls flow and work-in-progress inside the selected workstream; the HumanOS SDLC
+controls evidence, safety, verification, and promotion.
 
-The workflow is optimized for small reversible slices, human authority, cross-chat continuity, provider neutrality, and reproducible evidence.
+The workflow is optimized for small reversible slices, human authority, topic-aware
+continuity, workspace isolation, provider neutrality, and reproducible evidence.
+
+## Context hierarchy
+
+Development work is routed through:
+
+`OWNER -> WORKSPACE -> PROJECT -> WORKSTREAM -> WORK ORDER -> BRANCH -> SLICE -> EVIDENCE`
+
+The workspace is a security and ownership boundary. Workspaces support HumanOS
+internal work, personal work, businesses, employers, clients, experiments, and
+research. The development registry is a precursor to the future HumanOS Context Layer.
 
 ## Canonical control surfaces
 
-1. **Live operational cursor:** GitHub issue #67, `HumanOS Control Room — Current State & Continuation`.
-2. **Commit-scoped snapshot:** root `STATUS.md` on the active branch.
-3. **Acceptance contract:** one active file in `docs/work-orders/`.
-4. **Evidence:** tests, CI, commits, diffs, runtime readback, and review artifacts.
-5. **Artifact map:** `docs/foundation/ARTIFACT_REGISTER.md`.
-6. **Historical/personal record:** Life Notebook, outside the public code repository.
+1. **Global router/index:** GitHub issue #67. It points to registry/workstreams and
+   current session focus; it is mutable and is not historical proof.
+2. **Public workspace/workstream registry:** `config/context_registry.public.json`.
+3. **Private overlay:** external/local file selected by
+   `HUMANOS_CONTEXT_PRIVATE_REGISTRY`; never committed.
+4. **Commit-scoped branch snapshot:** root `STATUS.md` on the selected branch.
+5. **Acceptance contract:** applicable file in `docs/work-orders/`.
+6. **Evidence:** tests, CI, commits, diffs, runtime readback, and review artifacts.
+7. **Artifact map:** `docs/foundation/ARTIFACT_REGISTER.md`.
+8. **Historical/personal record:** Life Notebook, outside the public code repository.
 
-No chat memory, model summary, or informal todo list outranks these surfaces for implementation state.
+Chat memory, model summaries, and informal todo lists do not establish implementation truth.
 
-## Lean Agile flow
+## Topic-aware routing before implementation
 
-HumanOS uses a Kanban-style flow with a strict WIP limit of **one ACTIVE implementation slice**.
+For every meaningful request:
 
-Allowed work states:
+1. **Resolve workspace first.** Use explicit context when supplied. If personal,
+   employer, client, or other private contexts are ambiguous, ask before proceeding.
+2. **Discover related work.** Search the registry plus relevant branches/work orders,
+   issues, docs, and evidence inside that workspace.
+3. **Classify the request:**
+   - `CONTINUE` — resume a strong match to unfinished/resumable work.
+   - `EXTEND` — related work exists but the request adds a distinct capability.
+   - `CREATE_SEPARATE` — a new bounded stream is appropriate; preserve links to
+     related work instead of duplicating it.
+   - `AMBIGUOUS` — more than one workspace/workstream is plausible; confirmation
+     is required before implementation.
+4. **Report what was found** and why before changing files.
+5. **Inspect the selected stream** and only then enter the SDLC.
+
+No magic continuation phrase is required.
+
+## Workspace isolation
+
+Schema v1 is fail-closed:
+
+- public/private workspaces have explicit confidentiality classes;
+- cross-workspace policy is `DENY`;
+- workspace-specific code, documents, prompts, business data, credentials, paths,
+  Notebook content, and proprietary artifacts never cross boundaries implicitly;
+- general techniques and public knowledge may be reused without carrying private
+  workspace content;
+- explicit owner authorization is required for any cross-workspace transfer;
+- private overlay metadata may add local/private context but may not redefine a
+  public workspace or weaken the DENY policy;
+- public snapshots must not serialize private-overlay identities or local roots.
+
+## Lean Agile flow and WIP
+
+HumanOS uses a Kanban-style state model:
 
 - `BACKLOG` — captured but not selected.
 - `READY` — bounded, acceptance criteria defined, dependencies known.
-- `ACTIVE` — the one slice currently being implemented.
+- `ACTIVE` — currently being implemented in its own workstream.
 - `BLOCKED` — cannot progress until a named condition is resolved.
-- `PAUSED` — intentionally preserved while another slice is ACTIVE.
-- `REVIEW` — implementation complete enough for diff/security/independent review.
+- `PAUSED` — intentionally preserved with a resume point.
+- `REVIEW` — implementation complete enough for formal review.
 - `VERIFIED` — acceptance criteria and required evidence passed.
-- `PROMOTION_PENDING` — verified, awaiting Jon's approval for consequential merge/release.
-- `PROMOTED` — approved change merged/released and read back.
-- `DEFERRED` — intentionally postponed, not silently abandoned.
+- `PROMOTION_PENDING` — verified and awaiting Jon's promotion decision.
+- `PROMOTED` — approved merge/release and readback complete.
+- `DEFERRED` — intentionally postponed.
+- `UNKNOWN` — branch/workstream exists but status is not yet established by evidence.
+- `ARCHIVED` / `SUPERSEDED` — retained for provenance, not active mutation.
 
-Only Jon can change priority when that would replace the ACTIVE slice or authorize consequential promotion.
+There is **no global WIP=1 rule**. Multiple workstreams can remain open or active
+across separate areas. The operational limit is one focused implementation slice
+per selected workstream/session.
+
+Before concurrent edits in the same repository, compare declared component scopes.
+Overlapping components in another `ACTIVE`, `REVIEW`, or `PROMOTION_PENDING`
+workstream must be reconciled before editing.
 
 ## Definition of Ready
 
-A slice may enter ACTIVE only when its work order states:
+A slice may enter implementation only when its work order or equivalent contract states:
 
+- workspace and workstream identity;
 - desired outcome;
 - bounded scope and explicit exclusions;
 - risks and authority boundary;
@@ -51,89 +110,86 @@ A slice may enter ACTIVE only when its work order states:
 - affected files/components when known;
 - test/evidence plan;
 - rollback path;
-- one next action.
-
-If these are missing, the task is planning/research, not implementation.
+- one next action for that slice.
 
 ## Unified SDLC
 
-Every ACTIVE slice follows this sequence:
+Each selected implementation slice follows:
 
 1. **DEFINE** — outcome, scope, exclusions, risks, acceptance tests, done criteria.
-2. **BASELINE** — inspect repository truth, tests, branch, commit, and relevant governance.
-3. **DIVIDE** — split token-heavy or review work into bounded independent packets when useful.
-4. **PLAN** — choose the smallest reversible change and identify rollback/approval gates.
-5. **IMPLEMENT** — change only the active slice on its focused branch.
-6. **TEST** — cover normal behavior plus relevant failure, restart/recovery, duplication, security, and regression cases.
-7. **COMPARE** — compare independent model/reviewer outputs and the real diff against acceptance criteria; consensus is not proof.
-8. **VERIFY** — read back files, exact commit, tests/CI, and runtime behavior as applicable.
-9. **PROMOTE** — Jon approves consequential merge/release; preserve rollback point.
-10. **PRESERVE** — update status/control room, work order, review/evidence, artifact register, and exactly one next action.
+2. **BASELINE** — inspect repository truth, registry, tests, branch, commit, governance.
+3. **DIVIDE** — split token-heavy/review work into bounded independent packets.
+4. **PLAN** — choose the smallest reversible change and identify approval gates.
+5. **IMPLEMENT** — change only the selected slice on its focused branch.
+6. **TEST** — normal behavior plus relevant failure, recovery, security, isolation,
+   duplication, restart, and regression cases.
+7. **COMPARE** — compare independent reviewers/models and the real diff; consensus is
+   not proof.
+8. **VERIFY** — read back files, exact commit, tests/CI, and runtime behavior.
+9. **PROMOTE** — Jon approves consequential merge/release; preserve rollback.
+10. **PRESERVE** — update work order, status, registry resume point, reviews/evidence,
+    global index when needed, and one next action for the selected stream.
 
-A slice cannot skip directly from IMPLEMENT to PROMOTED because a model says it works.
+A model saying “done” never skips verification or promotion gates.
 
 ## Cross-chat continuation protocol
 
-At the start of any new HumanOS chat or session:
+At the start of a new HumanOS-related chat/session:
 
-1. Read issue #67.
-2. Read the ACTIVE branch's `STATUS.md`.
-3. Read this workflow standard.
-4. Read the ACTIVE work order.
-5. Inspect referenced evidence before continuing.
-6. State the current ACTIVE slice and NEXT ACTION internally; do not create a second active stream unless Jon changes priority.
+1. infer/request the relevant workspace from the user's actual topic;
+2. load the public registry and authorized private overlay;
+3. search related workstreams;
+4. classify CONTINUE / EXTEND / CREATE_SEPARATE / AMBIGUOUS;
+5. report the discovered relationship;
+6. read the selected branch snapshot/work order/evidence;
+7. continue from the preserved resume point.
 
-If the live issue and branch snapshot disagree, stop implementation and reconcile the conflict using Git history and evidence.
+If registry metadata and branch evidence disagree, branch/commit/test evidence wins;
+update the registry after reconciliation.
 
-At the end of every meaningful work session:
+At the end of meaningful work:
 
-- update the work order with verified progress and remaining gaps;
-- update `STATUS.md` if the branch state changed;
-- replace the body of issue #67 with the current cursor;
-- record the exact tested commit and evidence status;
-- preserve paused/deferred items without turning them into active work;
-- leave exactly one NEXT ACTION.
-
-This makes continuation repository-driven rather than memory-driven.
+- preserve exact tested commit/evidence;
+- update the selected work order and `STATUS.md` if state changed;
+- update registry status/resume point/next action if appropriate;
+- update issue #67 only when the global index or session focus materially changes;
+- do not append transcripts or private content to control surfaces.
 
 ## Work-order rule
 
-Every implementation or consequential research slice uses a stable ID such as `HOS-FND-001` or `HOS-MAL-001`. The work order is the slice contract. It must distinguish:
-
-- proposal vs implemented behavior;
-- local evidence vs external claims;
-- current scope vs deferred ideas;
-- owner-approved actions vs pending approvals.
+Every consequential implementation/research slice uses a stable ID. Work orders
+must distinguish proposal from implementation, local evidence from external claims,
+current scope from deferred ideas, and approved actions from pending approvals.
 
 ## Artifact rule
 
-Every durable artifact belongs to one category in the artifact register: governance, architecture, work order, implementation, test/evidence, review, release/rollback, research, or operational cursor. New durable documents are registered instead of creating untracked parallel folders or informal ledgers.
+Every durable artifact belongs to a registered category: governance, context/registry,
+architecture, work order, implementation, test/evidence, review, release/rollback,
+research, or routing/index metadata. Do not create parallel status ledgers.
 
 ## Multi-model workflow
 
-For meaningful HumanOS work, independent models may be used for bounded coding, architecture, challenge, security, or review packets. Requirements:
+For meaningful HumanOS work, independent models may be used for bounded coding,
+architecture, challenge, security, or review packets. Requirements:
 
 - same necessary context and acceptance criteria;
-- models do not see each other's answers before committing their own;
-- raw outputs are preserved when they are part of formal evidence;
-- provider/model/version, timestamp, task, role, latency, usage/cost when exposed, and estimates when unavailable are recorded where applicable;
-- outputs remain PROPOSALS until repository evidence verifies them;
-- never send hosted models credentials, secrets, private Notebook paths, or unnecessary personal information.
+- do not expose one model's answer before another commits its independent output;
+- preserve raw outputs only when formal evidence requires them;
+- record provider/model/version, timestamp, task, role, latency, and usage/cost when exposed;
+- outputs remain proposals until repository evidence verifies them;
+- never send hosted models credentials, secrets, private Notebook paths, client/employer
+  data, or unnecessary personal information.
 
 ## Evidence and promotion gates
 
-`VERIFIED` requires the evidence named by the work order. Typical evidence includes:
+`VERIFIED` requires the evidence named by the work order. Typical evidence includes
+relevant tests, full regression CI when shared behavior can be affected, exact-commit
+diff/security review, runtime readback for runtime claims, and recorded limitations.
 
-- relevant automated tests passing;
-- full regression suite when the change can affect shared behavior;
-- CI on the exact commit;
-- diff/security review;
-- runtime readback for runtime claims;
-- known defects and limitations recorded.
+A green CI run proves only what that CI tests.
 
-A green CI run proves only what that CI actually tests.
-
-Consequential merge, release, destructive changes, security-boundary changes, privacy changes, financial/legal/public actions, and external actions require Jon's approval.
+Consequential merge, release, destructive changes, security/privacy-boundary changes,
+financial/legal/public actions, and external actions require Jon's approval.
 
 ## No-loose-workflow rule
 
@@ -147,8 +203,12 @@ The following are not independent sources of truth:
 - unreferenced review files;
 - private notes copied into the public repository.
 
-Capture a useful idea once in the Control Room/backlog or applicable work order, classify its state, and link any durable artifact in the register.
+Capture durable work once in the registry/work order/index with explicit state and
+relationships. Existing similar work must be discovered before creating a new stream.
 
 ## Completion rule
 
-A slice is done only when acceptance criteria are satisfied, evidence is preserved, the operational cursor is updated, rollback is known, and the next action is explicit. `PROMOTED` additionally requires owner approval and post-promotion verification where applicable.
+A slice is done only when acceptance criteria are satisfied, evidence is preserved,
+rollback is known, registry/status are reconciled, and the selected workstream has
+an explicit next action or terminal state. `PROMOTED` additionally requires owner
+approval and post-promotion verification where applicable.

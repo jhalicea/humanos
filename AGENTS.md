@@ -15,32 +15,55 @@ repository. The owner plans to give the code to Claude and Gemini for later revi
 - Keep Notebook transcripts/databases, workspace contents, backups, credentials,
   and private test evidence out of Git, including history and PR attachments.
 
-## Continuity and work-in-progress control
+## Context-aware continuity and workstream routing
 
-HumanOS has one live cross-chat operational cursor: GitHub issue #67,
-`HumanOS Control Room — Current State & Continuation`.
+HumanOS does not assume one global ACTIVE task. Multiple workstreams may coexist.
+Before meaningful HumanOS implementation, research, or foundation work:
 
-Before meaningful HumanOS implementation or foundation work:
+1. Read/reconcile GitHub issue #67 when GitHub is available. It is the global
+   routing/index control plane, not a historical source of proof.
+2. Load `config/context_registry.public.json` and any explicitly configured private
+   overlay through `context_registry.py`.
+3. Resolve the request to a workspace/security context first.
+4. Search related workstreams in that workspace and classify the request as
+   `CONTINUE`, `EXTEND`, `CREATE_SEPARATE`, or `AMBIGUOUS`.
+5. Tell Jon what existing work was found and why before implementation.
+6. Read the selected workstream branch `STATUS.md`/work order/evidence as applicable.
+7. Inspect the referenced baseline, commit, diff, and tests before changing anything.
 
-1. Read/reconcile issue #67 when GitHub is available.
-2. Read the ACTIVE branch's root `STATUS.md`.
-3. Read `docs/foundation/WORKFLOW_STANDARD.md`.
-4. Read the ACTIVE work order in `docs/work-orders/`.
-5. Inspect the referenced baseline/commit/tests before changing anything.
+Do not require a magic phrase such as “continue HumanOS.” Routing is topic-driven.
 
-If issue #67 and `STATUS.md` disagree, stop implementation and reconcile the
-conflict from Git/repository evidence. If issue #67 is unavailable, `STATUS.md`
-and the active work order are the fallback; do not infer newer state from memory.
+If the workspace is ambiguous, especially between personal, employer, client, or
+other private contexts, stop and ask for confirmation. Never silently borrow
+workspace-private data from another workspace. General techniques may be reusable;
+workspace-specific source code, documents, prompts, credentials, private paths,
+business data, Notebook content, and proprietary artifacts are isolated by default.
 
-Use a strict WIP limit of one ACTIVE implementation slice and one explicit NEXT
-ACTION. Other work must be classified as BACKLOG, READY, BLOCKED, PAUSED,
-REVIEW, VERIFIED, PROMOTION_PENDING, PROMOTED, or DEFERRED. Starting unrelated
-implementation requires the owner to change priority and preserve the prior
-slice's resume point.
+The public registry contains safe aliases and non-sensitive HumanOS metadata.
+Sensitive client/employer identities and local roots belong in a private overlay
+outside Git. A private overlay may add metadata/workspaces/workstreams, but may not
+redefine a public workspace or weaken the schema-v1 cross-workspace DENY policy.
 
-At the end of meaningful work, preserve exact evidence and update the work order,
-branch `STATUS.md` when state changed, and issue #67. Historical evidence belongs
-in commits/work orders/reviews; do not turn the Control Room into a transcript.
+## Work-in-progress and conflict control
+
+HumanOS may have many OPEN/PAUSED/READY/UNKNOWN workstreams. The execution rule is:
+
+- one focused implementation slice per selected workstream/session;
+- one explicit next action for that selected slice;
+- before editing, check for overlapping components in other concurrent workstreams
+  on the same repository;
+- overlapping `ACTIVE`, `REVIEW`, or `PROMOTION_PENDING` work requires reconciliation
+  before modifying the same components;
+- unfinished unrelated work does not block Jon from intentionally selecting another
+  workstream.
+
+Work states are defined in `docs/foundation/WORKFLOW_STANDARD.md`.
+
+At the end of meaningful work, preserve exact evidence and update the selected work
+order, branch `STATUS.md` when state changed, the registry when routing metadata or
+resume state changed, and issue #67 when the global index/session focus changed.
+Historical evidence belongs in commits/work orders/reviews; do not turn issue #67
+into a transcript.
 
 ## SDLC for changes
 
@@ -54,15 +77,15 @@ PROMOTE -> PRESERVE.
 3. Run relevant automated tests and real local checks for affected interactions.
    Use isolated test vaults. Never operate tests on the owner's active Notebook.
 4. Review the diff for regressions, authority/scope changes, transcript fidelity,
-   idempotency, recovery, and accidental private data before committing/pushing.
+   idempotency, recovery, cross-workspace leakage, and accidental private data.
 5. Push the branch and open a pull request with purpose, exact tested commit,
    commands/results, known limitations, and rollback instructions. Report local
    versus remote state truthfully; commits are not automatically uploads.
 6. Resolve review findings, rerun affected checks, and record remaining defects.
    Merge/release within the owner's authorization. Preserve an identifiable
    previous release and verify installed behavior after a release.
-7. Preserve the tested commit, evidence, state, resume point, and exactly one NEXT
-   ACTION in the HumanOS continuity/control surfaces.
+7. Preserve tested commit, evidence, selected workspace/workstream, resume point,
+   and one next action for that workstream.
 
 Use `python3 -m unittest discover -s tests -v` for the existing automated suite.
 Live Ollama checks are separate from tests using simulated model responses.
@@ -77,5 +100,5 @@ result; reproduce claims before accepting or dismissing them. Models work
 independently before comparison when independence is part of the review design.
 The owner will arrange planned hosted-model reviews; do not transmit code or
 personal records to those services based only on a statement of future intent,
-and never send credentials, secrets, private Notebook paths, or unnecessary
-personal information.
+and never send credentials, secrets, private Notebook paths, client/employer data,
+or unnecessary personal information.
