@@ -63,6 +63,40 @@ No model, reviewer, external service, repository document, or historical artifac
 - `HOS-CONST-002_FRIENDS_DELTA_CHALLENGE_PACKET.md` — short fresh-review packet targeted only at rc2 repairs; **ready, not executed**.
 - `HOS-CONST-002_SLICE_VERIFICATION.md` — evidence and limitations for this hardening slice.
 
+### HOS-ENG-001 — AI-augmented engineering organization and delivery
+
+- `HOS-ENG-001_PREFLIGHT.md` — confirms that HE-0410 specializes existing HE-0400/HW-0300/HAI-0600 rather than replacing them.
+- `HE-0410_HumanOS_Engineering_Organization_and_Delivery_Standard_v0.1.md` — current engineering-organization **candidate; NOT RATIFIED; MANUAL ONLY**.
+- `HE-0410_Manual_Engineering_Work_Item_Template_v0.1.yaml` — non-authoritative manual work-item/worker-assignment projection.
+- `HOS-ENG-001_SLICE_VERIFICATION.md` — evidence and limits of the standardization slice.
+
+HE-0410 defines the current candidate organizational pattern:
+
+```text
+Jon — Human Principal / final decision & review
+  |
+  +-- Chief Engineer — delivery, decomposition, delegation, resources, integration, reporting
+  +-- Principal Engineer — independent technical red-team/review of Chief and worker organization
+            |
+          AEGIS — governance/security/privacy/evidence/authority assurance for both
+```
+
+Workers remain bounded, role-based, and replaceable. The authority invariant is:
+
+```text
+child_authority ⊆ parent_authority ⊆ owner_grant
+```
+
+The implementation worker cannot silently certify its own work as independent verification.
+
+The resource rule is to use the **least-scarce sufficiently capable qualified worker**, considering total task cost: tokens, money, elapsed time, compute, retries, review, rework, privacy exposure, and failure risk. Privacy and authority eligibility come before price. Scarcity may reduce speed/depth/convenience; it may not reduce required rights, privacy, security, permission, evidence, or review.
+
+Risk review remains proportional:
+
+- GREEN — Chief/worker + tests/readback; Principal/AEGIS may sample.
+- AMBER — Principal technical review plus targeted AEGIS as applicable.
+- RED — Principal independent technical review + full applicable AEGIS + explicit Jon approval before consequential promotion.
+
 ## Local-first rule
 
 HumanOS is built, tested, and canonically controlled locally. Git is the version-controlled engineering and sanitized governance record. Private evidence, Notebook content, secrets, sensitive model transcripts, and protected artifact-vault contents do not belong in the public repository.
@@ -83,39 +117,35 @@ The historical government architecture has been reconciled as source lineage. Hu
 
 The five recovered frozen FRIENDS reviews independently converged on several important pressure points in the historical Constitution: owner-authority authenticity/voluntariness, third-party boundaries, rights collisions, Mirror/recovery concentration, delegation/succession, consent lifecycle, and a lawful non-sovereign challenge path.
 
-rc1 had already resolved several issues, including Mirror `sole`-interface concentration, bounded emergency stays, explicit third-party data dignity, provider/model replaceability, resource-scarcity safeguards, and separation of historical versus current readiness.
+rc2 applies a deliberately small constitutional hardening delta and remains **NOT RATIFIED / NOT RUNTIME ENFORCED**. Its fresh independent delta challenge is still pending.
 
-rc2 applies a deliberately small additional constitutional delta:
+### HE-0410 v0.1
 
-- consequential owner authority must be reasonably attributable and voluntary;
-- credentials/devices alone do not constitutionally prove voluntary human authority;
-- credible impersonation/coercion/authorization compromise permits only a narrow temporary verification hold;
-- owner capacity is presumed and models/reviewers may not turn disagreement, emotion, diagnosis, unusual choice, or confidence into paternalistic authority;
-- owner sovereignty over HumanOS does not manufacture authority over other humans' independent rights, systems, property, identity, bodily autonomy, information, or consent;
-- delegation, emergency recovery, and succession may be governed but do not silently transfer sovereignty;
-- rights collisions use a visible, narrowest-effective-action process rather than a hidden fixed value ranking;
-- authorized participants may submit evidence-backed constitutional challenges without gaining execution, veto, ratification, or self-expanding authority;
-- emergency stays cannot be silently self-renewed indefinitely.
+The Engineering Organization and Delivery Standard is **CANDIDATE / NOT RATIFIED / MANUAL ONLY**.
 
-The candidate remains **NOT RATIFIED** and has **no runtime enforcement** merely because the text exists.
+It intentionally starts small. It does not create autonomous worker spawning, a live model router, automated AEGIS, new runtime permissions, or a new canonical database.
+
+Its development method combines Lean, Kanban, incremental Agile delivery, formal SDLC, DevSecOps, and research/evaluation discipline while rejecting ceremony that does not reduce meaningful failure.
+
+The next evidence needed is a real manual pilot, not more architecture prose.
 
 ## Review truth boundary
 
 The September 14 broad constitutional challenge was real and is preserved as historical evidence. It targeted the August Constitution, not rc2.
 
-The current ChatGPT architect has now inspected multiple frozen FRIEND outputs while performing regression/synthesis. Therefore it cannot truthfully count itself as a clean-room independent reviewer of rc2.
+The current ChatGPT architect has inspected multiple frozen FRIEND outputs while performing regression/synthesis. Therefore it cannot truthfully count itself as a clean-room independent reviewer of rc2.
 
 The fresh rc2 delta challenge remains intentionally **READY / NOT EXECUTED** until independent reviewers receive the delta packet without seeing one another's new answers first.
 
 ## Current active slice / one next action
 
-**Execute `HOS-CONST-002_FRIENDS_DELTA_CHALLENGE_PACKET.md` against the exact immutable rc2 candidate using fresh independent reviewers.**
+**Pilot HE-0410 manually on the next bounded real HumanOS engineering work item, using the new work-item template and recording actual friction/resource/review evidence.**
 
-Then:
+The independent rc2 constitutional delta challenge remains queued for when independent reviewer access is available.
 
-1. preserve raw first-pass outputs before synthesis;
-2. dispose every fresh CRITICAL/HIGH finding;
-3. create rc3 only if constitutional repairs are actually justified — never silently edit rc2;
-4. present the exact final candidate, immutable commit, challenge record, changes, and unresolved risks for Jon's explicit local ratification or rejection;
-5. reconcile HD-0100 and later Foundation Instruments against the locally ratified constitutional baseline;
-6. return to the interrupted Workflow Kernel / deterministic-governance implementation sequence instead of continuing architecture indefinitely.
+After the HE-0410 pilot:
+
+1. preserve the actual work item, worker assignments, costs/usage where known, failures, reviews, and final report;
+2. remove or simplify any HE-0410 field/process that creates cost without preventing a meaningful failure class;
+3. add only the smallest deterministic workflow support proven useful by the pilot;
+4. continue toward Workflow Kernel / Life Notebook implementation rather than building a large agent platform first.
