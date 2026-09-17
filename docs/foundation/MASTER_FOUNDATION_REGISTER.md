@@ -3,7 +3,7 @@
 **Register ID:** HOS-REG-FOUNDATION-001  
 **Lifecycle:** Local Re-Bootstrap  
 **Status:** CANDIDATE REGISTER  
-**Date:** 2026-09-16  
+**Date:** 2026-09-17  
 **Owner / final authority:** Jon Alicea  
 **Scope:** Foundation, constitutional, workflow-governance, engineering, document-governance, human-model, AI-authority, and knowledge-kernel instruments
 
@@ -67,11 +67,12 @@ Work-item identifiers and Instrument identifiers remain separate. For example, `
 | HF-0200-v0.1 | HumanOS Constitution and Human Bill of Rights v0.1 | Reconstruction CANDIDATE; explicitly not newly ratified | RECONCILED SOURCE | Not implemented | VERIFIED_RECONCILIATION | Reconciled with the historical August Constitution, Foundation ratification, local transition, HOS-GOV-001, and current owner direction in HOS-CONST-001. Preserved as predecessor/source; not silently promoted. |
 | HF-0200-v0.2-rc1 | HumanOS Constitution and Human Bill of Rights v0.2-rc1 | N/A_LOCAL_ORIGIN; derived from historically ratified and candidate lineage | SUPERSEDED CANDIDATE | Constitutional text candidate only; no runtime enforcement | VERIFIED_RECONCILIATION | Regressed against five frozen September 14 FRIENDS reviews. Several material findings remained; preserved as predecessor to rc2. Never ratified. |
 | HF-0200-v0.2-rc2 | HumanOS Constitution and Human Bill of Rights v0.2-rc2 | N/A_LOCAL_ORIGIN; hardened from rc1 using frozen FRIENDS evidence | CANDIDATE | Constitutional text candidate only; no runtime enforcement | PARTIAL | Current local constitutional candidate. Adds valid-owner-authority boundary, anti-paternalism guard, sovereignty scope, delegation/recovery/succession boundary, rights-collision rule, protected dissent, and bounded stay renewal. Requires fresh independent delta challenge before owner ratification review. |
-| HW-0300 | HumanOS Workflow Governance Protocol v0.1 | UNKNOWN pending content reconciliation | DISCOVERED | UNKNOWN | PARTIAL | Package and representations exist in Drive. Do not infer current local authority from existence. |
-| HE-0400 | HumanOS Engineering Contract v0.1 | CANDIDATE | DISCOVERED | UNKNOWN | PARTIAL | Package exists; local reconciliation pending. |
+| HW-0300 | HumanOS Workflow Governance Protocol v0.1 | CANDIDATE | RECONCILED SOURCE | Historical specification; deterministic Workflow Kernel not established by this register | VERIFIED_SOURCE | Recovered source defines external workflow state, evidence-gated transitions, no self-certification, human authority, workflow states, transition gates, and Engineering Workflow. HE-0410 profiles rather than replaces it. |
+| HE-0400 | HumanOS Engineering Contract v0.1 | CANDIDATE | RECONCILED SOURCE | Historical specification; manual/current implementation varies by work item | VERIFIED_SOURCE | Recovered source defines work orders, baseline/evidence, smallest reversible change, risk lanes, independent review, truthful status, rollback, and human approval for consequential change. |
+| HE-0410 | HumanOS Engineering Organization and Delivery Standard v0.1 | N/A_LOCAL_ORIGIN | CANDIDATE | DOCUMENTED / MANUAL ONLY | PARTIAL | Subordinate specialization of HE-0400/HW-0300/HAI-0600. Defines Human Principal, Chief Engineer, Principal Engineer technical assurance, AEGIS assurance, bounded workers, resource-aware routing, GREEN/AMBER/RED review, Ready/Done, and Chief Engineer reporting. Not ratified; no orchestration runtime exists. |
 | HD-0100 | HumanOS Document and Artifact Governance Standard v0.1 | N/A_LOCAL_ORIGIN | CANDIDATE | DOCUMENTED / MANUAL ONLY | PARTIAL | Created after `HOS-DOC-001_PREFLIGHT.md`. Candidate prose has Document Registry and Artifact Registry YAML projections. Not ratified; no runtime registry exists. |
 | HM-0500 | HumanOS Human Model and Flourishing Standard v0.1 | CANDIDATE | DISCOVERED | Not fully implemented | VERIFIED_SOURCE | Source states Foundation Period Bootstrap Candidate. |
-| HAI-0600 | HumanOS AI Model and Authority Standard v0.1 | CANDIDATE | DISCOVERED | Not fully implemented | VERIFIED_SOURCE | Source states Bootstrap Candidate and separates capability from authority. |
+| HAI-0600 | HumanOS AI Model and Authority Standard v0.1 | CANDIDATE | RECONCILED SOURCE | Not fully implemented | VERIFIED_SOURCE | Source defines bounded workers/reviewers, Model Passports/Ledgers, provider neutrality, replaceable runtimes, minimal context, review independence, and no self-certification. |
 | HF-0700 | Knowledge Model | Planned target only | DISCOVERED | Not implemented | PARTIAL | Recovered bootstrap-gap records name HF-0700 as a future promotion target. No standalone governing instrument has been reconciled yet. |
 | HK-0800 | HumanOS Knowledge Kernel Protocol v0.1 | UNKNOWN pending content reconciliation | DISCOVERED | UNKNOWN | PARTIAL | Package and representations exist in Drive. Historical planning also used `HF-0800`; naming evolution must be reconciled without renumbering HK-0800. |
 | HIST-CONST-2026-08-02 | Founding Constitution and Human Bill of Rights v0.2 | RATIFIED | RECONCILED HISTORICAL / PREFLIGHT | Historical governance record | VERIFIED_RECONCILIATION | Ratification is preserved as historical fact and strongest constitutional source. Current owner direction requires local-first re-ratification for the new control plane rather than automatic local promotion. |
@@ -82,6 +83,7 @@ Work-item identifiers and Instrument identifiers remain separate. For example, `
 | HOS-CONST-002-FROZEN-EVIDENCE | Frozen FRIENDS Evidence Index | N/A_LOCAL_ORIGIN / indexes historical September 14 evidence | RECONCILED EVIDENCE | Evidence index only | VERIFIED_RECONCILIATION | Indexes five frozen Pass A constitutional reviews; self-reported identities are evidence only, runtime-attested identities remain unknown. |
 | HOS-CONST-002-REGRESSION | Legacy FRIENDS Findings Regression | N/A_LOCAL_ORIGIN | RECONCILED ANALYSIS | Analysis only | VERIFIED_RECONCILIATION | Regresses the five frozen review themes against rc1; justifies the minimal rc2 hardening delta. |
 | HOS-CONST-002-FRIENDS-DELTA-001 | FRIENDS Delta Challenge Packet for rc2 | N/A_LOCAL_ORIGIN | READY / NOT EXECUTED | Review packet only | UNVERIFIED | Fresh clean-room review of rc2 repairs is still required. Current ChatGPT architect is not independent because historical FRIEND outputs were inspected during synthesis. |
+| HOS-ENG-001 | Engineering Organization & Delivery standardization work item | N/A_LOCAL_ORIGIN | CANDIDATE SLICE | Documentary/manual only | PARTIAL | Preflight confirms HE-0410 is a subordinate specialization, not a replacement for HE-0400/HW-0300/HAI-0600. Manual pilot required before automation. |
 | FDR-0004-v0.1 | Foundation Continuation & Artifact Governance Plan v0.1 | DRAFT / PROPOSAL | IMPORTED | Not implemented | PARTIAL | Contains a now-known retrieval error about HF-0100. Preserve; do not silently overwrite. |
 
 ## Representation rule
@@ -105,6 +107,11 @@ For HD-0100 v0.1, current candidate representations are:
 - `HD-0100_Document_Registry_Schema_v0.1.yaml` — non-authoritative structured projection;
 - `HD-0100_Artifact_Registry_Schema_v0.1.yaml` — non-authoritative structured projection.
 
+For HE-0410 v0.1:
+
+- `HE-0410_HumanOS_Engineering_Organization_and_Delivery_Standard_v0.1.md` — candidate human-readable meaning anchor;
+- `HE-0410_Manual_Engineering_Work_Item_Template_v0.1.yaml` — non-authoritative manual bootstrap projection/template.
+
 For the constitutional lineage:
 
 - `HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc1.md` — preserved superseded candidate;
@@ -121,19 +128,20 @@ No mass copy into Git is authorized by this register.
 Current candidate paths include:
 
 - `docs/foundation/HD-0100_HumanOS_Document_and_Artifact_Governance_v0.1.md`
+- `docs/foundation/HE-0410_HumanOS_Engineering_Organization_and_Delivery_Standard_v0.1.md`
+- `docs/foundation/HE-0410_Manual_Engineering_Work_Item_Template_v0.1.yaml`
 - `docs/foundation/HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc2.md`
 
 ## Reconciliation queue
 
-1. **Execute `HOS-CONST-002_FRIENDS_DELTA_CHALLENGE_PACKET.md`** against an immutable rc2 commit using fresh independent reviewers and preserve raw outputs before synthesis.
-2. Dispose every fresh CRITICAL/HIGH finding. If constitutional repairs are needed, create rc3 rather than silently editing rc2.
-3. Present the exact final candidate/version, immutable commit, change summary, unresolved risks, and challenge record for explicit owner local ratification or rejection.
-4. Reconcile HD-0100 against the finally ratified constitutional baseline before any separate ratification of document governance.
-5. Reconcile HW-0300 content and historical state.
-6. Reconcile HE-0400 content and historical state.
-7. Reconcile HK-0800 content and the earlier `HF-0800` planning name.
-8. Confirm whether an HF-0700 standalone artifact exists; if not, create only after document preflight.
-9. Add hashes/local paths as each historical artifact is locally imported and verified.
+1. **Execute `HOS-CONST-002_FRIENDS_DELTA_CHALLENGE_PACKET.md`** against an immutable rc2 commit using fresh independent reviewers and preserve raw outputs before synthesis when independent reviewer access is available.
+2. **Pilot HE-0410 manually on one bounded real engineering work item** and record friction, resource usage, review burden, and missing fields before implementing worker orchestration.
+3. Dispose every fresh CRITICAL/HIGH constitutional finding. If constitutional repairs are needed, create rc3 rather than silently editing rc2.
+4. Present the exact final constitutional candidate/version, immutable commit, change summary, unresolved risks, and challenge record for explicit owner local ratification or rejection.
+5. Reconcile HD-0100 against the finally ratified constitutional baseline before any separate ratification of document governance.
+6. Reconcile HK-0800 content and the earlier `HF-0800` planning name.
+7. Confirm whether an HF-0700 standalone artifact exists; if not, create only after document preflight.
+8. Add hashes/local paths as each historical artifact is locally imported and verified.
 
 ### Completed reconciliation in this branch
 
@@ -144,6 +152,8 @@ Current candidate paths include:
 - Five frozen September 14 FRIENDS Pass A reviews were recovered from the HumanOS Library and indexed without treating self-reported model names as attested identity.
 - Those frozen findings were regressed against rc1. Several important findings were already closed; unresolved authority, third-party scope, rights-collision, succession/delegation, and dissent-path issues justified a minimal successor candidate.
 - HF-0200 v0.2-rc2 was created as the current candidate. It is not ratified and has not yet received the fresh independent delta review required by its challenge packet.
+- HE-0400, HW-0300, and HAI-0600 were re-read as source lineage for HOS-ENG-001. HE-0410 was created as a subordinate organizational/delivery specialization rather than a competing workflow or engineering contract.
+- HE-0410 now defines the Human Principal / Chief Engineer / Principal Engineer / AEGIS separation, worker authority inheritance, resource-aware routing, proportional review lanes, Ready/Done, and a manual work-item template. No orchestration runtime is claimed.
 
 ## Promotion rule
 
