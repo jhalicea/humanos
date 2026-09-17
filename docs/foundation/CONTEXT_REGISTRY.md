@@ -125,10 +125,25 @@ This is not yet a full semantic Context Layer, Mirror-integrated context loader,
 
 Those capabilities should be added incrementally when the development kernel proves the need.
 
+## Context Engine / Brain evolution rule
+
+The registry and runtime bridge are the first primitives of the future HumanOS Context Engine (historically also called the HumanOS "Brain"). That future system must **extend this lineage rather than introduce a competing memory/context subsystem**.
+
+The architectural separation is:
+
+- **Life Notebook:** durable chronology, exact evidence, provenance, recovery, and historical truth;
+- **Context Engine:** determine which verified evidence/state is relevant to what the human means now;
+- **Mirror:** human-facing conversation and clarification;
+- **models/agents/tools:** bounded consumers of context; they do not create authority merely by inferring it.
+
+A feature such as Atlas, learning, files, inbox, model routing, or future agents should not invent an independent hidden notion of "current user", "current project", "current conversation", or "memory" when the canonical Context Engine can represent it.
+
+HOS-CTX-003 adds the first durable conversational-continuity primitive: short follow-ups may inherit only the immediately preceding verified workstream route in the same HumanOS session. Later increments may add temporal context, entity/relationship context, Notebook evidence resolution, goal/project state, permission graphs, and context-package composition.
+
 ## Future Context Layer direction
 
 The schema is designed to grow toward richer context:
 
 `identity + workspace + relationships + permissions + temporal context + retrieval + provenance`
 
-The development registry should remain one data source inside that larger layer, not become the entire Context Layer.
+The development registry remains one verified data source inside that larger Context Engine, not the entire Context Engine.
