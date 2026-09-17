@@ -1,12 +1,12 @@
 # HumanOS Status Snapshot
 
-Status: ACTIVE DEVELOPMENT SLICE
+Status: VERIFIED IMPLEMENTATION / PROMOTION PENDING
 Date: 2026-09-17
 Global routing/index control plane: GitHub issue #67
 Current branch: `foundation/context-workstream-registry-v1`
 
 This file is the commit-scoped status snapshot for this branch. HumanOS may have
-multiple open workstreams; this file describes only the current branch/session.
+multiple open workstreams; this file describes only this workstream/session.
 
 ## Selected workstream
 
@@ -15,9 +15,23 @@ multiple open workstreams; this file describes only the current branch/session.
 - Branch: `foundation/context-workstream-registry-v1`
 - Baseline: `foundation/workflow-continuity-v1` at
   `c5abd74572b8a4fde2b3c4fdaaf7e5035829dcb2`
-- Outcome: a small but strong precursor to the future Context Layer that can route
-  development work by workspace/topic, discover related workstreams, preserve
-  resume state, and fail closed across workspace boundaries.
+- Verified implementation commit:
+  `b58a4f3c5e0c984dfd5d67b43e49407f7ad605b8`
+- Outcome: a small but strong precursor to the future Context Layer that routes
+  development work by workspace/topic, discovers related workstreams, preserves
+  resume state, and fails closed across workspace boundaries.
+
+## Verification evidence
+
+- HumanOS regression matrix passed on Ubuntu 24.04 and macOS 15 with Python 3.11
+  and 3.13 on the exact implementation commit.
+- Encrypted-backup/full-suite matrix passed on the same four OS/Python combinations.
+- Exact diff against the parent candidate was reviewed; the slice adds the registry,
+  routing/isolation kernel, tests, safe public metadata, and foundation docs without
+  wiring the registry into Notebook data or existing production runtime behavior.
+- Dedicated registry tests cover schema validation, routing, ambiguity, private
+  overlay isolation, cross-workspace denial, relation validation, and component
+  conflict detection.
 
 ## Corrected workflow truth
 
@@ -43,36 +57,21 @@ multiple open workstreams; this file describes only the current branch/session.
 The real private overlay is never stored in Git and is selected with
 `HUMANOS_CONTEXT_PRIVATE_REGISTRY`.
 
-## Known related work
-
-The public registry includes safe metadata for currently discoverable HumanOS
-workstreams such as foundation/workflow, model loader, model router, adaptive
-learning/mastery, browser tooling, Notebook capture/recall, inbox automation,
-multi-model swarm, backups, and file/context intelligence. Unknown branch status
-is recorded as `UNKNOWN` instead of guessed.
-
 ## Continuation behavior
 
-In a new chat/session, Jon can simply ask for the actual work. The operating
-sequence is:
-
-1. identify the workspace/context from the request or ask if ambiguous;
-2. load the registry;
-3. search related workstreams;
-4. report whether this looks like CONTINUE, EXTEND, CREATE_SEPARATE, or AMBIGUOUS;
-5. inspect the selected branch/work order/evidence;
-6. continue only after that reconciliation.
-
-No “continue HumanOS” phrase is required.
+In a new chat/session, Jon can simply ask for the actual work. HumanOS should:
+resolve workspace/context, load the registry, search related workstreams, report
+CONTINUE/EXTEND/CREATE_SEPARATE/AMBIGUOUS, inspect the selected branch/work order
+and evidence, and only then continue. No “continue HumanOS” phrase is required.
 
 ## Next action
 
-Verify HOS-CTX-001 with registry-specific tests plus full HumanOS CI, inspect the
-final diff for privacy/authority/workflow regressions, update issue #67 as a
-global router/index, and leave promotion pending for Jon.
+Jon decides whether to promote/merge this verified foundation candidate. Do not
+merge automatically. Until promotion, treat the tested implementation commit above
+and issue #67 as the current verified candidate state.
 
 ## Privacy boundary
 
-This file and the public registry contain project metadata only. They must never
-contain real confidential client/employer identities, credentials, private local
-paths, Life Notebook transcripts, proprietary data, or personal secrets.
+This status file and the public registry contain project metadata only. They must
+never contain real confidential client/employer identities, credentials, private
+local paths, Life Notebook transcripts, proprietary data, or personal secrets.
