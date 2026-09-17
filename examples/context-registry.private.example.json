@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "workspace_metadata": {
+    "WS-CLIENT-001": {
+      "display_name": "Example private client name",
+      "local_roots": [
+        "/path/outside/repository/client-workspace"
+      ],
+      "notes": "Example only. Keep the real file outside Git."
+    }
+  },
+  "workspaces": [
+    {
+      "workspace_id": "WS-CLIENT-001",
+      "workspace_type": "CLIENT",
+      "public_alias": "CLIENT-001",
+      "confidentiality": "CLIENT_PRIVATE",
+      "repository": null,
+      "topics": [
+        "email",
+        "automation"
+      ],
+      "cross_workspace_policy": "DENY"
+    }
+  ],
+  "workstreams": [
+    {
+      "workstream_id": "CLI-EMAIL-001",
+      "workspace_id": "WS-CLIENT-001",
+      "title": "Email Automation",
+      "project": "Private Client Work",
+      "repository": null,
+      "branch": null,
+      "work_order": null,
+      "status": "READY",
+      "confidentiality": "CLIENT_PRIVATE",
+      "topics": [
+        "email",
+        "classifier",
+        "automation"
+      ],
+      "components": [],
+      "relations": [],
+      "last_verified_commit": null,
+      "resume_point": "Private example resume point.",
+      "next_action": "Confirm client workspace before implementation."
+    }
+  ]
+}
