@@ -65,7 +65,8 @@ Work-item identifiers and Instrument identifiers remain separate. For example, `
 | HF-0150 | HumanOS Instrument Standard v0.1 | DRAFT / CANDIDATE bootstrap | IMPORTED | Not runtime implementation | VERIFIED_SOURCE | Created earlier chronologically than HF-0100 under disclosed bootstrap exception. ID order is semantic, not chronological. |
 | HF-0160 | HumanOS Visual Instrument Standard v0.1 | DRAFT | IMPORTED | Not runtime implementation | VERIFIED_SOURCE | Visual projection/renderer rules; does not establish authority by appearance. |
 | HF-0200-v0.1 | HumanOS Constitution and Human Bill of Rights v0.1 | Reconstruction CANDIDATE; explicitly not newly ratified | RECONCILED SOURCE | Not implemented | VERIFIED_RECONCILIATION | Reconciled with the historical August Constitution, Foundation ratification, local transition, HOS-GOV-001, and current owner direction in HOS-CONST-001. Preserved as predecessor/source; not silently promoted. |
-| HF-0200-v0.2-rc1 | HumanOS Constitution and Human Bill of Rights v0.2-rc1 | N/A_LOCAL_ORIGIN; derived from historically ratified and candidate lineage | CANDIDATE | Constitutional text candidate only; no runtime enforcement | PARTIAL | Local constitutional reconciliation candidate. Requires FRIENDS/adversarial challenge and explicit owner ratification before becoming current local constitutional law. |
+| HF-0200-v0.2-rc1 | HumanOS Constitution and Human Bill of Rights v0.2-rc1 | N/A_LOCAL_ORIGIN; derived from historically ratified and candidate lineage | SUPERSEDED CANDIDATE | Constitutional text candidate only; no runtime enforcement | VERIFIED_RECONCILIATION | Regressed against five frozen September 14 FRIENDS reviews. Several material findings remained; preserved as predecessor to rc2. Never ratified. |
+| HF-0200-v0.2-rc2 | HumanOS Constitution and Human Bill of Rights v0.2-rc2 | N/A_LOCAL_ORIGIN; hardened from rc1 using frozen FRIENDS evidence | CANDIDATE | Constitutional text candidate only; no runtime enforcement | PARTIAL | Current local constitutional candidate. Adds valid-owner-authority boundary, anti-paternalism guard, sovereignty scope, delegation/recovery/succession boundary, rights-collision rule, protected dissent, and bounded stay renewal. Requires fresh independent delta challenge before owner ratification review. |
 | HW-0300 | HumanOS Workflow Governance Protocol v0.1 | UNKNOWN pending content reconciliation | DISCOVERED | UNKNOWN | PARTIAL | Package and representations exist in Drive. Do not infer current local authority from existence. |
 | HE-0400 | HumanOS Engineering Contract v0.1 | CANDIDATE | DISCOVERED | UNKNOWN | PARTIAL | Package exists; local reconciliation pending. |
 | HD-0100 | HumanOS Document and Artifact Governance Standard v0.1 | N/A_LOCAL_ORIGIN | CANDIDATE | DOCUMENTED / MANUAL ONLY | PARTIAL | Created after `HOS-DOC-001_PREFLIGHT.md`. Candidate prose has Document Registry and Artifact Registry YAML projections. Not ratified; no runtime registry exists. |
@@ -77,7 +78,10 @@ Work-item identifiers and Instrument identifiers remain separate. For example, `
 | HIST-CONST-RAT-2026-08-02 | Constitutional Ratification Record — Founding Constitution v0.2 | RATIFIED | RECONCILED HISTORICAL / PREFLIGHT | Record only | VERIFIED_RECONCILIATION | Separate historical ratification record confirms exact document identity and 2026-08-02T22:44:00-04:00 effective time in the prior governance context. |
 | HIST-GOV-BRANCHES-v0.1 | Constitutional Branches, Review Court, and Governance Runtime Charter v0.1 | Historical governance charter; not a ratified constitutional amendment | RECONCILED AS HISTORICAL SOURCE | Manual governance design; automated governance not established by this register | VERIFIED_RECONCILIATION | `HOS-GOV-001_BRANCHES_RECONCILIATION.md` preserves separation-of-functions design, clarifies local-first/FRIENDS/resource boundaries, and deliberately creates no competing government Instrument. |
 | REPO-FOUNDATION-RAT-2026-09-11 | `docs/FOUNDATION_RATIFICATION.md` — Foundation Contract v0.1 ratification record | RATIFIED by source text | RECONCILED SOURCE / PREFLIGHT | Incremental implementation claimed; not all contracts implemented | VERIFIED_RECONCILIATION | Commitments were compared during HOS-CONST-001; human ownership, local-first/provider-neutral operation, model/FRIENDS non-authority, privacy lifecycle, provenance, recovery, rollback, and human approval remain aligned. |
-| HOS-CONST-001-FRIENDS-001 | FRIENDS Constitutional Challenge Packet | N/A_LOCAL_ORIGIN | CANDIDATE / READY | Review packet only; not executed | UNVERIFIED | Defines independent challenge, attack families, resilience tests, metadata, cross-review, and promotion gate for HF-0200 v0.2-rc1. No FRIENDS review or test pass is claimed. |
+| HOS-CONST-001-FRIENDS-001 | FRIENDS Constitutional Challenge Packet | N/A_LOCAL_ORIGIN | SUPERSEDED PACKET / HISTORICAL | Review packet only | PARTIAL | Prepared for rc1. Broad historical FRIENDS evidence was subsequently recovered and rc1 was superseded by rc2; packet remains preserved. |
+| HOS-CONST-002-FROZEN-EVIDENCE | Frozen FRIENDS Evidence Index | N/A_LOCAL_ORIGIN / indexes historical September 14 evidence | RECONCILED EVIDENCE | Evidence index only | VERIFIED_RECONCILIATION | Indexes five frozen Pass A constitutional reviews; self-reported identities are evidence only, runtime-attested identities remain unknown. |
+| HOS-CONST-002-REGRESSION | Legacy FRIENDS Findings Regression | N/A_LOCAL_ORIGIN | RECONCILED ANALYSIS | Analysis only | VERIFIED_RECONCILIATION | Regresses the five frozen review themes against rc1; justifies the minimal rc2 hardening delta. |
+| HOS-CONST-002-FRIENDS-DELTA-001 | FRIENDS Delta Challenge Packet for rc2 | N/A_LOCAL_ORIGIN | READY / NOT EXECUTED | Review packet only | UNVERIFIED | Fresh clean-room review of rc2 repairs is still required. Current ChatGPT architect is not independent because historical FRIEND outputs were inspected during synthesis. |
 | FDR-0004-v0.1 | Foundation Continuation & Artifact Governance Plan v0.1 | DRAFT / PROPOSAL | IMPORTED | Not implemented | PARTIAL | Contains a now-known retrieval error about HF-0100. Preserve; do not silently overwrite. |
 
 ## Representation rule
@@ -101,7 +105,10 @@ For HD-0100 v0.1, current candidate representations are:
 - `HD-0100_Document_Registry_Schema_v0.1.yaml` — non-authoritative structured projection;
 - `HD-0100_Artifact_Registry_Schema_v0.1.yaml` — non-authoritative structured projection.
 
-For the constitutional lineage, `HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc1.md` is the current **local candidate**, not a ratified replacement for the historical August Constitution.
+For the constitutional lineage:
+
+- `HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc1.md` — preserved superseded candidate;
+- `HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc2.md` — current local candidate; **not ratified**.
 
 ## Canonical local path field
 
@@ -114,13 +121,13 @@ No mass copy into Git is authorized by this register.
 Current candidate paths include:
 
 - `docs/foundation/HD-0100_HumanOS_Document_and_Artifact_Governance_v0.1.md`
-- `docs/foundation/HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc1.md`
+- `docs/foundation/HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc2.md`
 
 ## Reconciliation queue
 
-1. **Execute HOS-CONST-001 FRIENDS/adversarial review** against the immutable constitutional candidate commit, preserving independent raw outputs before synthesis.
-2. Dispose all CRITICAL/HIGH constitutional findings and version the candidate if repairs are needed.
-3. Present the exact final candidate/version, change summary, unresolved risks, and challenge record for explicit owner local ratification or rejection.
+1. **Execute `HOS-CONST-002_FRIENDS_DELTA_CHALLENGE_PACKET.md`** against an immutable rc2 commit using fresh independent reviewers and preserve raw outputs before synthesis.
+2. Dispose every fresh CRITICAL/HIGH finding. If constitutional repairs are needed, create rc3 rather than silently editing rc2.
+3. Present the exact final candidate/version, immutable commit, change summary, unresolved risks, and challenge record for explicit owner local ratification or rejection.
 4. Reconcile HD-0100 against the finally ratified constitutional baseline before any separate ratification of document governance.
 5. Reconcile HW-0300 content and historical state.
 6. Reconcile HE-0400 content and historical state.
@@ -134,7 +141,9 @@ Current candidate paths include:
 - The historical Constitutional Branches / Review Court charter was reconciled through HOS-GOV-001. No second government Instrument was created.
 - HOS-CONST-001 preflight and clause/topic reconciliation were completed.
 - HF-0200 v0.2-rc1 was drafted as a local constitutional candidate while preserving the August ratification as historical constitutional provenance.
-- A FRIENDS challenge packet and constitutional resilience-test plan were prepared but **not executed**.
+- Five frozen September 14 FRIENDS Pass A reviews were recovered from the HumanOS Library and indexed without treating self-reported model names as attested identity.
+- Those frozen findings were regressed against rc1. Several important findings were already closed; unresolved authority, third-party scope, rights-collision, succession/delegation, and dissent-path issues justified a minimal successor candidate.
+- HF-0200 v0.2-rc2 was created as the current candidate. It is not ratified and has not yet received the fresh independent delta review required by its challenge packet.
 
 ## Promotion rule
 
