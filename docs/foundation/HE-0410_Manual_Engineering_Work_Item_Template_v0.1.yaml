@@ -1,0 +1,122 @@
+# HE-0410 Manual Engineering Work Item Template v0.1
+# Status: NON-AUTHORITATIVE STRUCTURED PROJECTION / MANUAL BOOTSTRAP TEMPLATE
+# Meaning anchor: HE-0410_HumanOS_Engineering_Organization_and_Delivery_Standard_v0.1.md
+# This template does not create authority, ratification, implementation, or automation.
+
+work_item:
+  id: "<existing-or-preflight-approved-id>"
+  title: "<short title>"
+  objective: "<plain-language user-visible outcome>"
+  owner: "Jon Alicea"
+  status: "created | active | waiting | blocked | reviewing | verifying | ready_for_promotion | promoted | verified | archived | cancelled"
+  risk_lane: "green | amber | red"
+
+  authority:
+    governing_refs: []
+    owner_grant: "<scope of authority>"
+    human_approval_required: false
+    approval_reason: "<none or reason>"
+
+  readiness:
+    baseline_ref: "<ref or pending>"
+    acceptance_criteria: []
+    allowed_scope: []
+    forbidden_scope: []
+    dependencies: []
+    blockers: []
+    rollback_or_recovery: "<plan or not_applicable>"
+
+  organization:
+    chief_engineer:
+      role: "Chief Engineer"
+      runtime_or_model: "UNKNOWN"
+      authority_scope: "<bounded scope>"
+
+    principal_engineer:
+      required: false
+      role: "Principal Engineer / Independent Technical Reviewer"
+      runtime_or_model: "UNKNOWN"
+      independence: "not_required | independent | partial | non_independent | unknown"
+
+    aegis:
+      review_level: "sample | targeted | full | not_required"
+      status: "not_started | pending | pass | challenge | partial | blocked"
+      findings_ref: "<ref or none>"
+
+    workers: []
+
+  resource_plan:
+    routing_rule: "least_scarce_sufficiently_capable_qualified_worker"
+    privacy_eligibility_checked: false
+    deterministic_option_considered: false
+    token_budget: "UNKNOWN"
+    monetary_budget: "UNKNOWN"
+    time_budget: "UNKNOWN"
+    compute_budget: "UNKNOWN"
+    frontier_or_scarce_worker_justification: "<none or reason>"
+
+  worker_assignment_template:
+    assignment_id: "<id>"
+    role: "<worker role>"
+    runtime_or_model: "UNKNOWN"
+    provider: "local | external | human | deterministic | unknown"
+    objective: "<bounded task>"
+    parent_assignment: "<chief or lead assignment>"
+    authority:
+      allowed_actions: []
+      forbidden_actions: []
+      allowed_data: []
+      forbidden_data: []
+      invariant: "child_authority must be subset of parent_authority and owner_grant"
+    context_refs: []
+    budget:
+      token_budget: "UNKNOWN"
+      money_budget: "UNKNOWN"
+      time_budget: "UNKNOWN"
+      compute_budget: "UNKNOWN"
+    output_contract: "<expected result>"
+    verification: "<how checked>"
+    stop_conditions: []
+    escalation_conditions: []
+
+  execution:
+    current_step: "<step>"
+    changed_artifacts: []
+    tests_run: []
+    failures_and_retries: []
+    evidence_refs: []
+
+  technical_review:
+    required: false
+    status: "not_required | pending | pass | challenge | partial"
+    subject_ref: "<commit/artifact>"
+    findings: []
+    unresolved_disagreements: []
+
+  aegis_review:
+    required: false
+    status: "not_required | pending | pass | challenge | partial | blocked"
+    authority_findings: []
+    privacy_findings: []
+    security_findings: []
+    evidence_findings: []
+
+  resource_actuals:
+    tokens: "UNKNOWN"
+    monetary_cost: "UNKNOWN"
+    elapsed_time: "UNKNOWN"
+    retries: "UNKNOWN"
+    local_compute: "UNKNOWN"
+    review_cost: "UNKNOWN"
+    correction_or_rework_cost: "UNKNOWN"
+
+  completion:
+    acceptance_evidence: []
+    runtime_verified: false
+    human_approval_ref: "<ref or not_required>"
+    limitations: []
+    residual_risk: []
+    recommendation: "promote | revise | defer | rollback | reject | unknown"
+    one_next_action: "<single next action>"
+
+  history: []
