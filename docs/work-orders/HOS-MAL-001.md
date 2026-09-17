@@ -101,6 +101,43 @@ This slice is not wired into `server.py` or the runtime. Rollback is branch dele
 - add qualification gates that are separate from artifact verification
 - independently review the exact commit before promotion
 
+## Deferred qualification experiment — runtime thermal and efficiency comparison
+
+Status: DEFERRED / DO NOT IMPLEMENT IN THIS SLICE.
+
+Purpose: determine whether the lower observed heat during the WebLLM experiment came primarily from the smaller model, the WebGPU runtime, or both. This is qualification evidence for future HumanOS runtime selection, not a reason to depend on WebLLM.
+
+Controlled comparison:
+
+- use the exact same small model and quantization in both runtimes where technically possible
+- compare WebLLM/WebGPU against Ollama/Metal
+- use the same prompt set, context size, generation length, and sampling settings
+- record model ID, exact revision, quantization, runtime version, browser/runtime version, and machine state
+
+Measurements:
+
+- prefill tokens/second
+- decode tokens/second
+- wall-clock latency
+- RAM and Apple unified-memory usage
+- CPU load
+- GPU load
+- power/energy draw when measurable with repeatable tooling
+- thermal impact and temperature behavior when measurable with repeatable tooling
+- sustained-performance behavior and throttling
+- answer quality against the same acceptance prompts
+- idle/resident behavior after inference stops
+
+Interpretation rules:
+
+- do not compare different model sizes and attribute the result to runtime efficiency
+- mark measurements NON-COMPARABLE when runtime settings cannot be normalized sufficiently
+- separate observed measurements from inferred causes
+- repeat runs enough to identify warm-cache versus cold-start effects
+- use local measurements as evidence; marketing benchmarks are context only
+
+Future use: qualification may eventually support energy-aware runtime profiles such as ECO, BALANCED, and PERFORMANCE, but no routing policy is approved by this work order.
+
 ## Next action
 
-After CI is green, review this isolated artifact layer and its gaps. Only then define a second slice for one real, small, immutable model package. Do not connect it to HumanOS routing yet.
+Continue foundation review of this isolated artifact layer and its security gaps. The runtime thermal benchmark remains queued for a later qualification slice. Only after review should a second slice be defined for one real, small, immutable model package. Do not connect this branch to HumanOS routing yet.
