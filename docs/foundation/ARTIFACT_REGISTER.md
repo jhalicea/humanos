@@ -15,6 +15,9 @@ information, and sensitive local evidence do not belong here.
 | Global routing/index | GitHub issue #67 | Mutable router/index for discovering workspace/workstream state and current session focus; pointer only | Registry/workstream focus materially changes |
 | Public context registry | `config/context_registry.public.json` | Safe workspace/workstream metadata used for topic-aware development routing | Workstream created, renamed, related, status/resume point changes |
 | Registry implementation | `context_registry.py` | Deterministic schema validation, routing, boundary checks, conflict checks | Context-registry behavior changes |
+| Runtime context bridge | `context_runtime.py` | Deterministic host/runtime adapter that turns registry results into safe Mirror routing envelopes and privacy-redacted model context | Runtime context-routing behavior changes |
+| Default Mirror composition | `server.py` | Context-aware runtime entrypoint/composition; gates normal Mirror turns before model/tool execution | Default Mirror composition changes |
+| Preserved runtime core | `server_core.py` | Pre-HOS-CTX-002 runtime implementation composed by `server.py`; keeps core runtime behavior separate from the routing gate | Core runtime behavior changes or layering is deliberately consolidated |
 | Private context overlay | external/local path via `HUMANOS_CONTEXT_PRIVATE_REGISTRY` | Sensitive workspace identities/local roots/private-only streams; never committed | Private workspace metadata changes |
 | Context registry design | `docs/foundation/CONTEXT_REGISTRY.md` | Architecture/security/operations contract for the development Context Layer kernel | Context design evolves |
 | Branch status snapshot | `STATUS.md` | Commit-scoped state for the selected branch/session | Branch state/evidence/next-action change |
@@ -43,8 +46,13 @@ HOS-CTX-001 supersedes HOS-FND-001's original global WIP=1 assumption. HumanOS
 may preserve multiple open workstreams; the current session selects one focused
 execution slice and must reconcile component conflicts before concurrent edits.
 
+`HOS-CTX-002 — Runtime Context Routing Bridge` is the verified child workstream
+that makes this registry operational for normal Mirror turns. Its verified
+implementation commit is `ae8edd93c20e6bc98ad3ab32ea500575fc220b6d` and it
+remains promotion-pending until owner approval.
+
 Other HumanOS workstreams remain independently preserved in the context registry.
-Their state is not changed merely because the foundation/context kernel is promoted.
+Their state is not changed merely because another context workstream is selected.
 
 ## Placement rules
 
