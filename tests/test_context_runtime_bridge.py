@@ -66,7 +66,7 @@ class ContextRuntimeBridgeTests(unittest.TestCase):
         self.assertTrue(route.requires_confirmation)
         self.assertFalse(route.allow_execution)
 
-    def test_private_overlay_metadata_never_enters_model_context(self):
+    def private_overlay(self):
         overlay = self.root / 'private.json'
         overlay.write_text(json.dumps({
             'schema_version': 1,
@@ -80,23 +80,41 @@ class ContextRuntimeBridgeTests(unittest.TestCase):
             'workspaces': [{
                 'workspace_id': 'WS-CLIENT-001', 'workspace_type': 'CLIENT',
                 'public_alias': 'CLIENT-001', 'confidentiality': 'CLIENT_PRIVATE',
-                'repository': None, 'topics': ['clientalpha'], 'cross_workspace_policy': 'DENY',
+                'repository': None, 'topics': ['clientalpha', 'email', 'automation'], 'cross_workspace_policy': 'DENY',
             }],
             'workstreams': [{
                 'workstream_id': 'CLI-TEST-001', 'workspace_id': 'WS-CLIENT-001',
-                'title': 'Private Test Stream', 'project': 'Private Work', 'repository': None,
-                'branch': None, 'work_order': None, 'status': 'READY',
-                'confidentiality': 'CLIENT_PRIVATE', 'topics': ['clientalpha', 'triage'],
+                'title': 'SECRET PRIVATE STREAM', 'project': 'SECRET PRIVATE PROJECT', 'repository': None,
+                'branch': 'private/secret-branch', 'work_order': 'private/secret-order.md', 'status': 'READY',
+                'confidentiality': 'CLIENT_PRIVATE', 'topics': ['clientalpha', 'email', 'classifier', 'automation', 'triage'],
                 'components': [], 'relations': [], 'last_verified_commit': None,
-                'resume_point': 'Resume private test.', 'next_action': 'Confirm workspace.',
+                'resume_point': 'SECRET RESUME DETAIL', 'next_action': 'SECRET NEXT ACTION',
             }],
         }), encoding='utf-8')
-        router = RuntimeContextRouter(load_registry(self.public, overlay))
+        return overlay
+
+    def test_private_overlay_details_never_enter_model_context(self):
+        router = RuntimeContextRouter(load_registry(self.public, self.private_overlay()))
         route = router.inspect('continue clientalpha triage')
         packet = json.dumps(route.model_context())
-        self.assertNotIn('SECRET CLIENT NAME', packet)
-        self.assertNotIn('/very/private/root', packet)
-        self.assertNotIn('SECRET NOTE', packet)
+        for secret in (
+            'SECRET CLIENT NAME', '/very/private/root', 'SECRET NOTE',
+            'SECRET PRIVATE STREAM', 'SECRET PRIVATE PROJECT', 'private/secret-branch',
+            'private/secret-order.md', 'SECRET RESUME DETAIL', 'SECRET NEXT ACTION',
+        ):
+            self.assertNotIn(secret, packet)
+        self.assertIn('CLI-TEST-001', packet)
+
+    def test_public_and_private_related_work_requires_confirmation_even_if_scores_differ(self):
+        router = RuntimeContextRouter(load_registry(self.public, self.private_overlay()))
+        route = router.inspect('improve email classifier automation')
+        self.assertTrue(route.applicable)
+        self.assertEqual(route.decision, 'AMBIGUOUS')
+        self.assertIsNone(route.workspace_id)
+        self.assertTrue(route.requires_confirmation)
+        ids = {item['workstream_id'] for item in route.candidates}
+        self.assertIn('HOS-INBOX-001', ids)
+        self.assertIn('CLI-TEST-001', ids)
 
     def _agent_fixture(self, registry):
         vault = self.root / 'vault'
