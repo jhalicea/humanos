@@ -7,7 +7,14 @@
       "public_alias": "HumanOS",
       "confidentiality": "INTERNAL",
       "repository": "jhalicea/humanos",
-      "topics": ["humanos", "human os", "mirror", "runtime", "foundation", "development"],
+      "topics": [
+        "humanos",
+        "human os",
+        "mirror",
+        "runtime",
+        "foundation",
+        "development"
+      ],
       "cross_workspace_policy": "DENY"
     }
   ],
@@ -22,9 +29,31 @@
       "work_order": "docs/work-orders/HOS-CTX-001.md",
       "status": "PROMOTED",
       "confidentiality": "INTERNAL",
-      "topics": ["context", "workspace", "workstream", "registry", "routing", "continuity", "project", "client", "employer", "workflow"],
-      "components": ["context_registry.py", "config/context_registry.public.json", "docs/foundation", "AGENTS.md", "STATUS.md"],
-      "relations": [{"relation": "EXTENDS", "target_workstream_id": "HOS-FND-001"}],
+      "topics": [
+        "context",
+        "workspace",
+        "workstream",
+        "registry",
+        "routing",
+        "continuity",
+        "project",
+        "client",
+        "employer",
+        "workflow"
+      ],
+      "components": [
+        "context_registry.py",
+        "config/context_registry.public.json",
+        "docs/foundation",
+        "AGENTS.md",
+        "STATUS.md"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-FND-001"
+        }
+      ],
       "last_verified_commit": "edb46410d8b36de54413aa75db10efa64d213241",
       "resume_point": "Promoted into runtime-0.1 by PR #68. Future Context Layer increments should extend the promoted baseline in a new bounded workstream.",
       "next_action": "Route future context-layer work from actual development need; do not reopen this promoted slice as an unlimited feature stream."
@@ -39,12 +68,72 @@
       "work_order": "docs/work-orders/HOS-CTX-002.md",
       "status": "PROMOTED",
       "confidentiality": "INTERNAL",
-      "topics": ["context", "runtime", "routing", "mirror", "workspace", "workstream", "continuity", "chatgpt", "development"],
-      "components": ["context_runtime.py", "server.py", "server_core.py", "tests/test_context_runtime_bridge.py", "config/context_registry.public.json", "docs/work-orders/HOS-CTX-002.md"],
-      "relations": [{"relation": "EXTENDS", "target_workstream_id": "HOS-CTX-001"}],
+      "topics": [
+        "context",
+        "runtime",
+        "routing",
+        "mirror",
+        "workspace",
+        "workstream",
+        "continuity",
+        "chatgpt",
+        "development"
+      ],
+      "components": [
+        "context_runtime.py",
+        "server.py",
+        "server_core.py",
+        "tests/test_context_runtime_bridge.py",
+        "config/context_registry.public.json",
+        "docs/work-orders/HOS-CTX-002.md"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-001"
+        }
+      ],
       "last_verified_commit": "ae8edd93c20e6bc98ad3ab32ea500575fc220b6d",
       "resume_point": "Promoted into runtime-0.1 by PR #69 at merge commit cd1075fdf0407588b6808bcc50b08325f8b4130a. Normal Mirror turns now route through the deterministic Context Registry bridge before model/tool execution, with private routing metadata redaction and fail-closed workspace ambiguity.",
       "next_action": "No direct continuation required; route future requests through the promoted bridge and create a new bounded context workstream only when a concrete gap requires one."
+    },
+    {
+      "workstream_id": "HOS-CTX-003",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Session Workstream Continuity",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-session-continuity-v1",
+      "work_order": "docs/work-orders/HOS-CTX-003.md",
+      "status": "ACTIVE",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "session",
+        "continuity",
+        "follow-up",
+        "conversation",
+        "mirror",
+        "brain",
+        "context engine",
+        "workstream"
+      ],
+      "components": [
+        "context_runtime.py",
+        "server.py",
+        "tests/test_context_session_continuity.py",
+        "config/context_registry.public.json",
+        "docs/work-orders/HOS-CTX-003.md"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-002"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Implementation candidate adds verified same-session workstream inheritance for short continuation phrases using the immediately preceding checkpointed CONTEXT_ROUTE evidence.",
+      "next_action": "Run focused tests and full CI, review security boundaries, then leave promotion pending for Jon."
     },
     {
       "workstream_id": "HOS-FND-001",
@@ -56,8 +145,21 @@
       "work_order": "docs/work-orders/HOS-FND-001.md",
       "status": "PROMOTED",
       "confidentiality": "INTERNAL",
-      "topics": ["foundation", "workflow", "sdlc", "agile", "continuity", "artifact", "control room"],
-      "components": ["AGENTS.md", "STATUS.md", "docs/foundation", "docs/work-orders/HOS-FND-001.md"],
+      "topics": [
+        "foundation",
+        "workflow",
+        "sdlc",
+        "agile",
+        "continuity",
+        "artifact",
+        "control room"
+      ],
+      "components": [
+        "AGENTS.md",
+        "STATUS.md",
+        "docs/foundation",
+        "docs/work-orders/HOS-FND-001.md"
+      ],
       "relations": [],
       "last_verified_commit": "edb46410d8b36de54413aa75db10efa64d213241",
       "resume_point": "Promoted into runtime-0.1 and amended by HOS-CTX-001, which supersedes the original global single-slice assumption.",
@@ -73,9 +175,29 @@
       "work_order": "docs/work-orders/HOS-MAL-001.md",
       "status": "PAUSED",
       "confidentiality": "INTERNAL",
-      "topics": ["model", "loader", "weights", "shards", "webllm", "artifact", "manifest", "hash", "local llm", "runtime"],
-      "components": ["model_artifacts.py", "docs/work-orders/HOS-MAL-001.md", "docs/reviews"],
-      "relations": [{"relation": "RELATED_TO", "target_workstream_id": "HOS-MR-001"}],
+      "topics": [
+        "model",
+        "loader",
+        "weights",
+        "shards",
+        "webllm",
+        "artifact",
+        "manifest",
+        "hash",
+        "local llm",
+        "runtime"
+      ],
+      "components": [
+        "model_artifacts.py",
+        "docs/work-orders/HOS-MAL-001.md",
+        "docs/reviews"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-MR-001"
+        }
+      ],
       "last_verified_commit": "018c9c57e40e91395defe6222f38bd2b99c83905",
       "resume_point": "Design owner-anchored registry trust root and offline manifest verification.",
       "next_action": "Define the smallest trust-root and offline verification slice before any real model trial."
@@ -90,9 +212,26 @@
       "work_order": null,
       "status": "UNKNOWN",
       "confidentiality": "INTERNAL",
-      "topics": ["model", "router", "routing", "ollama", "local llm", "selection", "qualification"],
-      "components": ["hine.py", "swarm_models.py", "swarm_runtime.py"],
-      "relations": [{"relation": "RELATED_TO", "target_workstream_id": "HOS-MAL-001"}],
+      "topics": [
+        "model",
+        "router",
+        "routing",
+        "ollama",
+        "local llm",
+        "selection",
+        "qualification"
+      ],
+      "components": [
+        "hine.py",
+        "swarm_models.py",
+        "swarm_runtime.py"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-MAL-001"
+        }
+      ],
       "last_verified_commit": null,
       "resume_point": "Registry knows the branch exists; current implementation status must be inspected before continuation.",
       "next_action": "Inspect branch work order, diff, tests, and latest evidence before changing model routing."
@@ -107,9 +246,26 @@
       "work_order": null,
       "status": "UNKNOWN",
       "confidentiality": "INTERNAL",
-      "topics": ["learning", "academy", "course", "mastery", "skills", "curriculum", "grading"],
-      "components": ["learning", "academy", "courses"],
-      "relations": [{"relation": "RELATED_TO", "target_workstream_id": "HOS-MASTERY-001"}],
+      "topics": [
+        "learning",
+        "academy",
+        "course",
+        "mastery",
+        "skills",
+        "curriculum",
+        "grading"
+      ],
+      "components": [
+        "learning",
+        "academy",
+        "courses"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-MASTERY-001"
+        }
+      ],
       "last_verified_commit": null,
       "resume_point": "Branch discovered; exact status is intentionally UNKNOWN until inspected.",
       "next_action": "Inspect branch and evidence before resuming learning-system implementation."
@@ -124,9 +280,24 @@
       "work_order": null,
       "status": "UNKNOWN",
       "confidentiality": "INTERNAL",
-      "topics": ["mastery", "learning", "skills", "confidence", "assessment", "progress"],
-      "components": ["learning", "mastery"],
-      "relations": [{"relation": "RELATED_TO", "target_workstream_id": "HOS-LEARN-001"}],
+      "topics": [
+        "mastery",
+        "learning",
+        "skills",
+        "confidence",
+        "assessment",
+        "progress"
+      ],
+      "components": [
+        "learning",
+        "mastery"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-LEARN-001"
+        }
+      ],
       "last_verified_commit": null,
       "resume_point": "Branch discovered; inspect implementation before choosing CONTINUE or EXTEND.",
       "next_action": "Inspect branch history and tests when mastery work is requested."
@@ -141,8 +312,20 @@
       "work_order": null,
       "status": "UNKNOWN",
       "confidentiality": "INTERNAL",
-      "topics": ["browser", "broker", "chrome", "web", "automation", "extension", "bridge"],
-      "components": ["browser_bridge.py", "browser_native_host.py", "browser-extension"],
+      "topics": [
+        "browser",
+        "broker",
+        "chrome",
+        "web",
+        "automation",
+        "extension",
+        "bridge"
+      ],
+      "components": [
+        "browser_bridge.py",
+        "browser_native_host.py",
+        "browser-extension"
+      ],
       "relations": [],
       "last_verified_commit": null,
       "resume_point": "Multiple browser branches exist; inspect related branches before selecting continuation target.",
@@ -158,9 +341,25 @@
       "work_order": null,
       "status": "UNKNOWN",
       "confidentiality": "INTERNAL",
-      "topics": ["notebook", "life notebook", "capture", "turn", "transcript", "ledger", "journal"],
-      "components": ["notebook.py", "recovery_ledger.py"],
-      "relations": [{"relation": "RELATED_TO", "target_workstream_id": "HOS-NB-RECALL-001"}],
+      "topics": [
+        "notebook",
+        "life notebook",
+        "capture",
+        "turn",
+        "transcript",
+        "ledger",
+        "journal"
+      ],
+      "components": [
+        "notebook.py",
+        "recovery_ledger.py"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-NB-RECALL-001"
+        }
+      ],
       "last_verified_commit": null,
       "resume_point": "Exact-turn capture branch exists; inspect current durability and capture evidence before work.",
       "next_action": "Inspect capture branches and determine which one supersedes or continues the others."
@@ -175,9 +374,25 @@
       "work_order": null,
       "status": "UNKNOWN",
       "confidentiality": "INTERNAL",
-      "topics": ["notebook", "recall", "memory", "context", "history", "reference"],
-      "components": ["notebook_recall.py", "references.py", "notebook.py"],
-      "relations": [{"relation": "RELATED_TO", "target_workstream_id": "HOS-NB-CAPTURE-001"}],
+      "topics": [
+        "notebook",
+        "recall",
+        "memory",
+        "context",
+        "history",
+        "reference"
+      ],
+      "components": [
+        "notebook_recall.py",
+        "references.py",
+        "notebook.py"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-NB-CAPTURE-001"
+        }
+      ],
       "last_verified_commit": null,
       "resume_point": "Recall branch exists; inspect before changes because it overlaps Notebook context work.",
       "next_action": "Inspect recall branch tests and relationship to future Context Layer retrieval."
@@ -192,8 +407,17 @@
       "work_order": null,
       "status": "UNKNOWN",
       "confidentiality": "INTERNAL",
-      "topics": ["inbox", "email", "librarian", "triage", "classification", "automation"],
-      "components": ["inbox_librarian.py"],
+      "topics": [
+        "inbox",
+        "email",
+        "librarian",
+        "triage",
+        "classification",
+        "automation"
+      ],
+      "components": [
+        "inbox_librarian.py"
+      ],
       "relations": [],
       "last_verified_commit": null,
       "resume_point": "Inbox branch exists; inspect before adding email or inbox features.",
@@ -209,9 +433,28 @@
       "work_order": null,
       "status": "UNKNOWN",
       "confidentiality": "INTERNAL",
-      "topics": ["swarm", "multi model", "friends", "review", "delegation", "models", "orchestration"],
-      "components": ["swarm.py", "swarm_runtime.py", "swarm_models.py", "SWARM.md", "SWARM_V3.md"],
-      "relations": [{"relation": "RELATED_TO", "target_workstream_id": "HOS-MR-001"}],
+      "topics": [
+        "swarm",
+        "multi model",
+        "friends",
+        "review",
+        "delegation",
+        "models",
+        "orchestration"
+      ],
+      "components": [
+        "swarm.py",
+        "swarm_runtime.py",
+        "swarm_models.py",
+        "SWARM.md",
+        "SWARM_V3.md"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-MR-001"
+        }
+      ],
       "last_verified_commit": null,
       "resume_point": "Several swarm/multi-model branches exist; inspect branch lineage and evidence before resuming.",
       "next_action": "Reconcile live-multimodel, swarm-runtime, and authorized-control-plane branches before edits."
@@ -226,8 +469,19 @@
       "work_order": null,
       "status": "UNKNOWN",
       "confidentiality": "INTERNAL",
-      "topics": ["backup", "encrypted", "portable", "recovery", "vault", "portability"],
-      "components": ["vault_encryption.py", "vault_portability.py", "ENCRYPTED_BACKUPS.md"],
+      "topics": [
+        "backup",
+        "encrypted",
+        "portable",
+        "recovery",
+        "vault",
+        "portability"
+      ],
+      "components": [
+        "vault_encryption.py",
+        "vault_portability.py",
+        "ENCRYPTED_BACKUPS.md"
+      ],
       "relations": [],
       "last_verified_commit": null,
       "resume_point": "Backup branch exists; current mainline also has backup code and CI, so compare before continuation.",
@@ -243,9 +497,26 @@
       "work_order": null,
       "status": "UNKNOWN",
       "confidentiality": "INTERNAL",
-      "topics": ["file", "files", "organization", "context", "document", "intelligence", "library"],
-      "components": ["file_intelligence.py", "file_manager.py", "source_reader.py"],
-      "relations": [{"relation": "RELATED_TO", "target_workstream_id": "HOS-CTX-001"}],
+      "topics": [
+        "file",
+        "files",
+        "organization",
+        "context",
+        "document",
+        "intelligence",
+        "library"
+      ],
+      "components": [
+        "file_intelligence.py",
+        "file_manager.py",
+        "source_reader.py"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-CTX-001"
+        }
+      ],
       "last_verified_commit": null,
       "resume_point": "Multiple file/document branches exist; inspect them before creating another file-context stream.",
       "next_action": "Reconcile contextual-file-intelligence, document-context-extraction, and file-organization branches."
