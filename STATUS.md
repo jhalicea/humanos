@@ -1,70 +1,73 @@
 # HumanOS Status Snapshot
 
-Status: PROMOTED / CANONICAL RUNTIME BASELINE
+Status: IMPLEMENTATION CANDIDATE / VERIFICATION PENDING
 Date: 2026-09-17
 Global routing/index control plane: GitHub issue #67
-Current canonical branch: `runtime-0.1`
-HOS-CTX-002 promotion PR: #69
-Promotion merge commit: `cd1075fdf0407588b6808bcc50b08325f8b4130a`
+Current branch: `feature/context-session-continuity-v1`
+Selected workstream: `HOS-CTX-003 — Session Workstream Continuity`
+Baseline: `runtime-0.1` at `3cf3ef1a2346fef583cabfa2844ef57fa65a47d4`
 
-This file is the commit-scoped status snapshot for the canonical HumanOS runtime branch. HumanOS may have multiple open workstreams; no unrelated stream is implicitly paused or made active by this promotion.
+This is a commit-scoped branch snapshot. HOS-FND-001, HOS-CTX-001, and HOS-CTX-002 remain promoted in `runtime-0.1`. Unrelated workstreams remain independently preserved.
 
-## Promoted foundation/context capability
+## Why this slice exists
 
-`HOS-FND-001`, `HOS-CTX-001`, and `HOS-CTX-002` are promoted into `runtime-0.1`.
+The promoted HOS-CTX-002 bridge can route an explicit request such as:
 
-HOS-CTX-002 makes the promoted development Context Registry operational for normal Mirror turns before model/tool execution:
+`continue the local model loader`
 
-1. inspect the exact request without rewriting it;
-2. determine whether development-context routing applies;
-3. resolve workspace/workstream through the promoted registry;
-4. surface `CONTINUE`, `EXTEND`, `CREATE_SEPARATE`, or `AMBIGUOUS`;
-5. fail closed before model/tools when workspace/workstream context is ambiguous;
-6. inject only safe route metadata into model context for deterministic routes;
-7. preserve a `CONTEXT_ROUTE` event in the Notebook ledger.
+to `HOS-MAL-001`.
 
-Ordinary conversation with no registry relevance proceeds normally.
+The remaining concrete gap is immediate conversational continuity: a short follow-up such as `do it`, `keep going`, or `go ahead` should be able to inherit the already verified workstream context without forcing Jon to repeat the topic.
 
-## Security behavior
+## Candidate behavior
 
-- private workspace metadata remains outside public Git;
-- private overlay display names, local roots, notes, private workstream titles/projects/branches/work orders/resume text/next actions are redacted from model route packets;
-- if a request positively matches a private workspace and another workspace, confirmation is required even if deterministic scores differ;
-- routing cannot authorize a tool, write a file, switch a branch, merge, or execute development work;
-- already-started/resumed transactions preserve their durable execution context rather than being rerouted under newer registry metadata.
+HOS-CTX-003 adds a narrow same-HCID continuity rule:
 
-## Runtime layering
+1. fresh request routing runs first;
+2. if the current request has no registry relevance, only a short explicit continuation phrase is eligible;
+3. the immediately preceding transaction in the same HCID must be `CHECKPOINTED`;
+4. that transaction must contain a deterministic non-ambiguous `CONTEXT_ROUTE`;
+5. the referenced workstream must still exist and must not be archived/superseded;
+6. the current route becomes `CONTINUE` with origin `SESSION_CONTINUITY`;
+7. source transaction provenance stays host-side and is not injected into the model prompt.
 
-- `context_registry.py`: canonical schema-v1 registry/routing authority;
-- `context_runtime.py`: deterministic runtime-facing routing/redaction bridge;
-- `server.py`: context-aware default Mirror composition/entrypoint;
-- `server_core.py`: preserved pre-bridge runtime implementation used by the composition layer;
-- `tests/test_context_runtime_bridge.py`: focused bridge/security tests.
+An intervening ordinary or unfinished turn breaks implicit continuity. File/plan reference bindings and delegated-work bindings disable this implicit inheritance because they are more specific authorities.
 
-## Promotion evidence
+## Future Context Engine / Brain lineage
 
-- Exact implementation commit: `ae8edd93c20e6bc98ad3ab32ea500575fc220b6d`.
-- HumanOS regression workflow run `35268955403`: Ubuntu 24.04 + macOS 15, Python 3.11 + 3.13 — passed.
-- Encrypted-backup/full-suite run `35268955541`: the same four OS/Python combinations — passed.
-- PR #69 merged the verified candidate into `runtime-0.1` at `cd1075fdf0407588b6808bcc50b08325f8b4130a`.
-- No Life Notebook transcripts, credentials, real confidential client/employer identities, private local roots, or proprietary workspace data were introduced.
+This is not a disposable convenience patch. HumanOS should evolve one canonical context architecture:
 
-## Known boundaries
+- Life Notebook = chronology/evidence/provenance;
+- Context Engine = determine what verified state is relevant now;
+- Mirror = human-facing interaction;
+- models/agents/tools = bounded consumers of context.
 
-- normal Mirror turns are covered; existing delegated WorkBoard agents are not yet routed by this bridge;
-- resumed transactions are intentionally not rerouted;
-- routing is deterministic topic/token matching, not semantic embedding/vector routing;
-- the registry is still manually maintained; automatic repository/workstream discovery is future work;
-- full identity/temporal/permission-graph Context Layer capabilities remain future increments.
+Future temporal/entity/retrieval/goal/permission context should extend this lineage instead of creating competing hidden memory systems.
 
-## Continuity behavior
+## Files in this slice
 
-Jon does not need to say “continue HumanOS.” For HumanOS development, use issue #67 plus the context registry to determine workspace and related workstream before implementation. Repository evidence outranks mutable registry/index metadata if they disagree.
+- `context_runtime.py`
+- `server.py`
+- `tests/test_context_session_continuity.py`
+- `config/context_registry.public.json`
+- `docs/work-orders/HOS-CTX-003.md`
+- `docs/foundation/CONTEXT_REGISTRY.md`
+- `docs/foundation/ARTIFACT_REGISTER.md`
+
+## Verification state
+
+Implementation exists on this branch. Focused tests and repository CI have not yet been evaluated for the current branch head. Do not describe this slice as VERIFIED until exact-commit evidence exists.
+
+## Deliberate boundaries
+
+- no cross-HCID semantic continuation;
+- no automatic old-transaction selection;
+- no Notebook recovery UX redesign;
+- no entity/relationship graph;
+- no semantic/vector context retrieval;
+- no delegated WorkBoard context routing;
+- no automatic branch/tool authority.
 
 ## Next action
 
-Route the next actual HumanOS request through the promoted runtime context bridge. Create a new bounded context workstream only when a concrete gap requires one; do not reopen HOS-CTX-001 or HOS-CTX-002 as unlimited feature streams.
-
-## Privacy boundary
-
-This status file and public registry contain safe project metadata only. Real confidential client/employer identities, credentials, private local paths, Life Notebook transcripts, proprietary data, and personal secrets do not belong here.
+Run focused tests and both repository CI matrices, review the exact diff/security boundary, then update this snapshot to VERIFIED / PROMOTION PENDING if evidence passes. Do not merge automatically.
