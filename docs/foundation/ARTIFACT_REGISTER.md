@@ -32,14 +32,19 @@ information, and sensitive local evidence do not belong here.
 | README/docs index | `README.md`, `docs/index.md` | Entry points/public status | User-facing docs change |
 | Release/rollback evidence | tags, releases, commit history, work orders | Promotion and rollback truth | Merge/release/promotion |
 
-## Current development stream
+## Promoted foundation/context baseline
 
-`HOS-CTX-001 — Development Context Registry Kernel`
-on `foundation/context-workstream-registry-v1` extends the verified
-`HOS-FND-001` workflow candidate and supersedes its mistaken global WIP=1 rule.
+`HOS-FND-001 — Foundation Workflow & Cross-Chat Continuity` and
+`HOS-CTX-001 — Development Context Registry Kernel` are promoted into
+`runtime-0.1` by PR #68 at merge commit
+`edb46410d8b36de54413aa75db10efa64d213241`.
 
-Other HumanOS workstreams remain independently preserved in the context registry;
-they do not need to be globally PAUSED just because another stream is selected.
+HOS-CTX-001 supersedes HOS-FND-001's original global WIP=1 assumption. HumanOS
+may preserve multiple open workstreams; the current session selects one focused
+execution slice and must reconcile component conflicts before concurrent edits.
+
+Other HumanOS workstreams remain independently preserved in the context registry.
+Their state is not changed merely because the foundation/context kernel is promoted.
 
 ## Placement rules
 
