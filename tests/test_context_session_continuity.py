@@ -93,7 +93,7 @@ class SessionContextContinuityTests(unittest.TestCase):
             wrapped.run('tx-route', binding['hcid'], 'continue the sharded model loader manifest verification')
             wrapped.run('tx-inbox', binding['hcid'], 'improve inbox classifier automation')
 
-            second_prompt = json.dumps(model.calls[1])
+            second_prompt = model.calls[1][0]['content']
             self.assertIn('HOS-INBOX-001', second_prompt)
             self.assertIn('"origin": "REQUEST"', second_prompt)
             event = book.db.execute(
