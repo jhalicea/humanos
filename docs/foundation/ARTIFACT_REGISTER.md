@@ -7,10 +7,10 @@ This register contains public/project metadata only. Life Notebook transcripts, 
 
 | Artifact | Location | Role / authority | Update trigger |
 |---|---|---|---|
-| HumanOS Constitution | `core/constitution.md` | Governing constitutional copy; subordinate only to owner authority/canonical ratified decisions | Constitutional change process only |
-| Foundation ratification | `docs/FOUNDATION_RATIFICATION.md` | Records ratified Foundation Contract v0.1 and implementation boundary | New ratification/amendment |
+| HumanOS Constitution | `core/constitution.md` | Governing constitutional copy beneath owner authority and above subordinate canonical decisions/standards | Constitutional change process only |
+| Foundation ratification | `docs/FOUNDATION_RATIFICATION.md` | Records ratified Foundation Contract v0.1 and implementation boundary; subordinate to the Constitution | New ratification/amendment |
 | Repository working agreement | `AGENTS.md` | Mandatory repository/SDLC instructions for agents and contributors | Workflow or safety rule change |
-| Live Control Room | GitHub issue #67 | Live cross-chat operational cursor: active slice, branch, state, next action, paused/deferred work | Start/end of meaningful HumanOS work or priority change |
+| Live Control Room | GitHub issue #67 | Mutable live cross-chat operational cursor: active slice, branch, state, next action, paused/deferred work; pointer only, not historical proof | Start/end of meaningful HumanOS work or priority change |
 | Branch status snapshot | `STATUS.md` | Commit-scoped state snapshot and fallback continuation cursor | Active branch/state/evidence/next-action change |
 | Lean Agile + SDLC standard | `docs/foundation/WORKFLOW_STANDARD.md` | Unified flow/WIP/state/SDLC/continuation standard | Approved workflow evolution |
 | Artifact register | `docs/foundation/ARTIFACT_REGISTER.md` | Map of durable project artifacts and their roles | Durable artifact category/path added or retired |
