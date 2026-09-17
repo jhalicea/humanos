@@ -1,0 +1,106 @@
+# HOS-MAL-001 — Verified Sharded Model Artifact Loader
+
+Status: EXPERIMENTAL / NOT PROMOTED
+Branch: `experiment/webllm-inspired-model-loader`
+Owner approval: authorized to build the isolated experiment; no merge or release approval implied.
+
+## Outcome
+
+Prototype a HumanOS-owned model artifact layer inspired by the useful parts of WebLLM without depending on WebLLM itself. The slice proves registry lookup, immutable manifest identity, sharded artifact download, cache reuse, SHA-256 verification, staging, and a final verification receipt. It does not execute a model or alter HumanOS routing.
+
+## Baseline
+
+Branch created from HumanOS `runtime-0.1` at commit `9ddc6477bba70dd4c86104a0565da848d7cbacff`.
+Existing repository guidance requires the standard-library test suite and keeps real Ollama checks separate from simulated model tests.
+
+## Scope
+
+Included:
+
+- local JSON model registry
+- exact model ID and immutable 40–64 hex source revision
+- manifest URL, expected byte length, and SHA-256 anchored in the registry
+- HTTPS-only source URLs containing the immutable revision
+- explicit source-host allowlist and redirect/final-host enforcement
+- rejection of mutable path segments such as `main`, `master`, `latest`, and `head`
+- artifact classes: `weights`, `tokenizer`, `config`, `runtime`
+- many sharded weight files per model
+- per-artifact expected size and SHA-256
+- bounded artifact count and total byte budget
+- safe relative artifact paths and path-traversal rejection
+- staging directory with `.partial` cleanup on failed transfers
+- reuse of already-complete staged shards only after hash and size verification
+- final `VERIFIED.json` receipt after all artifacts validate
+- fail-closed behavior for corrupted existing final caches
+
+Excluded:
+
+- model execution
+- WebLLM dependency
+- Ollama replacement
+- HumanOS model routing
+- automatic qualification or promotion
+- signed registry/manifest trust roots
+- public model catalog
+- browser integration
+- HTTP range-resume of partial files
+- concurrent downloader locking
+- destructive quarantine or automatic repair
+
+## Security model
+
+A remote model is untrusted input until its exact manifest and every artifact are verified. Runtime/WASM artifacts remain distinguishable from weights because executable runtimes deserve a stronger review boundary. A hash proves byte identity, not that a model is safe, unbiased, unpoisoned, or capable.
+
+The prototype refuses:
+
+- mutable upstream refs
+- non-HTTPS canonical URLs
+- unallowlisted source hosts
+- redirects outside the allowlist or HTTPS
+- manifest/artifact size mismatches
+- SHA-256 mismatches
+- path traversal and unsafe artifact names
+- unknown manifest fields
+- duplicate artifact names
+- artifact counts or total sizes beyond configured limits
+- silent overwrite of an existing final cache that no longer verifies
+
+## Acceptance criteria
+
+1. A fixture model with at least two weight shards, tokenizer data, and a runtime artifact downloads into staging and is promoted only after all hashes validate.
+2. A final verification receipt records model ID, immutable source revision, manifest digest, runtime family, artifact kinds, sizes, and hashes.
+3. A second fetch reuses verified cached artifacts rather than downloading the shards again.
+4. Manifest tampering fails before artifact download.
+5. Weight tampering fails without creating a final model directory.
+6. A mutable `main` manifest URL is rejected.
+7. A URL missing the immutable revision is rejected.
+8. A cross-host redirect is rejected.
+9. Manifest path traversal is rejected.
+10. Resource-size limits fail closed.
+11. A corrupted final cache is not overwritten automatically.
+12. Full HumanOS regression suite remains green in CI before promotion consideration.
+
+## Files
+
+- `model_artifacts.py` — isolated registry/manifest/parser/downloader/store implementation.
+- `tests/test_model_artifacts.py` — network-free fixture tests with simulated HTTPS responses.
+
+## Rollback
+
+This slice is not wired into `server.py` or the runtime. Rollback is branch deletion or restoring the two new files; the production runtime is unchanged.
+
+## Known gaps before any real model trial
+
+- define a signed or otherwise owner-anchored registry trust mechanism
+- decide a safe policy for real Hugging Face/CDN redirects without broad wildcard hosts
+- add per-model/process locking and restart semantics for simultaneous downloaders
+- add offline verification from a locally retained immutable manifest
+- add explicit cache eviction and secure cleanup policy
+- benchmark disk, RAM, unified-memory, GPU, power, and thermal behavior
+- review model licenses and provenance
+- add qualification gates that are separate from artifact verification
+- independently review the exact commit before promotion
+
+## Next action
+
+After CI is green, review this isolated artifact layer and its gaps. Only then define a second slice for one real, small, immutable model package. Do not connect it to HumanOS routing yet.
