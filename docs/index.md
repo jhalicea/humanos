@@ -11,9 +11,14 @@ HumanOS is a local-first personal AI runtime and applied research project focuse
 - [Mirror runtime](mirror-runtime.md)
 - [Model governance](model-governance.md)
 - [Testing and evidence](testing-and-evidence.md)
+- [Foundation ratification](FOUNDATION_RATIFICATION.md)
+- [Lean Agile + SDLC workflow standard](foundation/WORKFLOW_STANDARD.md)
+- [Artifact register](foundation/ARTIFACT_REGISTER.md)
 - [Limitations](limitations.md)
 - [Roadmap](roadmap.md)
 - [Contributing](https://jhalicea.github.io/humanos/contributing.html)
+
+Current implementation state is not inferred from documentation memory. The live cross-chat operational cursor is GitHub issue #67, `HumanOS Control Room — Current State & Continuation`; each active branch also carries a root `STATUS.md` commit-scoped snapshot and an active work order.
 
 ## Capability labels
 
