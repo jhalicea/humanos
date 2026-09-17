@@ -20,14 +20,14 @@
       "repository": "jhalicea/humanos",
       "branch": "foundation/context-workstream-registry-v1",
       "work_order": "docs/work-orders/HOS-CTX-001.md",
-      "status": "ACTIVE",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": ["context", "workspace", "workstream", "registry", "routing", "continuity", "project", "client", "employer", "workflow"],
       "components": ["context_registry.py", "config/context_registry.public.json", "docs/foundation", "AGENTS.md", "STATUS.md"],
       "relations": [{"relation": "EXTENDS", "target_workstream_id": "HOS-FND-001"}],
-      "last_verified_commit": null,
-      "resume_point": "Build and verify the development Context Layer registry kernel.",
-      "next_action": "Run registry-specific tests and full HumanOS CI, then review routing and isolation evidence."
+      "last_verified_commit": "edb46410d8b36de54413aa75db10efa64d213241",
+      "resume_point": "Promoted into runtime-0.1 by PR #68. Future Context Layer increments should extend the promoted baseline in a new bounded workstream.",
+      "next_action": "Route future context-layer work from actual development need; do not reopen this promoted slice as an unlimited feature stream."
     },
     {
       "workstream_id": "HOS-FND-001",
@@ -37,14 +37,14 @@
       "repository": "jhalicea/humanos",
       "branch": "foundation/workflow-continuity-v1",
       "work_order": "docs/work-orders/HOS-FND-001.md",
-      "status": "PROMOTION_PENDING",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": ["foundation", "workflow", "sdlc", "agile", "continuity", "artifact", "control room"],
       "components": ["AGENTS.md", "STATUS.md", "docs/foundation", "docs/work-orders/HOS-FND-001.md"],
       "relations": [],
-      "last_verified_commit": "c5abd74572b8a4fde2b3c4fdaaf7e5035829dcb2",
-      "resume_point": "Verified workflow candidate awaits promotion decision; HOS-CTX-001 corrects the global single-slice assumption.",
-      "next_action": "Reconcile with HOS-CTX-001 before any promotion."
+      "last_verified_commit": "edb46410d8b36de54413aa75db10efa64d213241",
+      "resume_point": "Promoted into runtime-0.1 and amended by HOS-CTX-001, which supersedes the original global single-slice assumption.",
+      "next_action": "No direct continuation required; extend the promoted foundation through a new bounded workstream when a concrete need appears."
     },
     {
       "workstream_id": "HOS-MAL-001",

@@ -1,10 +1,13 @@
 # HOS-CTX-001 — Development Context Registry Kernel
 
-Status: VERIFIED IMPLEMENTATION / PROMOTION PENDING
-Branch: `foundation/context-workstream-registry-v1`
+Status: PROMOTED
+Original branch: `foundation/context-workstream-registry-v1`
+Canonical promoted branch: `runtime-0.1`
 Workspace: `WS-HUMANOS`
 Parent/related: extends `HOS-FND-001`
 Verified implementation commit: `b58a4f3c5e0c984dfd5d67b43e49407f7ad605b8`
+Promotion PR: #68
+Promotion merge commit: `edb46410d8b36de54413aa75db10efa64d213241`
 
 ## Outcome
 
@@ -14,7 +17,7 @@ Build a small but strong operational precursor to the future HumanOS Context Lay
 
 - Parent candidate: `foundation/workflow-continuity-v1`
 - Baseline commit: `c5abd74572b8a4fde2b3c4fdaaf7e5035829dcb2`
-- HOS-FND-001 is verified/promotion-pending but contained one incorrect assumption: a global WIP limit of one ACTIVE HumanOS slice.
+- HOS-FND-001 established repository-driven continuity and the unified HumanOS SDLC but contained one incorrect assumption: a global WIP limit of one ACTIVE HumanOS slice.
 - HumanOS already has many feature/experiment branches that can legitimately coexist.
 
 ## Scope delivered
@@ -37,7 +40,6 @@ Still excluded:
 - semantic embedding/vector routing;
 - client/employer identities in the public repository;
 - automatic cross-workspace data transfer;
-- automatic merge/promotion;
 - full future Context Layer identity/temporal/permission graph.
 
 ## Security invariants
@@ -70,17 +72,18 @@ Still excluded:
 14. Final implementation diff contains no confidential/private workspace data — PASSED by diff/repository review; example values are fictional placeholders only.
 15. Issue #67 is converted from a single-task cursor to a global routing/index surface — PASSED.
 
-## Verification evidence
+## Promotion evidence
 
-- HumanOS regression workflow passed on Ubuntu 24.04 and macOS 15 with Python 3.11 and 3.13.
-- Encrypted-backup/full-suite workflow passed on Ubuntu 24.04 and macOS 15 with Python 3.11 and 3.13.
-- Exact implementation diff from baseline reviewed.
-- Dedicated `tests/test_context_registry.py` covers routing, ambiguity, isolation, private overlays, relation validation, and conflict behavior.
-- Issue #67 now records the global workspace/workstream routing protocol instead of a global single-task cursor.
+- Owner approved promotion on 2026-09-17.
+- PR #68 merged into `runtime-0.1`.
+- Promotion merge commit: `edb46410d8b36de54413aa75db10efa64d213241`.
+- Post-merge HumanOS regression CI passed on Ubuntu 24.04 and macOS 15 with Python 3.11 and 3.13.
+- Post-merge encrypted-backup/full-suite CI passed on the same four OS/Python combinations.
+- The promoted diff contains no Life Notebook data, private client/employer identities, credentials, or private workspace mappings.
 
 ## Rollback
 
-Before promotion, delete the branch or reset it to the baseline commit. The current HumanOS runtime is not wired to the registry, so rollback does not mutate Notebook data or production runtime state.
+The pre-promotion runtime baseline is `9ddc6477bba70dd4c86104a0565da848d7cbacff`. The promotion is represented by PR #68 and merge commit `edb46410d8b36de54413aa75db10efa64d213241`, providing an identifiable rollback point. No Notebook data migration was performed by this slice.
 
 ## Known gaps
 
@@ -93,4 +96,4 @@ Before promotion, delete the branch or reset it to the baseline commit. The curr
 
 ## Next action
 
-Jon decides whether to promote/merge this verified foundation candidate. Do not merge automatically. If promoted, the next Context Layer increment should be selected by actual development need rather than expanding the layer speculatively.
+This slice is complete and promoted. Future Context Layer work should be routed from actual development need and implemented as a new bounded workstream/branch extending the promoted baseline, rather than reopening HOS-CTX-001 as an unlimited feature stream.
