@@ -84,22 +84,32 @@ The prototype refuses:
 
 - `model_artifacts.py` — isolated registry/manifest/parser/downloader/store implementation.
 - `tests/test_model_artifacts.py` — network-free fixture tests with simulated HTTPS responses.
+- `docs/reviews/HOS-MAL-001-SECURITY-REVIEW.md` — foundation/security review and promotion gates.
 
 ## Rollback
 
-This slice is not wired into `server.py` or the runtime. Rollback is branch deletion or restoring the two new files; the production runtime is unchanged.
+This slice is not wired into `server.py` or the runtime. Rollback is branch deletion or restoring the experimental files; the production runtime is unchanged.
 
-## Known gaps before any real model trial
+## Security/foundation review status
 
-- define a signed or otherwise owner-anchored registry trust mechanism
-- decide a safe policy for real Hugging Face/CDN redirects without broad wildcard hosts
-- add per-model/process locking and restart semantics for simultaneous downloaders
-- add offline verification from a locally retained immutable manifest
-- add explicit cache eviction and secure cleanup policy
-- benchmark disk, RAM, unified-memory, GPU, power, and thermal behavior
-- review model licenses and provenance
-- add qualification gates that are separate from artifact verification
-- independently review the exact commit before promotion
+Foundation review completed for this slice. The review found that the current experiment is suitable as an isolated artifact-acquisition prototype but is not ready for model execution or routing.
+
+The review preserves these major gates before any real execution path:
+
+- authenticate or owner-anchor the registry trust root
+- keep acquisition, verification, qualification, routing, and execution authorization separate
+- retain the exact immutable manifest locally for offline verification
+- enforce disk-space/cache quotas and safe eviction policy
+- add concurrent-download locking and crash/restart recovery
+- strengthen provider redirect/provenance logging
+- record license, publisher, conversion, and quantization provenance
+- identify the full qualified execution unit, not only the friendly model ID
+- review runtime adapters as higher-trust executable code
+- sandbox/default-deny runtime access before model execution
+- keep HumanOS tool/action authority separate from inference
+- independently review immutable implementation commits before promotion
+
+See `docs/reviews/HOS-MAL-001-SECURITY-REVIEW.md` for detailed findings MAL-S01 through MAL-S14.
 
 ## Deferred qualification experiment — runtime thermal and efficiency comparison
 
@@ -140,4 +150,4 @@ Future use: qualification may eventually support energy-aware runtime profiles s
 
 ## Next action
 
-Continue foundation review of this isolated artifact layer and its security gaps. The runtime thermal benchmark remains queued for a later qualification slice. Only after review should a second slice be defined for one real, small, immutable model package. Do not connect this branch to HumanOS routing yet.
+Design the smallest owner-anchored registry trust-root specification and offline manifest-verification format. Keep it documentation/specification first. Do not add model execution, runtime routing, or a real remote model in that slice.
