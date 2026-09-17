@@ -30,6 +30,23 @@
       "next_action": "Route future context-layer work from actual development need; do not reopen this promoted slice as an unlimited feature stream."
     },
     {
+      "workstream_id": "HOS-CTX-002",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Runtime Context Routing Bridge",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-runtime-routing-v1",
+      "work_order": "docs/work-orders/HOS-CTX-002.md",
+      "status": "PROMOTION_PENDING",
+      "confidentiality": "INTERNAL",
+      "topics": ["context", "runtime", "routing", "mirror", "workspace", "workstream", "continuity", "chatgpt", "development"],
+      "components": ["context_runtime.py", "server.py", "server_core.py", "tests/test_context_runtime_bridge.py", "config/context_registry.public.json", "docs/work-orders/HOS-CTX-002.md"],
+      "relations": [{"relation": "EXTENDS", "target_workstream_id": "HOS-CTX-001"}],
+      "last_verified_commit": "ae8edd93c20e6bc98ad3ab32ea500575fc220b6d",
+      "resume_point": "Verified runtime bridge routes normal Mirror turns before model/tool execution, preserves exact input, redacts private workstream details from model context, and fails closed across ambiguous workspace boundaries.",
+      "next_action": "Jon decides whether to promote the verified HOS-CTX-002 candidate into runtime-0.1."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
