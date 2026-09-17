@@ -49,11 +49,19 @@ No model, reviewer, external service, repository document, or historical artifac
 
 ### HOS-CONST-001 — Local Constitutional Baseline reconciliation
 
-- `HOS-CONST-001_PREFLIGHT.md` — confirms successor/reconciliation operation and source boundary.
-- `HOS-CONST-001_RECONCILIATION_MATRIX.md` — compares the August ratified Constitution, HF-0200 reconstruction, Foundation ratification, local transition, HOS-GOV-001, HD-0100, and current owner direction.
-- `HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc1.md` — **local constitutional candidate; NOT RATIFIED**.
-- `HOS-CONST-001_FRIENDS_CHALLENGE_PACKET.md` — independent challenge/resilience packet; **ready but not executed**.
-- `HOS-CONST-001_SLICE_VERIFICATION.md` — evidence/limitations for this slice.
+- `HOS-CONST-001_PREFLIGHT.md`
+- `HOS-CONST-001_RECONCILIATION_MATRIX.md`
+- `HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc1.md` — preserved predecessor candidate; **never ratified**.
+- `HOS-CONST-001_FRIENDS_CHALLENGE_PACKET.md` — earlier rc1 challenge packet; preserved.
+- `HOS-CONST-001_SLICE_VERIFICATION.md`
+
+### HOS-CONST-002 — Recovered FRIENDS evidence and constitutional hardening
+
+- `HOS-CONST-002_FROZEN_FRIENDS_EVIDENCE_INDEX.md` — indexes five frozen September 14 independent Pass A constitutional reviews recovered from the HumanOS Library; model self-report is not treated as runtime-attested identity.
+- `HOS-CONST-002_LEGACY_FINDINGS_REGRESSION.md` — regresses the frozen findings against rc1 and distinguishes resolved, partial, subordinate-standard, and unresolved issues.
+- `HF-0200_HumanOS_Constitution_and_Human_Bill_of_Rights_v0.2-rc2.md` — current hardened constitutional **candidate; NOT RATIFIED**.
+- `HOS-CONST-002_FRIENDS_DELTA_CHALLENGE_PACKET.md` — short fresh-review packet targeted only at rc2 repairs; **ready, not executed**.
+- `HOS-CONST-002_SLICE_VERIFICATION.md` — evidence and limitations for this hardening slice.
 
 ## Local-first rule
 
@@ -71,32 +79,43 @@ Document/Artifact governance is **CANDIDATE / NOT RATIFIED / NOT IMPLEMENTED**.
 
 The historical government architecture has been reconciled as source lineage. Human sovereignty; branches as functions rather than personalities; standards/rulemaking, executive/runtime, judicial/review, investigation, and oversight separation; external AI subordination; due process; and explicit human ratification are preserved without creating a second government Instrument.
 
-### HF-0200 v0.2-rc1
+### HF-0200 v0.2-rc2
 
-The local constitutional candidate preserves the durable August Constitution while adding or clarifying only constitutional-level issues identified during reconciliation:
+The five recovered frozen FRIENDS reviews independently converged on several important pressure points in the historical Constitution: owner-authority authenticity/voluntariness, third-party boundaries, rights collisions, Mirror/recovery concentration, delegation/succession, consent lifecycle, and a lawful non-sovereign challenge path.
 
-- historical ratification remains historical provenance rather than automatic local ratification;
-- current governing authority is local-first and human-controlled;
-- third-party dignity is explicit;
-- truthful status and false-memory protections are stronger;
-- Mirror is the primary continuity/executive identity rather than an exclusive recovery monopoly;
-- emergency stays must be bounded and owner-visible;
-- documents, source evidence, representations, and registry metadata cannot silently impersonate one another;
-- FRIENDS/reviewers may challenge but do not become constitutional authorities;
-- models cannot self-certify authority;
-- scarcity, tokens, price, quotas, or provider retirement may alter routing but not rights;
-- historical readiness claims are not inherited as current local readiness.
+rc1 had already resolved several issues, including Mirror `sole`-interface concentration, bounded emergency stays, explicit third-party data dignity, provider/model replaceability, resource-scarcity safeguards, and separation of historical versus current readiness.
 
-The candidate remains **NOT RATIFIED**.
+rc2 applies a deliberately small additional constitutional delta:
+
+- consequential owner authority must be reasonably attributable and voluntary;
+- credentials/devices alone do not constitutionally prove voluntary human authority;
+- credible impersonation/coercion/authorization compromise permits only a narrow temporary verification hold;
+- owner capacity is presumed and models/reviewers may not turn disagreement, emotion, diagnosis, unusual choice, or confidence into paternalistic authority;
+- owner sovereignty over HumanOS does not manufacture authority over other humans' independent rights, systems, property, identity, bodily autonomy, information, or consent;
+- delegation, emergency recovery, and succession may be governed but do not silently transfer sovereignty;
+- rights collisions use a visible, narrowest-effective-action process rather than a hidden fixed value ranking;
+- authorized participants may submit evidence-backed constitutional challenges without gaining execution, veto, ratification, or self-expanding authority;
+- emergency stays cannot be silently self-renewed indefinitely.
+
+The candidate remains **NOT RATIFIED** and has **no runtime enforcement** merely because the text exists.
+
+## Review truth boundary
+
+The September 14 broad constitutional challenge was real and is preserved as historical evidence. It targeted the August Constitution, not rc2.
+
+The current ChatGPT architect has now inspected multiple frozen FRIEND outputs while performing regression/synthesis. Therefore it cannot truthfully count itself as a clean-room independent reviewer of rc2.
+
+The fresh rc2 delta challenge remains intentionally **READY / NOT EXECUTED** until independent reviewers receive the delta packet without seeing one another's new answers first.
 
 ## Current active slice / one next action
 
-**Execute the HOS-CONST-001 FRIENDS Constitutional Challenge against an immutable candidate commit, preserving raw independent first-pass reviews before synthesis.**
+**Execute `HOS-CONST-002_FRIENDS_DELTA_CHALLENGE_PACKET.md` against the exact immutable rc2 candidate using fresh independent reviewers.**
 
-After challenge:
+Then:
 
-1. dispose CRITICAL/HIGH findings;
-2. version HF-0200 if repairs are required;
-3. present the exact final candidate plus unresolved risks for Jon’s explicit local ratification or rejection;
-4. reconcile HD-0100 and later Foundation Instruments against the locally ratified constitutional baseline;
-5. then return to the interrupted implementation sequence instead of continuing architecture indefinitely.
+1. preserve raw first-pass outputs before synthesis;
+2. dispose every fresh CRITICAL/HIGH finding;
+3. create rc3 only if constitutional repairs are actually justified — never silently edit rc2;
+4. present the exact final candidate, immutable commit, challenge record, changes, and unresolved risks for Jon's explicit local ratification or rejection;
+5. reconcile HD-0100 and later Foundation Instruments against the locally ratified constitutional baseline;
+6. return to the interrupted Workflow Kernel / deterministic-governance implementation sequence instead of continuing architecture indefinitely.
