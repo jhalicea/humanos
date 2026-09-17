@@ -37,14 +37,14 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-runtime-routing-v1",
       "work_order": "docs/work-orders/HOS-CTX-002.md",
-      "status": "ACTIVE",
+      "status": "PROMOTION_PENDING",
       "confidentiality": "INTERNAL",
       "topics": ["context", "runtime", "routing", "mirror", "workspace", "workstream", "continuity", "chatgpt", "development"],
       "components": ["context_runtime.py", "server.py", "server_core.py", "tests/test_context_runtime_bridge.py", "config/context_registry.public.json", "docs/work-orders/HOS-CTX-002.md"],
       "relations": [{"relation": "EXTENDS", "target_workstream_id": "HOS-CTX-001"}],
-      "last_verified_commit": null,
-      "resume_point": "Wire the promoted context registry into normal Mirror turns with deterministic routing and a fail-closed ambiguity gate.",
-      "next_action": "Run focused tests and the full HumanOS CI matrices, review the exact diff, then record verification evidence."
+      "last_verified_commit": "ae8edd93c20e6bc98ad3ab32ea500575fc220b6d",
+      "resume_point": "Verified runtime bridge routes normal Mirror turns before model/tool execution, preserves exact input, redacts private workstream details from model context, and fails closed across ambiguous workspace boundaries.",
+      "next_action": "Jon decides whether to promote the verified HOS-CTX-002 candidate into runtime-0.1."
     },
     {
       "workstream_id": "HOS-FND-001",
