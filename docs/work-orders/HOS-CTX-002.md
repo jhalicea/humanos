@@ -1,11 +1,13 @@
 # HOS-CTX-002 — Runtime Context Routing Bridge
 
-Status: VERIFIED / PROMOTION PENDING
+Status: PROMOTED
 Branch: `feature/context-runtime-routing-v1`
 Workspace: `WS-HUMANOS`
 Parent: extends promoted `HOS-CTX-001`
 Baseline: `runtime-0.1` at `aa7a81f00ab21cb6c582391d41603b84b70c5f7f`
 Verified implementation commit: `ae8edd93c20e6bc98ad3ab32ea500575fc220b6d`
+Promotion PR: #69
+Promotion merge commit: `cd1075fdf0407588b6808bcc50b08325f8b4130a`
 
 ## Outcome
 
@@ -57,6 +59,7 @@ Make the promoted development Context Registry operational inside the HumanOS ru
 - Encrypted-backup/full-suite workflow run: `35268955541` — all four OS/Python jobs passed.
 - Dedicated tests: `tests/test_context_runtime_bridge.py`.
 - Diff review from baseline shows only the bounded context runtime bridge, registry/work order, runtime composition layer, preserved runtime core, and tests.
+- PR #69 merged the verified candidate into `runtime-0.1` at `cd1075fdf0407588b6808bcc50b08325f8b4130a` after explicit owner approval.
 
 ## Known gaps / deliberate boundaries
 
@@ -66,12 +69,12 @@ Make the promoted development Context Registry operational inside the HumanOS ru
 - Automatic GitHub branch/work-order discovery is still outside the runtime; the registry remains the durable routing index.
 - No automatic branch checkout, merge, or work execution is granted by routing.
 - Full identity, temporal context, rich permission graph, and cross-workspace transfer authorization UI remain future Context Layer work.
-- `server.py` now composes the context gate over the preserved runtime implementation in `server_core.py`; future runtime changes must preserve this layering or deliberately consolidate it in a reviewed slice.
+- `server.py` composes the context gate over the preserved runtime implementation in `server_core.py`; future runtime changes must preserve this layering or deliberately consolidate it in a reviewed slice.
 
 ## Rollback
 
-Revert/delete this branch. HOS-CTX-001 remains promoted on `runtime-0.1`; no Notebook migration is required. The routing bridge adds no schema migration and does not mutate existing Notebook content during installation.
+Revert PR #69 / merge commit `cd1075fdf0407588b6808bcc50b08325f8b4130a`. HOS-CTX-001 remains promoted on `runtime-0.1`; no Notebook migration is required. The routing bridge adds no schema migration and does not mutate existing Notebook content during installation.
 
 ## Next action
 
-Jon decides whether to promote this verified runtime-routing bridge into `runtime-0.1`. Do not merge automatically.
+No direct continuation is required. Route future requests through the promoted bridge. Create a new bounded Context Layer workstream only when a concrete runtime need exposes a gap; do not reopen this work order as an unlimited feature stream.
