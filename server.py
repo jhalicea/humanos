@@ -1,386 +1,138 @@
-"""HumanOS Runtime 0.1 — extends the original local Mirror entry point."""
-import argparse
+"""HumanOS Runtime 0.1 with deterministic development-context routing."""
+from __future__ import annotations
+
 import json
-import os
-import select
 import sys
-import uuid
-from pathlib import Path
-from notebook import Notebook
-from engine import Agent, OllamaModel, Tools, load_context
+
+import server_core as _core
+from context_runtime import RuntimeContextRouter
 from permissions import task_scope
-from references import bind_choice, resolve_reference
-from terminal_ui import choose_reference
-from work_mode import WorkBoard, WorkContextModel, parse_work_command
 
-BASE = Path(__file__).resolve().parent
-PASTE_COMMAND = ':paste'
-PASTE_SEND_COMMAND = '/send'
-PASTE_GRACE_SECONDS = 0.04
+BASE = _core.BASE
+PASTE_COMMAND = _core.PASTE_COMMAND
+PASTE_SEND_COMMAND = _core.PASTE_SEND_COMMAND
+PASTE_GRACE_SECONDS = _core.PASTE_GRACE_SECONDS
+read_human_input = _core.read_human_input
 
-
-def _terminal_line(line):
-    """Remove only the terminal line ending; preserve visible payload whitespace."""
-    if line.endswith('\n'):
-        line = line[:-1]
-    if line.endswith('\r'):
-        line = line[:-1]
-    return line
+_BaseHumanOSRuntime = _core.HumanOSRuntime
 
 
-def read_human_input(prompt='HUMAN: ', input_fn=input, stdin=None, output=None,
-                     select_fn=select.select, paste_wait=PASTE_GRACE_SECONDS):
-    """Read one exact HumanOS turn, including multiline terminal paste payloads.
+class _RoutedModel:
+    """Inject host-verified routing metadata without changing the human transcript."""
 
-    Normal one-line prompts are unchanged. A burst of already-buffered terminal
-    lines is collected as one turn. ``:paste`` enters deterministic explicit
-    paste mode; only ``/send`` on its own line ends that capture.
-    """
-    stdin = stdin or sys.stdin
-    output = output or sys.stderr
-    first = input_fn(prompt)
+    def __init__(self, base, route_context):
+        self.base = base
+        self.name = base.name
+        self.route_context = route_context
 
-    if first == PASTE_COMMAND:
-        output.write('Paste mode — finish with /send on its own line.\n')
-        output.flush()
-        lines = []
-        while True:
-            line = input_fn('')
-            if line == PASTE_SEND_COMMAND:
-                return '\n'.join(lines)
-            lines.append(line)
-
-    if not getattr(stdin, 'isatty', lambda: False)():
-        return first
-
-    try:
-        ready, _, _ = select_fn([stdin], [], [], paste_wait)
-    except (OSError, TypeError, ValueError):
-        return first
-    if not ready:
-        return first
-
-    lines = [first]
-    while ready:
-        line = stdin.readline()
-        if line == '':
-            break
-        lines.append(_terminal_line(line))
-        try:
-            ready, _, _ = select_fn([stdin], [], [], 0)
-        except (OSError, TypeError, ValueError):
-            break
-    return '\n'.join(lines)
-
-
-class HumanOSRuntime:
-    def __init__(self, vault_base=None, core_path=None, model=None, config=None):
-        config = config or {}
-        if config.get('profile', 'DEFAULT') != 'DEFAULT':
-            raise ValueError('Non-default profiles require the dedicated runtime entrypoint')
-        self.vault_base = Path(vault_base or config.get('vault', BASE / 'HumanOS_Vault'))
-        self.core_path = Path(core_path or config.get('core', BASE / 'core'))
-        self.model = model or os.environ.get('HUMANOS_MODEL', config.get('model', 'llama3:latest'))
-        self.ollama_url = os.environ.get('HUMANOS_ENDPOINT', config.get('endpoint', 'http://127.0.0.1:11434'))
-        self.book = Notebook(self.vault_base)
-        self.pending = self.book.recover()
-        browser = None
-        if config.get('browser'):
-            from browser_bridge import BrowserBroker, bridge_sender
-            b = config['browser']
-            browser = BrowserBroker(b['envelope'], b['state'], bridge_sender(b['socket'], b['secret']))
-        self.tools = Tools(config.get('workspace', BASE / 'workspace'), browser=browser)
-        self.adapter = OllamaModel(self.model, self.ollama_url)
-        self.agent = Agent(self.book, self.adapter, self.tools, self.core_path,
-                           max_steps=config.get('max_steps', 6), max_seconds=config.get('max_seconds', 180),
-                           finalize_on_error=True)
-        self.work = WorkBoard(self.book)
-        self.work_max_steps = config.get('work_max_steps', 12)
-        self.work_max_seconds = config.get('work_max_seconds', 600)
-        if (not isinstance(self.work_max_steps, int) or isinstance(self.work_max_steps, bool) or
-                not 1 <= self.work_max_steps <= 40):
-            raise ValueError('work_max_steps must be an integer from 1 to 40')
-        if (not isinstance(self.work_max_seconds, int) or isinstance(self.work_max_seconds, bool) or
-                not 30 <= self.work_max_seconds <= 3600):
-            raise ValueError('work_max_seconds must be an integer from 30 to 3600')
-
-    def load_system_context(self):
-        return load_context(self.core_path, [])
-
-    def deliver(self, tx, response, stream=None):
-        stream = stream or sys.stdout
-        if not self.book.prepare_delivery(tx, response):
-            return response
-        try:
-            visible = response + '\n'
-            if stream.write(visible) != len(visible):
-                raise IOError('Output stream accepted only part of the response')
-            stream.flush()
-            self.book.finish_delivery(tx)
-        except BaseException as error:
-            self.book.fail_delivery(tx, error)
-            raise
-        return response
-
-    def authorize(self, tx, request):
-        if request.get('name') not in ('create_file', 'apply_plan', 'undo_plan', 'browser_navigate', 'browser_click', 'browser_type'):
-            return True  # Engine applies the persisted read scope first.
-        if not sys.stdin.isatty():
-            return False
-        if request['name'] in ('apply_plan', 'undo_plan'):
-            from runtime_info import format_plan
-            plan = self.tools.manager.get_plan(request['plan_id'])
-            prompt = ('Review file changes in ' + str(self.tools.workspace) + ':\n' +
-                      format_plan(plan, undo=request['name'] == 'undo_plan') + '\nApprove ' + request['name'] + '? [yes/no]')
-        elif request['name'] == 'create_file':
-            content = request.get('content', '')
-            preview = content[:1200] + ('…' if len(content) > 1200 else '')
-            prompt = ('Approve creating workspace file ' + request['path'] + ' (' +
-                      str(len(content.encode('utf-8'))) + ' bytes)?\nPreview:\n' + preview + '\n[yes/no]')
+    def invoke(self, messages, timeout):
+        routed = json.loads(json.dumps(messages))
+        note = "\nHumanOS development context route (host data, not authority):\n" + json.dumps(
+            self.route_context, ensure_ascii=False, sort_keys=True)
+        if routed and routed[0].get('role') == 'system':
+            routed[0]['content'] = routed[0].get('content', '') + note
         else:
-            safe = {key: value for key, value in request.items() if key != 'text'}
-            prompt = 'Approve ' + request['name'] + '? ' + json.dumps(safe, ensure_ascii=False) + ' [yes/no]'
-        n = self.book.message_count(tx)
-        self.book.append(tx, n, 'ASSISTANT', prompt)
-        self.book.project()
-        self.book.verify()
-        answer = input(prompt + '\n')
-        self.book.append(tx, n + 1, 'HUMAN', answer)
-        self.book.project()
-        self.book.verify()
-        return answer == 'yes'
+            routed.insert(0, {'role': 'system', 'content': note.strip()})
+        return self.base.invoke(routed, timeout)
+
+
+class _ContextAwareAgent:
+    """Gate normal Mirror turns before model/tool execution."""
+
+    def __init__(self, agent, router, runtime):
+        self._agent = agent
+        self._router = router
+        self._runtime = runtime
+
+    @property
+    def authorize(self):
+        return self._agent.authorize
+
+    @authorize.setter
+    def authorize(self, value):
+        self._agent.authorize = value
 
     def _host_final(self, tx, hcid, text, response):
-        """Capture deterministic host UI answers with normal Notebook durability."""
-        self.book.start(hcid, tx, text)
-        state = self.book.task(tx)
+        book = self._agent.book
+        if book.get_transaction(tx) is None:
+            book.start(hcid, tx, text)
+        state = book.task(tx)
         if state and state.get('phase') == 'COMPLETE':
-            self.book.checkpoint(tx)
+            book.checkpoint(tx)
             return state['final']
         if state:
-            raise RuntimeError('Host-control transaction already has unfinished task state')
-        row = self.book.get_transaction(tx)
-        state = {'phase': 'FINAL', 'steps': 0, 'elapsed': 0, 'model': self.adapter.name,
-                 'messages': [], 'context': {'host_direct': 'WORK_CONTROL'},
-                 'workspace': str(self.tools.workspace),
-                 'permissions': task_scope(row, self.tools.workspace),
-                 'reference_binding': None, 'approvals': [], 'final': response,
-                 'final_ordinal': self.book.message_count(tx)}
-        self.book.save_task(tx, state)
-        self.book.append(tx, state['final_ordinal'], 'ASSISTANT', response)
+            raise RuntimeError('Context routing found unfinished task state; explicit reconciliation required')
+        row = book.get_transaction(tx)
+        state = {
+            'phase': 'FINAL', 'steps': 0, 'elapsed': 0, 'model': self._agent.model.name,
+            'messages': [], 'context': {'host_direct': 'CONTEXT_ROUTER'},
+            'workspace': str(self._agent.tools.workspace),
+            'permissions': task_scope(row, self._agent.tools.workspace),
+            'reference_binding': None, 'approvals': [], 'final': response,
+            'final_ordinal': book.message_count(tx),
+        }
+        book.save_task(tx, state)
+        book.append(tx, state['final_ordinal'], 'ASSISTANT', response)
         state['phase'] = 'COMPLETE'
         state['delivery'] = 'PREPARED_NOT_CONFIRMED'
-        self.book.save_task(tx, state)
-        self.book.event(tx, 'HOST_FINAL_CAPTURED', {
-            'kind': 'WORK_CONTROL', 'final_digest': self.book.content_digest(response)})
-        self.book.checkpoint(tx)
+        book.save_task(tx, state)
+        book.event(tx, 'HOST_FINAL_CAPTURED', {
+            'kind': 'CONTEXT_ROUTER', 'final_digest': book.content_digest(response)})
+        book.checkpoint(tx)
         return response
 
-    def _work_agent(self, item):
-        briefing = self.work.briefing(item['work_id'], item['owner'])
-        model = WorkContextModel(self.adapter, briefing)
-        return Agent(self.book, model, self.tools, self.core_path,
-                     max_steps=self.work_max_steps, max_seconds=self.work_max_seconds,
-                     finalize_on_error=True)
+    def run(self, tx, hcid=None, user_input=None, context=(), reference_binding=None, work_binding=None):
+        book = self._agent.book
+        # A resumed task already has a durable execution context. Do not reroute it
+        # under potentially changed registry metadata.
+        if book.task(tx) is not None:
+            return self._agent.run(tx, hcid, user_input, context,
+                                   reference_binding=reference_binding, work_binding=work_binding)
 
-    def _choose_work(self, owner, requested=None, prompt='Which work item do you mean?', interactive=True):
-        if requested:
-            self.work.get(requested, owner)
-            return requested
-        candidates = self.work.choose_candidates(owner)
-        if len(candidates) == 1:
-            return candidates[0]
-        if len(candidates) > 1 and interactive and sys.stdin.isatty():
-            return choose_reference(candidates, prompt=prompt)
-        return None
+        if user_input is not None and book.get_transaction(tx) is None:
+            book.start(hcid, tx, user_input)
+        row = book.get_transaction(tx)
+        if row is None:
+            return self._agent.run(tx, hcid, user_input, context,
+                                   reference_binding=reference_binding, work_binding=work_binding)
 
-    def _finish_work(self, item, tx, response):
-        state = self.book.task(tx) or {}
-        failed = bool(state.get('failure_finalized') or state.get('outcome') in ('FAILED', 'NEEDS_RECONCILIATION'))
-        updated = self.work.finish_turn(item['work_id'], item['owner'], tx, response, failed=failed)
-        print('Work: ' + updated['work_id'] + ' | ' + updated['status'], file=sys.stderr)
-        return updated
+        route = self._router.inspect(row['input'])
+        if not route.applicable:
+            return self._agent.run(tx, hcid, None, context,
+                                   reference_binding=reference_binding, work_binding=work_binding)
 
-    def run(self, args):
-        if args.status:
-            self.book.verify()
-            print(json.dumps(dict(self.book.status(), pending=self.pending,
-                                  file_plans=self.tools.manager.pending()), indent=2))
-            return
-        if getattr(args, 'close_task', None):
-            tx = args.close_task
-            final = self.book.finalize_failure(tx,
-                'This task was closed at your request without further tool execution. Original input, errors, and any partial effects remain preserved.',
-                'Explicit user close command')
-            self.deliver(tx, final)
-            return
-        if args.resume:
-            work = getattr(self, 'work', None)
-            item = work.by_tx(args.resume) if work is not None else None
-            agent = self._work_agent(item) if item else self.agent
-            agent.authorize = lambda request: self.authorize(args.resume, request)
-            response = agent.run(args.resume, work_binding=work.binding_for_tx(args.resume) if item else None)
-            if item:
-                self._finish_work(item, args.resume, response)
-            self.deliver(args.resume, response)
-            return
-        execution_pending = [t for t in self.pending if t.get('recovery_kind') != 'DELIVERY' and
-                             (self.book.task(t['tx']) or {}).get('phase') != 'EXTERNAL_CAPTURE_PENDING']
-        if execution_pending:
-            print(str(len(execution_pending)) + ' unfinished execution transaction(s) need attention; use --status and --resume TX-ID. '
-                  'Completed tools are not replayed blindly.', file=sys.stderr)
-        binding = None
-        if self.tools.manager.pending():
-            print('A file plan needs review; use --status for its ID and folder. No moves were replayed on startup.', file=sys.stderr)
-        while True:
-            active_work = None
-            try:
-                text = args.message if args.message is not None else read_human_input(input_fn=input)
-                if text.lower() in ('exit', 'quit') and args.message is None:
-                    return
-                # Do not strip whitespace from visible input.
-                if binding is None:
-                    binding = self.book.bind('Jon', text, hcid=args.session)
-                    print('HumanOS session: ' + binding['hcid'], file=sys.stderr)
-                    print('Life Notebook page: ' + binding['page'], file=sys.stderr)
-                tx = args.tx or 'TX-' + uuid.uuid4().hex
-                print('Transaction: ' + tx, file=sys.stderr)
-                owner = binding['owner']
-                work_command = parse_work_command(text)
-                if work_command:
-                    action = work_command['action']
-                    if action == 'list':
-                        response = self._host_final(tx, binding['hcid'], text, self.work.format_list(owner))
-                        self.deliver(tx, response)
-                    elif action == 'status':
-                        item = self.work.get(work_command['work_id'], owner)
-                        response = self._host_final(tx, binding['hcid'], text, self.work.format_item(item))
-                        self.deliver(tx, response)
-                    elif action in ('cancel', 'done'):
-                        work_id = self._choose_work(owner, work_command.get('work_id'),
-                                                   prompt='Which work item should I ' + action + '?',
-                                                   interactive=args.message is None)
-                        if work_id is None:
-                            message = (self.work.format_list(owner) + '\nChoose a WORK-ID explicitly.'
-                                       if self.work.choose_candidates(owner) else 'There is no active delegated work to ' + action + '.')
-                            response = self._host_final(tx, binding['hcid'], text, message)
-                        else:
-                            status = 'CANCELLED' if action == 'cancel' else 'DONE'
-                            self.book.start(binding['hcid'], tx, text)
-                            item = self.work.set_status(work_id, owner, status, tx=tx)
-                            response = self._host_final(tx, binding['hcid'], text, self.work.format_item(item))
-                        self.deliver(tx, response)
-                    elif action == 'start':
-                        self.book.start(binding['hcid'], tx, text)
-                        active_work = self.work.create(owner, binding['hcid'], work_command['goal'], tx, text)
-                        print('Work accepted: ' + active_work['work_id'] + ' | RUNNING', file=sys.stderr)
-                        agent = self._work_agent(active_work)
-                        agent.authorize = lambda request: self.authorize(tx, request)
-                        response = agent.run(tx, work_binding=self.work.binding_for_tx(tx))
-                        self._finish_work(active_work, tx, response)
-                        active_work = None
-                        self.deliver(tx, response)
-                    else:  # continue
-                        work_id = self._choose_work(owner, work_command.get('work_id'),
-                                                   prompt='Which work item should I continue?',
-                                                   interactive=args.message is None)
-                        if work_id is None:
-                            message = (self.work.format_list(owner) + '\nChoose a WORK-ID explicitly.'
-                                       if self.work.choose_candidates(owner) else 'There is no active delegated work to continue.')
-                            response = self._host_final(tx, binding['hcid'], text, message)
-                            self.deliver(tx, response)
-                        else:
-                            self.book.start(binding['hcid'], tx, text)
-                            active_work = self.work.begin_turn(work_id, owner, binding['hcid'], tx, text)
-                            print('Work continuing: ' + active_work['work_id'] + ' | RUNNING', file=sys.stderr)
-                            agent = self._work_agent(active_work)
-                            agent.authorize = lambda request: self.authorize(tx, request)
-                            response = agent.run(tx, work_binding=self.work.binding_for_tx(tx))
-                            self._finish_work(active_work, tx, response)
-                            active_work = None
-                            self.deliver(tx, response)
-                    if args.message is not None:
-                        return
-                    continue
+        safe_route = route.model_context()
+        book.event(tx, 'CONTEXT_ROUTE', safe_route)
+        notice = self._router.format_for_human(route)
+        if notice:
+            print(notice, file=sys.stderr)
+        if route.requires_confirmation:
+            return self._host_final(tx, row['hcid'], row['input'], notice)
 
-                self.agent.authorize = lambda request: self.authorize(tx, request)
-                reference_binding = None
-                resolution = resolve_reference(self.book, binding['hcid'], tx, text, self.tools.workspace)
-                if resolution.get('status') == 'ambiguous' and sys.stdin.isatty() and args.message is None:
-                    choice = choose_reference(resolution['candidates'], prompt=resolution.get('prompt', 'Which item do you mean?'))
-                    if choice is None:
-                        print('Reference selection cancelled.', file=sys.stderr)
-                        continue
-                    reference_binding = bind_choice(resolution, choice)
-                    print('Mirror reference: ' + choice, file=sys.stderr)
-                elif resolution.get('status') == 'resolved':
-                    reference_binding = resolution['binding']
-                    print('Mirror reference: ' + reference_binding['path'], file=sys.stderr)
-                response = self.agent.run(tx, binding['hcid'], text, args.context,
-                                          reference_binding=reference_binding)
-                self.deliver(tx, response)
-                if args.message is not None:
-                    return
-            except (KeyboardInterrupt, EOFError):
-                print('\nStopped. Any unfinished transaction remains recoverable.', file=sys.stderr)
-                return
-            except Exception as error:
-                if active_work:
-                    try:
-                        self.work.finish_turn(active_work['work_id'], active_work['owner'], tx,
-                                              'Runtime error: ' + str(error), failed=True)
-                    except Exception:
-                        pass
-                if args.message is not None:
-                    raise
-                print('HumanOS needs attention: ' + str(error) + '\nYou can continue chatting. To manage an older task, exit and use --close-task TX-ID or --resume TX-ID.', file=sys.stderr)
+        original_model = self._agent.model
+        self._agent.model = _RoutedModel(original_model, safe_route)
+        try:
+            return self._agent.run(tx, hcid, None, context,
+                                   reference_binding=reference_binding, work_binding=work_binding)
+        finally:
+            self._agent.model = original_model
+
+
+class HumanOSRuntime(_BaseHumanOSRuntime):
+    """Default Mirror runtime plus the promoted development Context Registry gate."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.context_router = RuntimeContextRouter(repo_root=BASE)
+        self.agent = _ContextAwareAgent(self.agent, self.context_router, self)
 
 
 def main():
-    os.umask(0o077)
-    parser = argparse.ArgumentParser(description='HumanOS Runtime 0.1 / Mirror')
-    parser.add_argument('--config', default=str(BASE / 'config.json'))
-    parser.add_argument('--session', help='Exact HCID printed by an earlier session')
-    parser.add_argument('--tx', help='Caller-owned idempotent transaction ID')
-    parser.add_argument('--message', help='Run one turn')
-    parser.add_argument('--resume', help='Resume an exact transaction ID')
-    parser.add_argument('--close-task', help='Close an exact failed/unfinished transaction without executing tools')
-    parser.add_argument('--workspace', help='Explicit folder to read and organize (not the whole home directory)')
-    parser.add_argument('--context', action='append', default=[], help='Relevant filename in core, e.g. runtime.md')
-    parser.add_argument('--status', action='store_true')
-    args = parser.parse_args()
-    runtime = None
-    try:
-        config = json.loads(Path(args.config).read_text()) if Path(args.config).exists() else {}
-        if config.get('profile') == 'AUTHORIZED_RED_TEAM_SWARM':
-            from swarm import serve
-            if set(config) != {'profile', 'envelope', 'agents', 'control_state'}:
-                raise ValueError('Swarm config requires only profile, envelope, agents, control_state')
-            state_dir = Path(config['control_state'])
-            if not state_dir.is_absolute():
-                raise ValueError('Control state requires an absolute owner-controlled path')
-            if args.workspace or args.message or args.resume or args.close_task or args.session or args.tx or args.context or args.status:
-                raise ValueError('Swarm profile accepts only --config; use broker JSON input')
-            serve({k: v for k, v in config.items() if k != 'control_state'}, state_dir)
-            return 0
-        # Relative configured locations are relative to config, never current shell directory.
-        for key in ('vault', 'core', 'workspace'):
-            if key in config:
-                config[key] = str((Path(args.config).resolve().parent / config[key]).resolve())
-        if args.workspace:
-            workspace = Path(args.workspace).expanduser()
-            if not workspace.is_dir():
-                raise ValueError('Selected workspace folder does not exist')
-            config['workspace'] = str(workspace.resolve())
-        runtime = HumanOSRuntime(config=config)
-        runtime.run(args)
-        return 0
-    except Exception as error:
-        print('HumanOS RECOVERY REQUIRED: ' + str(error), file=sys.stderr)
-        return 1
-    finally:
-        if runtime:
-            runtime.book.close()
+    # server_core.main resolves HumanOSRuntime from its module globals. Patch only
+    # that constructor; all existing CLI/recovery behavior stays in the preserved
+    # runtime implementation copied at this commit.
+    _core.HumanOSRuntime = HumanOSRuntime
+    return _core.main()
 
 
 if __name__ == '__main__':
