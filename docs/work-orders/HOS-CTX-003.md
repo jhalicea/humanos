@@ -1,10 +1,11 @@
 # HOS-CTX-003 — Session Workstream Continuity
 
-Status: IMPLEMENTATION CANDIDATE / VERIFICATION PENDING  
+Status: VERIFIED / PROMOTION PENDING  
 Branch: `feature/context-session-continuity-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-002`  
-Baseline: `runtime-0.1` at `3cf3ef1a2346fef583cabfa2844ef57fa65a47d4`
+Baseline: `runtime-0.1` at `3cf3ef1a2346fef583cabfa2844ef57fa65a47d4`  
+Verified implementation commit: `cfeceef93d704be86ed58608b7fe4c9c3a9ca47e`
 
 ## Outcome
 
@@ -90,6 +91,19 @@ Likely future layers may add temporal context, entity/relationship context, Note
 
 Revert this branch. HOS-CTX-001 and HOS-CTX-002 remain promoted on `runtime-0.1`. No Notebook schema migration is introduced.
 
+## Verification evidence
+
+Exact implementation commit `cfeceef93d704be86ed58608b7fe4c9c3a9ca47e` passed:
+
+- HumanOS regression workflow run `35282963655`: Ubuntu 24.04 + macOS 15, Python 3.11 + 3.13 — all four jobs passed;
+- encrypted-backup/full-suite workflow run `35282963660`: the same four OS/Python combinations — all four jobs passed;
+- dedicated continuity tests in `tests/test_context_session_continuity.py` passed inside the full suite;
+- existing HOS-CTX-002 routing/security tests remained green;
+- exact diff review found only the bounded continuity implementation, tests, safe registry metadata, and foundation/work-order/status documentation;
+- no Life Notebook transcript content, credentials, private local paths, or real confidential client/employer identities were introduced.
+
+Acceptance criteria 1–12: **PASSED** under the tested conditions.
+
 ## Next action
 
-Run focused tests, full CI, review the diff/security boundaries, then leave promotion pending for Jon. Do not merge automatically.
+Jon decides whether to promote/merge this verified HOS-CTX-003 candidate into `runtime-0.1`. Do not merge automatically.
