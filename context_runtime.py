@@ -29,17 +29,33 @@ class RuntimeRoute:
         return not self.requires_confirmation
 
     def model_context(self) -> dict[str, object]:
-        """Return routing metadata safe to place in a model context packet.
+        """Return the minimum routing metadata safe for model consumption.
 
-        Private overlay metadata such as real display names, local roots and notes
-        is deliberately excluded. Workstream fields are operational metadata only.
+        Public HumanOS workstreams may expose their operational metadata. Private
+        overlay workstreams expose only stable aliases/status/score; their titles,
+        projects, branch names, work orders, resume text, local roots, notes and
+        real display names stay host-side unless a later explicit policy permits
+        more. This keeps a future hosted model from inheriting private workspace
+        data merely because the local router needed it.
         """
+        safe_candidates = []
+        for item in self.candidates:
+            safe = {
+                "workstream_id": item["workstream_id"],
+                "score": item["score"],
+                "status": item["status"],
+                "public": item["public"],
+            }
+            if item["public"]:
+                for key in ("title", "project", "branch", "work_order", "resume_point", "next_action"):
+                    safe[key] = item[key]
+            safe_candidates.append(safe)
         return {
             "applicable": self.applicable,
             "workspace_id": self.workspace_id,
             "decision": self.decision,
             "selected_workstream": self.selected_workstream,
-            "candidates": [dict(item) for item in self.candidates],
+            "candidates": safe_candidates,
             "reason": self.reason,
             "requires_confirmation": self.requires_confirmation,
         }
@@ -52,6 +68,25 @@ class RuntimeContextRouter:
         self.registry = registry or load_default_registry(repo_root)
 
     def inspect(self, text: str, workspace_hint: Optional[str] = None) -> RuntimeRoute:
+        # Before accepting a score winner, detect cross-workspace relevance. If a
+        # private workspace and any other workspace both contain positively matched
+        # workstreams, a small score difference must never silently choose which
+        # organization's data/context applies. An explicit workspace hint resolves
+        # this gate.
+        if workspace_hint is None:
+            cross_matches = self._cross_workspace_matches(text)
+            if len(cross_matches) > 1 and any(workspace_id not in self.registry.public_workspace_ids
+                                              for workspace_id, _ in cross_matches):
+                candidates = tuple(
+                    self._candidate_payload(candidate.workstream_id, candidate.score, candidate.status)
+                    for _, scoped in cross_matches
+                    for candidate in scoped.candidates[:3]
+                )
+                workspace_ids = sorted(workspace_id for workspace_id, _ in cross_matches)
+                return RuntimeRoute(
+                    True, None, "AMBIGUOUS", None, candidates,
+                    f"request matches multiple workspace security contexts: {workspace_ids}", True)
+
         routed = route_request(self.registry, text, workspace_hint=workspace_hint)
         applicable = self._is_applicable(routed, workspace_hint)
         if not applicable:
@@ -66,6 +101,14 @@ class RuntimeContextRouter:
         requires_confirmation = routed.decision == "AMBIGUOUS"
         return RuntimeRoute(True, routed.workspace_id, routed.decision, selected, candidates,
                             routed.reason, requires_confirmation)
+
+    def _cross_workspace_matches(self, text: str) -> tuple[tuple[str, RouteResult], ...]:
+        matches = []
+        for workspace_id in self.registry.workspaces:
+            scoped = route_request(self.registry, text, workspace_hint=workspace_id)
+            if scoped.candidates:
+                matches.append((workspace_id, scoped))
+        return tuple(matches)
 
     def _is_applicable(self, routed: RouteResult, workspace_hint: Optional[str]) -> bool:
         if workspace_hint:
@@ -82,6 +125,7 @@ class RuntimeContextRouter:
             "workstream_id": stream.workstream_id,
             "score": score,
             "status": status,
+            "public": workstream_id in self.registry.public_workstream_ids,
             "title": stream.title,
             "project": stream.project,
             "branch": stream.branch,
