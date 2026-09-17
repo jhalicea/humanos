@@ -1,55 +1,78 @@
 # HumanOS Status Snapshot
 
-Status: ACTIVE
+Status: ACTIVE DEVELOPMENT SLICE
 Date: 2026-09-17
-Live operational cursor: GitHub issue #67, `HumanOS Control Room — Current State & Continuation`
+Global routing/index control plane: GitHub issue #67
+Current branch: `foundation/context-workstream-registry-v1`
 
-This file is the commit-scoped status snapshot for the branch that contains it. The live cross-chat cursor is issue #67. If they disagree, stop and reconcile against repository evidence before changing HumanOS.
+This file is the commit-scoped status snapshot for this branch. HumanOS may have
+multiple open workstreams; this file describes only the current branch/session.
 
-## Active slice
+## Selected workstream
 
-- Work order: `HOS-FND-001 — Foundation Workflow & Cross-Chat Continuity`
-- Branch: `foundation/workflow-continuity-v1`
-- State: ACTIVE
-- Baseline: `runtime-0.1` at `9ddc6477bba70dd4c86104a0565da848d7cbacff`
-- Outcome: one coherent Lean Agile + HumanOS SDLC workflow, one artifact map, and a durable cross-chat continuation protocol.
+- Work order: `HOS-CTX-001 — Development Context Registry Kernel`
+- Workspace: `WS-HUMANOS`
+- Branch: `foundation/context-workstream-registry-v1`
+- Baseline: `foundation/workflow-continuity-v1` at
+  `c5abd74572b8a4fde2b3c4fdaaf7e5035829dcb2`
+- Outcome: a small but strong precursor to the future Context Layer that can route
+  development work by workspace/topic, discover related workstreams, preserve
+  resume state, and fail closed across workspace boundaries.
 
-## Current foundation truth
+## Corrected workflow truth
 
-- Foundation Contract v0.1 is ratified; implementation remains incremental.
-- `AGENTS.md` contains the repository SDLC and preservation rules.
-- GitHub Actions runs the regression suite on macOS and Linux.
-- Work orders and reviews exist, but before HOS-FND-001 there was no single live operational cursor or formal WIP/state model.
-- Issue #67 is now the live control-plane cursor for current slice, branch, state, next action, and paused work.
+- HumanOS does **not** enforce one global ACTIVE task.
+- Multiple workstreams may coexist across HumanOS, personal, business, employer,
+  client, experiment, and research contexts.
+- The current session selects one focused execution slice at a time.
+- A request is routed by `workspace -> related workstream -> CONTINUE / EXTEND /
+  CREATE_SEPARATE / AMBIGUOUS` before implementation.
+- Ambiguous cross-workspace requests require confirmation.
+- Workspace-private data is isolated by default.
+- Component conflicts on the same repository are checked before concurrent edits.
 
-## Paused work
+## Registry surfaces
 
-### HOS-MAL-001 — Verified Sharded Model Artifact Loader
+- Public safe registry: `config/context_registry.public.json`
+- Registry implementation: `context_registry.py`
+- Private overlay example: `examples/context-registry.private.example.json`
+- Design/operations: `docs/foundation/CONTEXT_REGISTRY.md`
+- Workflow standard: `docs/foundation/WORKFLOW_STANDARD.md`
+- Global router/index: GitHub issue #67
 
-- Branch: `experiment/webllm-inspired-model-loader`
-- Preserved commit: `018c9c57e40e91395defe6222f38bd2b99c83905`
-- State: PAUSED / PRESERVED
-- Resume point: owner-anchored registry trust-root specification and offline manifest-verification format.
-- Deferred within that stream: same-model WebLLM/WebGPU vs Ollama/Metal thermal/efficiency benchmark.
+The real private overlay is never stored in Git and is selected with
+`HUMANOS_CONTEXT_PRIVATE_REGISTRY`.
 
-## Continuation protocol
+## Known related work
 
-For a new chat, model, workstation session, or reviewer:
+The public registry includes safe metadata for currently discoverable HumanOS
+workstreams such as foundation/workflow, model loader, model router, adaptive
+learning/mastery, browser tooling, Notebook capture/recall, inbox automation,
+multi-model swarm, backups, and file/context intelligence. Unknown branch status
+is recorded as `UNKNOWN` instead of guessed.
 
-1. Read GitHub issue #67 first when available.
-2. Check out/read the ACTIVE branch named there.
-3. Read this branch's `STATUS.md`.
-4. Read `docs/foundation/WORKFLOW_STANDARD.md`.
-5. Read the ACTIVE work order under `docs/work-orders/`.
-6. Inspect the referenced commit/diff/tests before acting.
-7. Continue only the single NEXT ACTION unless Jon explicitly changes priority.
+## Continuation behavior
 
-If issue #67 is unavailable, this file is the fallback cursor. Do not infer missing state from memory.
+In a new chat/session, Jon can simply ask for the actual work. The operating
+sequence is:
+
+1. identify the workspace/context from the request or ask if ambiguous;
+2. load the registry;
+3. search related workstreams;
+4. report whether this looks like CONTINUE, EXTEND, CREATE_SEPARATE, or AMBIGUOUS;
+5. inspect the selected branch/work order/evidence;
+6. continue only after that reconciliation.
+
+No “continue HumanOS” phrase is required.
 
 ## Next action
 
-Finish HOS-FND-001 documentation, run the full regression suite/CI, review the diff, update issue #67 with the tested commit and evidence, then request Jon approval before merge/promotion.
+Verify HOS-CTX-001 with registry-specific tests plus full HumanOS CI, inspect the
+final diff for privacy/authority/workflow regressions, update issue #67 as a
+global router/index, and leave promotion pending for Jon.
 
 ## Privacy boundary
 
-This status file must never contain Life Notebook transcripts, credentials, private paths, client information, personal secrets, or sensitive local evidence. It records project state only.
+This file and the public registry contain project metadata only. They must never
+contain real confidential client/employer identities, credentials, private local
+paths, Life Notebook transcripts, proprietary data, or personal secrets.

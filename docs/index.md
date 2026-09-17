@@ -13,12 +13,17 @@ HumanOS is a local-first personal AI runtime and applied research project focuse
 - [Testing and evidence](testing-and-evidence.md)
 - [Foundation ratification](FOUNDATION_RATIFICATION.md)
 - [Lean Agile + SDLC workflow standard](foundation/WORKFLOW_STANDARD.md)
+- [Development Context Registry](foundation/CONTEXT_REGISTRY.md)
 - [Artifact register](foundation/ARTIFACT_REGISTER.md)
 - [Limitations](limitations.md)
 - [Roadmap](roadmap.md)
 - [Contributing](https://jhalicea.github.io/humanos/contributing.html)
 
-Current implementation state is not inferred from documentation memory. The live cross-chat operational cursor is GitHub issue #67, `HumanOS Control Room — Current State & Continuation`; each active branch also carries a root `STATUS.md` commit-scoped snapshot and an active work order.
+Current development continuity is topic-aware. GitHub issue #67 is the global
+routing/index surface, while `config/context_registry.public.json` maps safe
+workspace/workstream metadata and each selected branch carries its own `STATUS.md`
+and work-order/evidence. A new chat does not need a special continuation phrase:
+the request topic is resolved to a workspace and related workstream first.
 
 ## Capability labels
 
@@ -26,4 +31,4 @@ HumanOS documentation distinguishes **verified**, **tested**, **implemented**, *
 
 ## Public-documentation boundary
 
-These pages describe the public architecture. Personal Notebook content, credentials, private model transcripts, client information, local filesystem details, and sensitive operational records do not belong in this repository.
+These pages describe the public architecture. Personal Notebook content, credentials, private model transcripts, client information, employer information, local filesystem details, and sensitive operational records do not belong in this repository.
