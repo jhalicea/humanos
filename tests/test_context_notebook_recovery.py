@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from context_registry import load_registry
@@ -94,16 +95,10 @@ class NotebookContextRecoveryTests(unittest.TestCase):
         vault, book, binding, model, wrapped, router = self._fixture()
         try:
             wrapped.run("tx-model", binding["hcid"], "continue the sharded model loader manifest verification")
-            row = book.db.execute(
-                "SELECT seq,payload FROM events WHERE tx='tx-model' AND kind='CONTEXT_ROUTE'"
-            ).fetchone()
-            payload = json.loads(row["payload"])
-            payload["selected_workstream"] = "HOS-INBOX-001"
-            with book.db:
-                book.db.execute("UPDATE events SET payload=? WHERE seq=?", (json.dumps(payload), row["seq"]))
             before = len(model.calls)
-            route = router.inspect_history(
-                book, "continue what we were doing earlier", current_tx="tx-recover")
+            with mock.patch.object(book, "verify", side_effect=RuntimeError("audit chain tamper")):
+                route = router.inspect_history(
+                    book, "continue what we were doing earlier", current_tx="tx-recover")
             self.assertEqual(len(model.calls), before)
             self.assertTrue(route.requires_confirmation)
             self.assertIn("failed integrity verification", route.reason)
