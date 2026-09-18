@@ -94,16 +94,16 @@ class RegistryGraphBridgeTests(unittest.TestCase):
         self.assertEqual(len(extends), 1)
         evidence = self.graph.edge_provenance(extends[0].edge_id, "WS-HUMANOS")
         self.assertEqual(evidence[0].provenance_kind, "REGISTRY_EVIDENCE")
-        self.assertIn(report.snapshot_sha256, evidence[0].provenance_ref)
+        self.assertTrue(evidence[0].provenance_ref.startswith("registry:assertion:relation:sha256:"))
 
-    def test_every_projected_assertion_is_bound_to_snapshot_digest(self):
+    def test_every_projected_assertion_has_assertion_scoped_registry_provenance(self):
         registry = _registry(
             [_workspace()],
             [_stream("HOS-A"), _stream(
                 "HOS-B", relations=(Relation("EXTENDS", "HOS-A"),))],
         )
         report = project_public_registry(registry, self.graph)
-        prefix = "registry:sha256:" + report.snapshot_sha256
+        self.assertEqual(len(report.snapshot_sha256), 64)
 
         entity_refs = {
             row[0] for row in self.graph.db.execute(
@@ -115,7 +115,50 @@ class RegistryGraphBridgeTests(unittest.TestCase):
         }
         self.assertTrue(entity_refs)
         self.assertTrue(edge_refs)
-        self.assertTrue(all(ref.startswith(prefix) for ref in entity_refs | edge_refs))
+        self.assertTrue(all(
+            ref.startswith("registry:assertion:")
+            for ref in entity_refs | edge_refs
+        ))
+
+    def test_unrelated_registry_metadata_change_does_not_duplicate_structural_provenance(self):
+        first = _registry(
+            [_workspace()],
+            [_stream("HOS-A"), _stream(
+                "HOS-B", relations=(Relation("EXTENDS", "HOS-A"),))],
+        )
+        first_report = project_public_registry(first, self.graph)
+        before_entity_provenance = self.graph.db.execute(
+            "SELECT COUNT(*) FROM context_entity_provenance").fetchone()[0]
+        before_edge_provenance = self.graph.db.execute(
+            "SELECT COUNT(*) FROM context_edge_provenance").fetchone()[0]
+
+        changed_workspace = Workspace(
+            workspace_id="WS-HUMANOS",
+            workspace_type="HUMANOS_INTERNAL",
+            public_alias="HumanOS Renamed",
+            confidentiality="INTERNAL",
+            repository="jhalicea/humanos",
+            topics=("context", "renamed"),
+            cross_workspace_policy="DENY",
+        )
+        second = _registry(
+            [changed_workspace],
+            [_stream("HOS-A"), _stream(
+                "HOS-B", relations=(Relation("EXTENDS", "HOS-A"),))],
+        )
+        second_report = project_public_registry(second, self.graph)
+
+        self.assertNotEqual(first_report.snapshot_sha256, second_report.snapshot_sha256)
+        self.assertEqual(
+            self.graph.db.execute(
+                "SELECT COUNT(*) FROM context_entity_provenance").fetchone()[0],
+            before_entity_provenance,
+        )
+        self.assertEqual(
+            self.graph.db.execute(
+                "SELECT COUNT(*) FROM context_edge_provenance").fetchone()[0],
+            before_edge_provenance,
+        )
 
     def test_same_projection_is_idempotent(self):
         registry = _registry(
