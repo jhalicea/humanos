@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -160,6 +161,27 @@ class ContextGraphTests(unittest.TestCase):
         self.graph = ContextGraph(self.path)
         loaded = self.graph.get_entity(entity.entity_id, "WS-HUMANOS")
         self.assertEqual(loaded.label, "persistent")
+
+    def test_canonical_graph_rows_are_append_only(self):
+        entity = self._entity("append-only")
+        with self.assertRaises(sqlite3.IntegrityError):
+            with self.graph.db:
+                self.graph.db.execute(
+                    "UPDATE context_entities SET label='changed' WHERE entity_id=?",
+                    (entity.entity_id,),
+                )
+        self.assertEqual(
+            self.graph.get_entity(entity.entity_id, "WS-HUMANOS").label,
+            "append-only",
+        )
+
+    def test_unknown_graph_schema_version_fails_closed(self):
+        with self.graph.db:
+            self.graph.db.execute(
+                "UPDATE context_graph_meta SET value='99' WHERE key='schema_version'")
+        self.graph.close()
+        with self.assertRaises(ContextGraphError):
+            ContextGraph(self.path)
 
     def test_invalid_relation_is_rejected(self):
         left = self._entity("left")
