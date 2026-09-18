@@ -1,6 +1,6 @@
 # HOS-CTX-012 — Durable Ambiguity Selection
 
-Status: REVIEW  
+Status: VERIFIED / BLOCKED ON CTX-011 PROMOTION  
 Branch: `feature/context-durable-ambiguity-selection-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends verified `HOS-CTX-011`  
@@ -94,3 +94,13 @@ This slice does **not** solve:
 
 Before promotion, delete/switch away from this branch. No canonical registry, Notebook,
 or runtime data migration is required.
+
+## Verification evidence
+
+- Verified implementation candidate: `251228f7092cd2fee1691942eb5322803ee4dfe3`
+- Push regression run `35310391651`: SUCCESS
+- Push encrypted-backup/full-suite run `35310391632`: SUCCESS
+- Draft PR #83 regression run `35310441761`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
+- Draft PR #83 encrypted-backup/full-suite run `35310441766`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
+- Candidate comparison at verification: 6 commits ahead, 0 behind HOS-CTX-011 verification head; five intended files changed.
+- Promotion is blocked until HOS-CTX-011 is promoted, then remains owner-gated.
