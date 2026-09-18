@@ -130,6 +130,20 @@ class NotebookContextRecoveryTests(unittest.TestCase):
         finally:
             book.close()
 
+    def test_most_recent_history_resolves_newest_eligible_workstream(self):
+        vault, book, binding, model, wrapped, router = self._fixture()
+        try:
+            wrapped.run("tx-model", binding["hcid"], "continue the sharded model loader manifest verification")
+            wrapped.run("tx-inbox", binding["hcid"], "improve inbox classifier automation")
+            route = router.inspect_history(
+                book, "continue the most recent work", current_tx="tx-new")
+            self.assertEqual(route.origin, "NOTEBOOK_RECOVERY")
+            self.assertEqual(route.decision, "CONTINUE")
+            self.assertEqual(route.selected_workstream, "HOS-INBOX-001")
+            self.assertEqual(route.source_tx, "tx-inbox")
+        finally:
+            book.close()
+
     def test_ordinary_new_chat_does_not_trigger_historical_recovery(self):
         vault, book, binding, model, wrapped, router = self._fixture()
         try:
