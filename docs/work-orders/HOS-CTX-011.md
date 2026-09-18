@@ -1,6 +1,6 @@
 # HOS-CTX-011 — Mirror Host Intent & Runtime Identity
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / POST-PROMOTION VERIFIED  
 Branch: `feature/context-host-intent-runtime-identity-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-010`  
@@ -85,7 +85,7 @@ Implementation:
 7. Existing explicit time/Notebook/capability commands remain compatible.
 8. No new source-write, shell, network, merge, or execution authority is granted.
 9. Full regression and encrypted-backup matrices pass.
-10. Promotion remains owner-gated.
+10. Promotion was owner-approved and completed through PR #82.
 
 ## Deferred
 
@@ -111,4 +111,13 @@ evidence, workspace files, or canonical graph data is migrated by this slice.
 - Regression run `35309292236`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
 - Encrypted-backup/full-suite run `35309292262`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
 - Candidate comparison at verification: 11 commits ahead, 0 behind `runtime-0.1`; ten intended files changed.
-- Promotion remains owner-gated.
+- Promotion was owner-approved and completed through PR #82.
+
+## Promotion evidence
+
+- Promotion PR: #82
+- Canonical merge: `cfc6a16e3419077c881a2fcb047ac98df885f32e`
+- Post-promotion regression run `35310986049`: SUCCESS
+- Post-promotion encrypted-backup/full-suite run `35310986051`: SUCCESS
+- Post-promotion Pages run `35310985263`: SUCCESS
+- No release or tag created.
