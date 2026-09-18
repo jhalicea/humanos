@@ -9,6 +9,7 @@ from server_core import *  # Preserve the original server module's public API.
 import server_core as _core
 from context_runtime import RuntimeContextRouter
 from permissions import task_scope
+from runtime_info import host_runtime_request
 
 BASE = _core.BASE
 PASTE_COMMAND = _core.PASTE_COMMAND
@@ -97,6 +98,15 @@ class _ContextAwareAgent:
         if row is None:
             return self._agent.run(tx, hcid, user_input, context,
                                    reference_binding=reference_binding, work_binding=work_binding)
+
+        host_request = host_runtime_request(row['input'])
+        if host_request is not None:
+            # Host/runtime facts outrank development-workstream routing. The
+            # base Agent resolves this exact human-derived request deterministically.
+            book.event(tx, 'HOST_INTENT', {'tool': host_request['name']})
+            return self._agent.run(
+                tx, hcid, None, context,
+                reference_binding=reference_binding, work_binding=work_binding)
 
         # File/plan reference bindings and delegated-work bindings are more
         # specific authorities than generic conversational continuity. They may
