@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import unittest
 import test_runtime
-from runtime_info import execute, recent, intent, request_for, format_observation
+from runtime_info import execute, recent, intent, host_runtime_request, request_for, format_observation
 from server import HumanOSRuntime
 import io
 
@@ -50,6 +50,26 @@ class RuntimeInfoTests(unittest.TestCase):
     def test_followup_clock(self):
         self.turn(self.agent(), 'what time is it?', 'one')
         self.assertIn('local date and time', self.turn(self.agent(), 'do it', 'two'))
+
+    def test_runtime_identity_is_host_direct_and_uses_bound_model(self):
+        agent = self.agent({'final': 'wrong model'})
+        result = self.turn(agent, 'what model are you?', 'identity')
+        self.assertIn('Current inference model for this transaction: test-model', result)
+        self.assertIn('Runtime provider: local Ollama', result)
+        self.assertNotIn('wrong model', result)
+        self.assertEqual(agent.model.calls, [])
+        self.assertEqual(
+            host_runtime_request('what model are you?'),
+            {'name': 'runtime_identity'},
+        )
+
+    def test_coding_capability_is_host_direct_and_precise(self):
+        agent = self.agent({'final': 'I cannot code'})
+        result = self.turn(agent, 'can you code?', 'code-capability')
+        self.assertIn('write code by creating new files inside the selected workspace', result)
+        self.assertIn('no source-write or self-modification tool is connected for HumanOS itself', result)
+        self.assertNotIn('I cannot code', result)
+        self.assertEqual(agent.model.calls, [])
 
     def test_capabilities_truthful(self):
         result = self.turn(self.agent(), 'can you search the internet?')
