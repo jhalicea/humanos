@@ -179,6 +179,24 @@ class ContextGraph:
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.db = sqlite3.connect(str(self.path))
         self.db.row_factory = sqlite3.Row
+
+        meta_exists = self.db.execute(
+            """SELECT 1 FROM sqlite_master
+               WHERE type='table' AND name='context_graph_meta'"""
+        ).fetchone() is not None
+        if meta_exists:
+            version = self.db.execute(
+                "SELECT value FROM context_graph_meta WHERE key='schema_version'"
+            ).fetchone()
+            if version is None:
+                self.db.close()
+                raise ContextGraphError("context graph schema version marker is missing")
+            if version["value"] != str(SCHEMA_VERSION):
+                found = version["value"]
+                self.db.close()
+                raise ContextGraphError(
+                    f"unsupported context graph schema version: {found}")
+
         self.db.executescript("""
           PRAGMA journal_mode=WAL;
           PRAGMA synchronous=FULL;
@@ -248,19 +266,12 @@ class ContextGraph:
             BEFORE DELETE ON context_edge_provenance
             BEGIN SELECT RAISE(ABORT, 'context edge provenance is append-only'); END;
         """)
-        version = self.db.execute(
-            "SELECT value FROM context_graph_meta WHERE key='schema_version'"
-        ).fetchone()
-        if version is None:
+        if not meta_exists:
             with self.db:
                 self.db.execute(
                     "INSERT INTO context_graph_meta(key,value) VALUES('schema_version',?)",
                     (str(SCHEMA_VERSION),),
                 )
-        elif version["value"] != str(SCHEMA_VERSION):
-            self.db.close()
-            raise ContextGraphError(
-                f"unsupported context graph schema version: {version['value']}")
         try:
             os.chmod(self.path, 0o600)
         except OSError:
