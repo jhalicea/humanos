@@ -305,6 +305,18 @@ class ContextRuntimeBridgeTests(unittest.TestCase):
         finally:
             book.close()
 
+    def test_exact_public_title_resolves_pending_ambiguity(self):
+        registry = self.ambiguous_public_registry()
+        book, binding, model, wrapped = self._agent_fixture(registry)
+        try:
+            wrapped.run('tx-ambiguous', binding['hcid'], 'build an llm model')
+            answer = wrapped.run('tx-select-title', binding['hcid'], 'Beta Model Work')
+            self.assertEqual(answer, 'routed answer')
+            self.assertEqual(len(model.calls), 1)
+            self.assertIn('HOS-B', json.dumps(model.calls[0]))
+        finally:
+            book.close()
+
     def test_unrelated_turn_is_not_captured_by_pending_ambiguity(self):
         book, binding, model, wrapped = self._agent_fixture(self.ambiguous_public_registry())
         try:
