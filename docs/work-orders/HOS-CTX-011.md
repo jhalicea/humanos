@@ -1,6 +1,6 @@
 # HOS-CTX-011 — Mirror Host Intent & Runtime Identity
 
-Status: REVIEW  
+Status: VERIFIED / PROMOTION PENDING  
 Branch: `feature/context-host-intent-runtime-identity-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-010`  
@@ -104,3 +104,11 @@ Those remain separate bounded slices.
 
 Before promotion, switch back to `runtime-0.1` or delete this branch. No Notebook
 evidence, workspace files, or canonical graph data is migrated by this slice.
+
+## Verification evidence
+
+- Verified implementation candidate: `409b25ad71ea84aaf3de302621f9e3bec7909395`
+- Regression run `35309292236`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
+- Encrypted-backup/full-suite run `35309292262`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
+- Candidate comparison at verification: 11 commits ahead, 0 behind `runtime-0.1`; ten intended files changed.
+- Promotion remains owner-gated.
