@@ -442,6 +442,43 @@
       "next_action": "Owner promotion decision. Review PR remains non-promotable until explicit approval."
     },
     {
+      "workstream_id": "HOS-CTX-012",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Durable Ambiguity Selection",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-durable-ambiguity-selection-v1",
+      "work_order": "docs/work-orders/HOS-CTX-012.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "ambiguity",
+        "confirmation",
+        "selection",
+        "continuity",
+        "mirror",
+        "notebook",
+        "brain"
+      ],
+      "components": [
+        "context_runtime.py",
+        "server.py",
+        "tests/test_context_runtime_bridge.py",
+        "docs/work-orders/HOS-CTX-012.md",
+        "config/context_registry.public.json"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-011"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Candidate persists ordered ambiguity choices in the Notebook and resolves the immediate next explicit selection without duplicate terminal output.",
+      "next_action": "Run full verification. Promotion is blocked until HOS-CTX-011 is promoted and then requires owner approval."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
