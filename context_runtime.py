@@ -35,6 +35,9 @@ _HISTORY_PATTERNS = (
     re.compile(r"\b(?:what we were doing|where we left off|that .* thing|previous work|earlier work)\b", re.I),
 )
 _HISTORY_CUES = re.compile(r"\b(?:yesterday|today|earlier|before|previous|last|old|most recent|latest|where we left off|what we were doing|go back)\b", re.I)
+_GENERIC_AMBIGUITY_CONFIRMATIONS = frozenset({
+    "confirm", "confirmed", "yes", "yeah", "yep", "correct", "do it", "go ahead",
+})
 
 
 @dataclass(frozen=True)
@@ -131,6 +134,120 @@ class RuntimeContextRouter:
         requires_confirmation = routed.decision == "AMBIGUOUS"
         return RuntimeRoute(True, routed.workspace_id, routed.decision, selected, candidates,
                             routed.reason, requires_confirmation)
+
+    def resolve_pending_ambiguity(self, book, hcid: str, text: str,
+                                  current_tx: Optional[str] = None) -> Optional[RuntimeRoute]:
+        """Resolve an explicit choice from the immediately preceding durable ambiguity.
+
+        The pending candidate order is stored host-side in the Notebook. Only a
+        number, exact candidate ID, exact public title, or generic confirmation is
+        treated as an ambiguity follow-up. Unrelated text is allowed to start a new
+        request instead of being captured by stale context.
+        """
+        pending = self._immediate_pending_ambiguity(book, hcid, current_tx)
+        if not pending or not isinstance(text, str):
+            return None
+
+        candidate_ids = pending["candidate_ids"]
+        normalized = re.sub(r"\s+", " ", text.strip().casefold()).rstrip("?!., ").strip()
+        if not normalized:
+            return None
+
+        selected_id = None
+        if normalized.isdigit():
+            index = int(normalized) - 1
+            if 0 <= index < len(candidate_ids):
+                selected_id = candidate_ids[index]
+            else:
+                return RuntimeRoute(
+                    True, None, "AMBIGUOUS", None, self._pending_candidate_payloads(candidate_ids),
+                    "selection number is outside the pending candidate list", True,
+                    origin="AMBIGUITY_SELECTION", source_tx=pending["source_tx"])
+
+        for workstream_id in candidate_ids:
+            if normalized == workstream_id.casefold():
+                selected_id = workstream_id
+                break
+
+        if selected_id is None:
+            for workstream_id in candidate_ids:
+                stream = self.registry.workstreams.get(workstream_id)
+                if (stream is not None and workstream_id in self.registry.public_workstream_ids and
+                        normalized == re.sub(r"\s+", " ", stream.title.casefold()).strip()):
+                    selected_id = workstream_id
+                    break
+
+        if selected_id is None and normalized not in _GENERIC_AMBIGUITY_CONFIRMATIONS:
+            return None
+
+        candidates = self._pending_candidate_payloads(candidate_ids)
+        if len(candidates) != len(candidate_ids):
+            return RuntimeRoute(
+                True, None, "AMBIGUOUS", None, candidates,
+                "pending context choices changed in the registry; restate the original request",
+                True, origin="AMBIGUITY_SELECTION", source_tx=pending["source_tx"])
+
+        if selected_id is None:
+            return RuntimeRoute(
+                True, None, "AMBIGUOUS", None, candidates,
+                "confirmation did not identify which context candidate to use",
+                True, origin="AMBIGUITY_SELECTION", source_tx=pending["source_tx"])
+
+        selected = self.registry.workstreams[selected_id]
+        selected_payload = next(
+            item for item in candidates if item["workstream_id"] == selected_id)
+        return RuntimeRoute(
+            True,
+            selected.workspace_id,
+            "CONTINUE",
+            selected_id,
+            (selected_payload,),
+            "human selected a candidate from the immediately preceding durable ambiguity",
+            False,
+            origin="AMBIGUITY_SELECTION",
+            source_tx=pending["source_tx"],
+        )
+
+    def _pending_candidate_payloads(self, candidate_ids: tuple[str, ...]) -> tuple[dict[str, object], ...]:
+        payloads = []
+        for workstream_id in candidate_ids:
+            stream = self.registry.workstreams.get(workstream_id)
+            if stream is None or stream.status in _TERMINAL_WORKSTREAM_STATES:
+                continue
+            payloads.append(self._candidate_payload(workstream_id, 0, stream.status))
+        return tuple(payloads)
+
+    def _immediate_pending_ambiguity(self, book, hcid: str,
+                                     current_tx: Optional[str]) -> Optional[dict[str, object]]:
+        if not hcid:
+            return None
+        row = book.db.execute(
+            """SELECT tx,status FROM transactions
+               WHERE hcid=? AND tx!=?
+               ORDER BY rowid DESC LIMIT 1""",
+            (hcid, current_tx or ""),
+        ).fetchone()
+        if not row or row["status"] != "CHECKPOINTED":
+            return None
+
+        event = book.db.execute(
+            """SELECT payload FROM events
+               WHERE tx=? AND kind='CONTEXT_AMBIGUITY_PENDING'
+               ORDER BY seq DESC LIMIT 1""",
+            (row["tx"],),
+        ).fetchone()
+        if not event:
+            return None
+        try:
+            payload = json.loads(event["payload"])
+        except (TypeError, json.JSONDecodeError):
+            return None
+        candidate_ids = payload.get("candidate_ids")
+        if (not isinstance(candidate_ids, list) or not candidate_ids or
+                any(not isinstance(item, str) for item in candidate_ids) or
+                len(candidate_ids) != len(set(candidate_ids))):
+            return None
+        return {"source_tx": row["tx"], "candidate_ids": tuple(candidate_ids)}
 
     def inspect_session(self, book, hcid: str, text: str, current_tx: Optional[str] = None,
                         workspace_hint: Optional[str] = None, allow_inherit: bool = True) -> RuntimeRoute:
@@ -452,13 +569,21 @@ class RuntimeContextRouter:
         if not route.applicable:
             return ""
         if route.requires_confirmation:
-            labels = []
-            for item in route.candidates:
+            if not route.candidates:
+                return ("Context confirmation required before model/tool execution. "
+                        f"Reason: {route.reason}.")
+            lines = [
+                "Context confirmation required before model/tool execution.",
+                f"Reason: {route.reason}.",
+                "Choose one:",
+            ]
+            for index, item in enumerate(route.candidates, 1):
+                workstream_id = str(item.get("workstream_id") or "UNKNOWN")
                 title = item.get("title") if item.get("public") else None
-                labels.append(str(title or item.get("workstream_id") or "private workspace"))
-            candidate_labels = "; ".join(labels) or "no trusted match"
-            return ("Context confirmation required before model/tool execution. "
-                    f"Reason: {route.reason}. Topics: {candidate_labels}.")
+                label = workstream_id + (f" — {title}" if title else "")
+                lines.append(f"  {index}. {label}")
+            lines.append("Reply with the number, workstream ID, or exact title.")
+            return "\n".join(lines)
         if route.selected_workstream:
             selected = next((item for item in route.candidates
                              if item["workstream_id"] == route.selected_workstream), None)
