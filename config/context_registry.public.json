@@ -399,6 +399,49 @@
       "next_action": "Preserved. Next bounded Context Engine slice should address runtime consumption/currentness or other graph lineage work."
     },
     {
+      "workstream_id": "HOS-CTX-011",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Mirror Host Intent & Runtime Identity",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-host-intent-runtime-identity-v1",
+      "work_order": "docs/work-orders/HOS-CTX-011.md",
+      "status": "VERIFIED",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "mirror",
+        "runtime",
+        "identity",
+        "host intent",
+        "capabilities",
+        "tools",
+        "local llm",
+        "brain"
+      ],
+      "components": [
+        "runtime_info.py",
+        "capabilities.py",
+        "engine.py",
+        "server.py",
+        "permissions.py",
+        "tests/test_runtime_info.py",
+        "tests/test_runtime.py",
+        "tests/test_context_runtime_bridge.py",
+        "docs/work-orders/HOS-CTX-011.md",
+        "config/context_registry.public.json"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-010"
+        }
+      ],
+      "last_verified_commit": "409b25ad71ea84aaf3de302621f9e3bec7909395",
+      "resume_point": "Verified host-intent/runtime-identity candidate: host facts bypass workstream routing, runtime model identity is host-grounded, and model-origin host-only tools fail closed.",
+      "next_action": "Owner promotion decision. Review PR remains non-promotable until explicit approval."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
