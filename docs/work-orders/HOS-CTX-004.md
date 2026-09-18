@@ -1,6 +1,6 @@
 # HOS-CTX-004 — Notebook Context Recovery / Human-Friendly Continuation
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / POST-PROMOTION VERIFIED  
 Branch: `feature/context-notebook-recovery-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-003`  
@@ -82,3 +82,15 @@ GitHub Actions at that exact implementation commit:
 Pre-promotion comparison before evidence bookkeeping: branch was ahead of `runtime-0.1` by 9 commits and behind by 0; changed files were limited to the registry, Context runtime, Mirror wiring, work order, and dedicated recovery tests.
 
 Promotion remains owner-gated.
+
+## Promotion evidence
+
+Owner authorized promotion on 2026-09-17.
+
+- PR #71 merged into `runtime-0.1`.
+- Promotion merge: `3ba503f7e86ecff376bff90161c9485ebb21bb82`.
+- Post-promotion regression run `35296038918`: SUCCESS.
+- Post-promotion encrypted-backup/full-suite run `35296038902`: SUCCESS.
+- Post-promotion Pages run `35296038493`: SUCCESS.
+
+HOS-CTX-004 is canonical. Future historical/temporal/context composition capabilities must extend the same Context Engine lineage rather than create a competing memory/context subsystem.
