@@ -1,6 +1,6 @@
 # HOS-CTX-010 — Verified Registry → Context Graph Bridge
 
-Status: REVIEW  
+Status: VERIFIED / PROMOTION PENDING  
 Branch: `feature/context-registry-graph-bridge-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-009`  
@@ -104,3 +104,13 @@ This slice does **not**:
 
 Before promotion, switch back to `runtime-0.1` or delete this branch. CTX-010 does
 not mutate canonical Notebook data or an existing production graph automatically.
+
+## Verification evidence
+
+- Verified implementation candidate: `dbae0e6ce135fbd0e77bebf06bdfed56164f415d`
+- Draft review PR: #80 (review only; no promotion authorization)
+- PR regression run `35304763931`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
+- PR encrypted-backup/full-suite run `35304763943`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
+- Push encrypted-backup/full-suite run `35304710335`: SUCCESS
+- Candidate comparison at verification: 7 commits ahead, 0 behind `runtime-0.1`; four intended files changed.
+- Promotion remains owner-gated.
