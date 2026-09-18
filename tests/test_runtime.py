@@ -249,6 +249,19 @@ class RuntimeTests(unittest.TestCase):
         packet = load_context(self.core, [])
         self.assertEqual(packet['records'], [])
         self.assertEqual(packet['missing'], [])
+    def test_model_cannot_invoke_host_only_clock_without_human_intent(self):
+        agent = self.agent(
+            {'tool': {'name': 'current_time'}},
+            {'final': 'We are still discussing the app.'},
+        )
+        result = agent.run('host-only-clock', self.binding['hcid'], 'yes, continue with the app')
+        self.assertEqual(result, 'We are still discussing the app.')
+        authorization = [json.loads(row[0]) for row in self.book.db.execute(
+            "SELECT payload FROM events WHERE tx='host-only-clock' AND kind='AUTHORIZATION'")]
+        self.assertTrue(authorization)
+        self.assertEqual(authorization[-1]['allowed'], False)
+        self.assertIn('Host-only runtime facts', authorization[-1]['reason'])
+
     def test_greeting_tool_request_is_denied(self):
         agent = self.agent({'tool': {'name': 'read_file', 'path': 'constitution.md'}},
                            {'final': 'Hello, Jon.'})
