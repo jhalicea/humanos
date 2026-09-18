@@ -60,6 +60,18 @@ and source them before insertion.
   auto-write path is introduced.
 - No branch/tool/merge/release authority is added.
 
+## Data-handling boundary
+
+The schema primitive is not itself cryptographic evidence and is not yet wired to a
+protected HumanOS vault location. CTX-009 therefore does not authorize storing real
+personal, client, employer, credential, or other sensitive graph content in a live
+runtime. Before Mirror or agents consume sensitive graph state, a later bounded slice
+must define protected storage placement, integrity/rebuild semantics, backup/export,
+privacy deletion behavior, and the provenance re-verification policy.
+
+A compromised or manually edited graph database must never outrank the Life Notebook,
+repository evidence, permissions, or owner-confirmed state.
+
 ## Scope
 
 Implementation:
