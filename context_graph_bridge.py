@@ -132,10 +132,14 @@ def _preflight(registry: ContextRegistry):
 
 
 def project_public_registry(registry: ContextRegistry, graph: ContextGraph) -> RegistryGraphProjection:
-    """Project public registry identity/membership/relations into an existing graph.
+    """Project one public-registry snapshot into an existing append-only graph.
 
     All workspace/security checks occur before the first graph mutation. Writes are
     deterministic and idempotent because CTX-009 uses stable IDs and append-only rows.
+
+    The returned ID sets define this snapshot's projection. Raw graph rows are not a
+    currentness signal: assertions from older snapshots can remain append-only after
+    registry removal until a later active-projection/rebuild policy is introduced.
     """
     workspaces, workstreams, relations, skipped = _preflight(registry)
     digest = public_registry_snapshot_sha256(registry)
