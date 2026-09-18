@@ -97,7 +97,7 @@ class RuntimeContextRouter:
     def __init__(self, registry: Optional[ContextRegistry] = None, repo_root: Optional[Path] = None):
         self.registry = registry or load_default_registry(repo_root)
 
-    def inspect(self, text: str, workspace_hint: Optional[str] = None, timezone_name: str = "UTC") -> RuntimeRoute:
+    def inspect(self, text: str, workspace_hint: Optional[str] = None) -> RuntimeRoute:
         # Before accepting a score winner, detect cross-workspace relevance. If a
         # private workspace and any other workspace both contain positively matched
         # workstreams, a small score difference must never silently choose which
@@ -176,7 +176,7 @@ class RuntimeContextRouter:
         )
 
     def inspect_history(self, book, text: str, current_tx: Optional[str] = None,
-                        workspace_hint: Optional[str] = None) -> RuntimeRoute:
+                        workspace_hint: Optional[str] = None, timezone_name: str = "UTC") -> RuntimeRoute:
         """Resolve explicit historical-continuation language from verified Notebook evidence.
 
         This is deliberately deterministic and content-light. It uses checkpointed
