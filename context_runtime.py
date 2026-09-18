@@ -214,7 +214,20 @@ class RuntimeContextRouter:
             if narrowed:
                 records = narrowed
 
-        # Eligibility must be resolved before temporal ranking. Otherwise a\n        # newer archived/superseded workstream can hide the newest eligible one.\n        records = self._eligible_history_records(records)\n        records, temporal_reason = self._apply_temporal_scope(records, text, timezone_name)\n\n        unique = []\n        seen = set()\n        for item in records:\n            workstream_id = item["workstream_id"]\n            if workstream_id in seen:\n                continue\n            seen.add(workstream_id)\n            unique.append(item)\n
+        # Eligibility must be resolved before temporal ranking. Otherwise a
+        # newer archived/superseded workstream can hide the newest eligible one.
+        records = self._eligible_history_records(records)
+        records, temporal_reason = self._apply_temporal_scope(records, text, timezone_name)
+
+        unique = []
+        seen = set()
+        for item in records:
+            workstream_id = item["workstream_id"]
+            if workstream_id in seen:
+                continue
+            seen.add(workstream_id)
+            unique.append(item)
+
         if not unique:
             # Historical language is explicit intent. Do not silently send it to
             # the model when verified Notebook evidence cannot bind it.
