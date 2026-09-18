@@ -131,6 +131,32 @@ class ContextRuntimeBridgeTests(unittest.TestCase):
         wrapped = _ContextAwareAgent(agent, RuntimeContextRouter(registry), None)
         return book, binding, model, wrapped
 
+    def test_host_runtime_identity_bypasses_workstream_routing(self):
+        book, binding, model, wrapped = self._agent_fixture(load_registry(self.public))
+        try:
+            answer = wrapped.run('tx-identity', binding['hcid'], 'what model are you?')
+            self.assertIn('Current inference model for this transaction: test-model', answer)
+            self.assertEqual(model.calls, [])
+            kinds = [row[0] for row in book.db.execute(
+                "SELECT kind FROM events WHERE tx='tx-identity'")]
+            self.assertIn('HOST_INTENT', kinds)
+            self.assertNotIn('CONTEXT_ROUTE', kinds)
+        finally:
+            book.close()
+
+    def test_tools_question_bypasses_browser_or_context_workstream_routing(self):
+        book, binding, model, wrapped = self._agent_fixture(load_registry(self.public))
+        try:
+            answer = wrapped.run('tx-tools', binding['hcid'], 'what tools do we have?')
+            self.assertIn('- runtime_capabilities:', answer)
+            self.assertEqual(model.calls, [])
+            kinds = [row[0] for row in book.db.execute(
+                "SELECT kind FROM events WHERE tx='tx-tools'")]
+            self.assertIn('HOST_INTENT', kinds)
+            self.assertNotIn('CONTEXT_ROUTE', kinds)
+        finally:
+            book.close()
+
     def test_bridge_injects_route_without_changing_exact_human_transcript(self):
         book, binding, model, wrapped = self._agent_fixture(load_registry(self.public))
         try:
