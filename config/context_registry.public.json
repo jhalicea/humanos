@@ -218,6 +218,43 @@
       "next_action": "Extend the canonical Context Engine with the next bounded capability."
     },
     {
+      "workstream_id": "HOS-CTX-006",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Local Temporal Context Boundary",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-local-time-v1",
+      "work_order": "docs/work-orders/HOS-CTX-006.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "temporal",
+        "timezone",
+        "local time",
+        "chronology",
+        "notebook",
+        "mirror",
+        "brain",
+        "context engine"
+      ],
+      "components": [
+        "context_runtime.py",
+        "tests/test_context_local_time.py",
+        "config/context_registry.public.json",
+        "docs/work-orders/HOS-CTX-006.md"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-005"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Candidate separates canonical UTC evidence from explicit IANA-timezone calendar interpretation.",
+      "next_action": "Run full verification; trusted timezone-source wiring remains a separate bounded slice."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
