@@ -334,7 +334,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-entity-relationship-graph-v1",
       "work_order": "docs/work-orders/HOS-CTX-009.md",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -358,9 +358,9 @@
           "target_workstream_id": "HOS-CTX-008"
         }
       ],
-      "last_verified_commit": null,
-      "resume_point": "Candidate adds a local deterministic provenance-bearing entity/relationship graph substrate without Mirror integration or model authority.",
-      "next_action": "Run full verification and review isolation/provenance behavior; promotion requires owner approval."
+      "last_verified_commit": "e82ceb8fe847ae7c0cfd6b40a81259b86136ba06",
+      "resume_point": "Verified graph-foundation candidate with workspace-scoped identity, typed directional relationships, trusted provenance, append-only schema-v1 rows, and fail-closed boundaries.",
+      "next_action": "Owner promotion decision. Draft PR #78 remains non-promotable until explicit owner approval."
     },
     {
       "workstream_id": "HOS-FND-001",
