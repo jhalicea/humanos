@@ -160,6 +160,33 @@ class RegistryGraphBridgeTests(unittest.TestCase):
             before_edge_provenance,
         )
 
+    def test_later_snapshot_report_does_not_claim_removed_relation(self):
+        first = _registry(
+            [_workspace()],
+            [
+                _stream("HOS-A"),
+                _stream("HOS-B", relations=(Relation("EXTENDS", "HOS-A"),)),
+            ],
+        )
+        first_report = project_public_registry(first, self.graph)
+        self.assertEqual(len(first_report.relation_edges), 1)
+
+        second = _registry(
+            [_workspace()],
+            [_stream("HOS-A"), _stream("HOS-B")],
+        )
+        second_report = project_public_registry(second, self.graph)
+
+        self.assertEqual(second_report.relation_edges, ())
+        # CTX-009 is append-only: the historical row remains, but CTX-010 does
+        # not claim it as part of the later snapshot projection.
+        self.assertEqual(
+            self.graph.db.execute(
+                "SELECT COUNT(*) FROM context_edges WHERE relation_type='EXTENDS'"
+            ).fetchone()[0],
+            1,
+        )
+
     def test_same_projection_is_idempotent(self):
         registry = _registry(
             [_workspace()],
