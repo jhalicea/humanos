@@ -1,6 +1,6 @@
 # HOS-CTX-009 — Entity & Relationship Context Graph Foundation
 
-Status: REVIEW  
+Status: VERIFIED / PROMOTION PENDING  
 Branch: `feature/context-entity-relationship-graph-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-008`  
@@ -115,3 +115,12 @@ Those belong to later bounded Context Engine slices.
 Before promotion, rollback is branch deletion or switching back to `runtime-0.1`.
 No canonical Notebook evidence, user data, or existing runtime database is modified
 by this isolated graph substrate.
+
+## Verification evidence
+
+- Verified implementation candidate: `e82ceb8fe847ae7c0cfd6b40a81259b86136ba06`
+- Draft review PR: #78 (review only; no promotion authorization)
+- PR regression run `35303272073`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
+- PR encrypted-backup/full-suite run `35303272036`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
+- Candidate comparison at verification: 12 commits ahead, 0 behind `runtime-0.1`; four intended files changed.
+- Promotion remains owner-gated.
