@@ -1,6 +1,6 @@
 # HOS-CTX-012 — Durable Ambiguity Selection
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / POST-PROMOTION VERIFIED  
 Branch: `feature/context-durable-ambiguity-selection-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends verified `HOS-CTX-011`  
@@ -79,7 +79,7 @@ Implementation:
 9. Successful resolution emits `CONTEXT_AMBIGUITY_RESOLVED` and routes the model once.
 10. Existing Context Engine behavior remains compatible.
 11. Full regression and encrypted-backup matrices pass.
-12. CTX-011 is promoted and post-promotion verified; CTX-012 promotion remains owner-gated.
+12. CTX-012 was owner-approved and promoted through PR #83.
 
 ## Deferred
 
@@ -104,4 +104,13 @@ or runtime data migration is required.
 - Draft PR #83 encrypted-backup/full-suite run `35310441766`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
 - Candidate comparison at verification: 6 commits ahead, 0 behind HOS-CTX-011 verification head; five intended files changed.
 - HOS-CTX-011 was promoted at `cfc6a16e3419077c881a2fcb047ac98df885f32e` and passed post-promotion regression `35310986049`, encrypted-backup/full-suite `35310986051`, and Pages `35310985263`.
-- CTX-012 promotion remains owner-gated.
+- CTX-012 was owner-approved and promoted through PR #83.
+
+## Promotion evidence
+
+- Promotion PR: #83
+- Canonical merge: `b76e73eda2ef1565135de6e8cc284ab89133aadf`
+- Post-promotion regression run `35311379924`: SUCCESS
+- Post-promotion encrypted-backup/full-suite run `35311379908`: SUCCESS
+- Post-promotion Pages run `35311378815`: SUCCESS
+- No release or tag created.
