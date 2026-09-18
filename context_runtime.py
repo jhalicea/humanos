@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -257,24 +258,28 @@ class RuntimeContextRouter:
             temporal_reason or "resolved from verified historical Notebook context",
             False, origin="NOTEBOOK_RECOVERY", source_tx=item["source_tx"])
 
-    def _apply_temporal_scope(self, records: list[dict[str, str]], text: str) -> tuple[list[dict[str, str]], Optional[str]]:
-        """Apply deterministic temporal language to verified Notebook history."""
-        now = datetime.now(timezone.utc)
+    def _apply_temporal_scope(self, records: list[dict[str, str]], text: str, timezone_name: str = "UTC") -> tuple[list[dict[str, str]], Optional[str]]:
+        """Apply deterministic temporal language in an explicitly supplied IANA timezone."""
+        try:
+            zone = ZoneInfo(timezone_name)
+        except (ZoneInfoNotFoundError, ValueError, TypeError):
+            zone = timezone.utc
+        now = datetime.now(zone)
         lowered = text.casefold()
 
         if re.search(r"\byesterday\b", lowered):
             target = (now.date() - timedelta(days=1)).isoformat()
-            return [item for item in records if item["created_date"] == target], "resolved from verified Notebook context for yesterday"
+            return [item for item in records if self._record_local_date(item, zone) == target], f"resolved from verified Notebook context for yesterday in {timezone_name}"
 
         if re.search(r"\b(?:earlier )?today\b", lowered):
             target = now.date().isoformat()
-            return [item for item in records if item["created_date"] == target], "resolved from verified Notebook context for today"
+            return [item for item in records if self._record_local_date(item, zone) == target], f"resolved from verified Notebook context for today in {timezone_name}"
 
         if re.search(r"\blast week\b", lowered):
             this_monday = now.date() - timedelta(days=now.weekday())
             start = this_monday - timedelta(days=7)
             end = this_monday
-            scoped = [item for item in records if start.isoformat() <= item["created_date"] < end.isoformat()]
+            scoped = [item for item in records if start.isoformat() <= self._record_local_date(item, zone) < end.isoformat()]
             return scoped, "resolved from verified Notebook context for last week"
 
         if re.search(r"\b(?:most recent|latest)\b", lowered):
@@ -282,7 +287,7 @@ class RuntimeContextRouter:
 
         return records, None
 
-    def _history_candidate(self, text: str) -> bool:
+    def _record_local_date(self, item: dict[str, str], zone) -> str:\n        """Convert canonical Notebook timestamp to the active temporal context date."""\n        try:\n            return datetime.fromisoformat(item["created_at"]).astimezone(zone).date().isoformat()\n        except (KeyError, TypeError, ValueError):\n            return item["created_date"]\n\n    def _history_candidate(self, text: str) -> bool:
         if not isinstance(text, str):
             return False
         stripped = text.strip()
