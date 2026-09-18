@@ -213,10 +213,7 @@ class RuntimeContextRouter:
             if narrowed:
                 records = narrowed
 
-        if re.search(r"\byesterday\b", text, re.I):
-            today = datetime.now(timezone.utc).date()
-            target = today - timedelta(days=1)
-            records = [item for item in records if item["created_date"] == target.isoformat()]
+        records, temporal_reason = self._apply_temporal_scope(records, text)
 
         unique = []
         seen = set()
@@ -249,7 +246,7 @@ class RuntimeContextRouter:
             workspace_id = next(iter(workspace_ids)) if len(workspace_ids) == 1 else None
             return RuntimeRoute(
                 True, workspace_id, "AMBIGUOUS", None, candidates,
-                "multiple verified historical workstreams match; choose the topic to continue",
+                temporal_reason or "multiple verified historical workstreams match; choose the topic to continue",
                 True, origin="NOTEBOOK_RECOVERY")
 
         item = unique[0]
@@ -257,8 +254,33 @@ class RuntimeContextRouter:
         return RuntimeRoute(
             True, item["workspace_id"], "CONTINUE", item["workstream_id"],
             (self._candidate_payload(item["workstream_id"], 0, stream.status),),
-            "resolved from verified historical Notebook context",
+            temporal_reason or "resolved from verified historical Notebook context",
             False, origin="NOTEBOOK_RECOVERY", source_tx=item["source_tx"])
+
+    def _apply_temporal_scope(self, records: list[dict[str, str]], text: str) -> tuple[list[dict[str, str]], Optional[str]]:
+        """Apply deterministic temporal language to verified Notebook history."""
+        now = datetime.now(timezone.utc)
+        lowered = text.casefold()
+
+        if re.search(r"\byesterday\b", lowered):
+            target = (now.date() - timedelta(days=1)).isoformat()
+            return [item for item in records if item["created_date"] == target], "resolved from verified Notebook context for yesterday"
+
+        if re.search(r"\b(?:earlier )?today\b", lowered):
+            target = now.date().isoformat()
+            return [item for item in records if item["created_date"] == target], "resolved from verified Notebook context for today"
+
+        if re.search(r"\blast week\b", lowered):
+            this_monday = now.date() - timedelta(days=now.weekday())
+            start = this_monday - timedelta(days=7)
+            end = this_monday
+            scoped = [item for item in records if start.isoformat() <= item["created_date"] < end.isoformat()]
+            return scoped, "resolved from verified Notebook context for last week"
+
+        if re.search(r"\b(?:most recent|latest)\b", lowered):
+            return records[:1], "resolved to the most recent verified Notebook workstream"
+
+        return records, None
 
     def _history_candidate(self, text: str) -> bool:
         if not isinstance(text, str):
@@ -274,7 +296,7 @@ class RuntimeContextRouter:
             "continue", "resume", "return", "go", "back", "pick", "up", "finish",
             "what", "we", "were", "doing", "where", "left", "off", "that", "this",
             "thing", "work", "earlier", "before", "previous", "last", "old",
-            "yesterday", "from", "to", "the", "a", "an", "it", "please",
+            "yesterday", "today", "week", "recent", "latest", "most", "from", "to", "the", "a", "an", "it", "please",
         }
         return {token for token in re.findall(r"[a-z0-9]+", text.casefold())
                 if token not in stop and len(token) > 2}
@@ -309,7 +331,8 @@ class RuntimeContextRouter:
             except (TypeError, ValueError):
                 continue
             records.append({"source_tx": row["tx"], "workspace_id": workspace_id,
-                            "workstream_id": workstream_id, "created_date": created_date})
+                            "workstream_id": workstream_id, "created_date": created_date,
+                            "created_at": row["created"]})
         return records
 
     def _immediate_verified_session_binding(self, book, hcid: str,
