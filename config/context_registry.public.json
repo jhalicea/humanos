@@ -370,7 +370,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-registry-graph-bridge-v1",
       "work_order": "docs/work-orders/HOS-CTX-010.md",
-      "status": "VERIFIED",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -394,9 +394,9 @@
           "target_workstream_id": "HOS-CTX-009"
         }
       ],
-      "last_verified_commit": "dbae0e6ce135fbd0e77bebf06bdfed56164f415d",
-      "resume_point": "Verified public Registry-to-Graph bridge with public-only projection, assertion-scoped registry provenance, idempotent membership/relation writes, and fail-closed workspace/confidentiality preflight.",
-      "next_action": "Owner promotion decision. Draft PR #80 remains review-only until explicit owner approval."
+      "last_verified_commit": "41b6fbe86e6472f48ad68cba0a803fc69f4ce8c6",
+      "resume_point": "Promoted through PR #80 and post-promotion verified on canonical runtime-0.1.",
+      "next_action": "Preserved. Next bounded Context Engine slice should address runtime consumption/currentness or other graph lineage work."
     },
     {
       "workstream_id": "HOS-FND-001",
