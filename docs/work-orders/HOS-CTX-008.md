@@ -1,6 +1,6 @@
 # HOS-CTX-008 — Temporal Resolution Hardening
 
-Status: REVIEW  
+Status: VERIFIED / PROMOTION PENDING  
 Branch: `feature/context-temporal-resolution-hardening-v1`  
 Parent: extends promoted `HOS-CTX-007`  
 Baseline: `1388a3bb4ceb7736655315e6ee052bc856bb1089`
@@ -34,3 +34,11 @@ Close three temporal-resolution integration gaps before the Context Engine expan
 ## Deferred
 
 Entity/relationship graph work remains a later Context Engine slice. This slice is correctness hardening only.
+
+## Verification evidence
+
+- Verified implementation candidate: `8671387690e64c3af6933c57ee296fb8d6dfbe98`
+- Regression run `35300971571`: SUCCESS
+- Encrypted-backup/full-suite run `35300971580`: SUCCESS
+- Branch comparison at verification: 6 commits ahead, 0 behind `runtime-0.1`; five intended files changed.
+- Promotion remains owner-gated.
