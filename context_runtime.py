@@ -34,7 +34,7 @@ _HISTORY_PATTERNS = (
     re.compile(r"\b(?:continue|resume|return to|go back to|pick up|finish)\b", re.I),
     re.compile(r"\b(?:what we were doing|where we left off|that .* thing|previous work|earlier work)\b", re.I),
 )
-_HISTORY_CUES = re.compile(r"\b(?:yesterday|earlier|before|previous|last|old|where we left off|what we were doing|go back)\b", re.I)
+_HISTORY_CUES = re.compile(r"\b(?:yesterday|today|earlier|before|previous|last|old|most recent|latest|where we left off|what we were doing|go back)\b", re.I)
 
 
 @dataclass(frozen=True)
@@ -214,6 +214,9 @@ class RuntimeContextRouter:
             if narrowed:
                 records = narrowed
 
+        # Eligibility must be resolved before temporal ranking. Otherwise a
+        # newer archived/superseded workstream can hide the newest eligible one.
+        records = self._eligible_history_records(records)
         records, temporal_reason = self._apply_temporal_scope(records, text, timezone_name)
 
         unique = []
@@ -221,10 +224,6 @@ class RuntimeContextRouter:
         for item in records:
             workstream_id = item["workstream_id"]
             if workstream_id in seen:
-                continue
-            stream = self.registry.workstreams.get(workstream_id)
-            if (stream is None or stream.workspace_id != item["workspace_id"] or
-                    stream.status in _TERMINAL_WORKSTREAM_STATES):
                 continue
             seen.add(workstream_id)
             unique.append(item)
@@ -290,11 +289,25 @@ class RuntimeContextRouter:
         return records, None
 
     def _record_local_date(self, item: dict[str, str], zone) -> str:
-        """Convert canonical Notebook timestamp to the active temporal context date."""
+        """Convert canonical Notebook timestamp without inheriting host-local timezone."""
         try:
-            return datetime.fromisoformat(item["created_at"]).astimezone(zone).date().isoformat()
+            created = datetime.fromisoformat(item["created_at"])
+            if created.tzinfo is None or created.utcoffset() is None:
+                return item["created_date"]
+            return created.astimezone(zone).date().isoformat()
         except (KeyError, TypeError, ValueError):
             return item["created_date"]
+
+    def _eligible_history_records(self, records: list[dict[str, str]]) -> list[dict[str, str]]:
+        """Keep only records whose current workstream state is eligible to resume."""
+        eligible = []
+        for item in records:
+            stream = self.registry.workstreams.get(item["workstream_id"])
+            if (stream is None or stream.workspace_id != item["workspace_id"] or
+                    stream.status in _TERMINAL_WORKSTREAM_STATES):
+                continue
+            eligible.append(item)
+        return eligible
 
     def _history_candidate(self, text: str) -> bool:
         if not isinstance(text, str):
