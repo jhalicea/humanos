@@ -475,8 +475,8 @@
         }
       ],
       "last_verified_commit": "251228f7092cd2fee1691942eb5322803ee4dfe3",
-      "resume_point": "Verified durable ambiguity-selection candidate: ordered Notebook-backed choices resolve by number/ID/public title, generic confirmation never guesses, and ambiguity output is single-delivery.",
-      "next_action": "Blocked on HOS-CTX-011 promotion; after that, owner promotion decision for HOS-CTX-012."
+      "resume_point": "Verified durable ambiguity-selection candidate; HOS-CTX-011 parent is now canonical and post-promotion verified.",
+      "next_action": "Owner promotion decision. HOS-CTX-011 dependency is promoted and post-promotion verified."
     },
     {
       "workstream_id": "HOS-FND-001",
