@@ -183,6 +183,31 @@ class ContextGraphTests(unittest.TestCase):
         with self.assertRaises(ContextGraphError):
             ContextGraph(self.path)
 
+    def test_future_schema_is_rejected_before_any_graph_ddl(self):
+        future = Path(self.tmp.name) / "future-graph.sqlite3"
+        db = sqlite3.connect(future)
+        with db:
+            db.execute("CREATE TABLE context_graph_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            db.execute(
+                "INSERT INTO context_graph_meta(key,value) VALUES('schema_version','99')")
+            db.execute("CREATE TABLE future_only(marker TEXT)")
+        db.close()
+
+        with self.assertRaises(ContextGraphError):
+            ContextGraph(future)
+
+        db = sqlite3.connect(future)
+        try:
+            names = {
+                row[0] for row in db.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'")
+            }
+        finally:
+            db.close()
+        self.assertIn("future_only", names)
+        self.assertNotIn("context_entities", names)
+        self.assertNotIn("context_edges", names)
+
     def test_invalid_relation_is_rejected(self):
         left = self._entity("left")
         right = self._entity("right")
