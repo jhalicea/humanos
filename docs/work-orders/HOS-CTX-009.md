@@ -26,7 +26,7 @@ The graph stores:
 - typed directional relationships;
 - explicit provenance for entity and relationship assertions;
 - workspace and confidentiality ownership;
-- deterministic SQLite persistence at a caller-selected local path.
+- deterministic SQLite persistence at a caller-selected local path;\n- an explicit schema-version marker and append-only graph/provenance rows in schema v1.
 
 ## Authority and evidence model
 
