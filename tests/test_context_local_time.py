@@ -27,7 +27,8 @@ class LocalTemporalContextTests(unittest.TestCase):
         }]
         scoped, reason = self.router._apply_temporal_scope(records, "continue earlier today", "Not/A_Real_Zone")
         self.assertEqual(scoped, records)
-        self.assertIn("Not/A_Real_Zone", reason)
+        self.assertIn("UTC", reason)
+        self.assertNotIn("Not/A_Real_Zone", reason)
 
     def test_default_remains_utc_for_backward_compatibility(self):
         records = [{
