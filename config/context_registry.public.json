@@ -47,6 +47,23 @@
       "next_action": "No direct continuation required; route future requests through the promoted bridge and create a new bounded context workstream only when a concrete gap requires one."
     },
     {
+      "workstream_id": "HOS-CTX-003",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Session Workstream Continuity",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-session-continuity-v1",
+      "work_order": "docs/work-orders/HOS-CTX-003.md",
+      "status": "PROMOTION_PENDING",
+      "confidentiality": "INTERNAL",
+      "topics": ["context", "session", "continuity", "follow-up", "conversation", "mirror", "brain", "context engine", "workstream"],
+      "components": ["context_runtime.py", "server.py", "tests/test_context_session_continuity.py", "config/context_registry.public.json", "docs/work-orders/HOS-CTX-003.md", "docs/foundation/CONTEXT_REGISTRY.md"],
+      "relations": [{"relation": "EXTENDS", "target_workstream_id": "HOS-CTX-002"}],
+      "last_verified_commit": "cfeceef93d704be86ed58608b7fe4c9c3a9ca47e",
+      "resume_point": "Verified same-session continuation allows short follow-ups to inherit only the immediately preceding checkpointed deterministic workstream route, with explicit current routes and more-specific reference/work bindings taking precedence.",
+      "next_action": "Jon decides whether to promote this verified HOS-CTX-003 candidate into runtime-0.1."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
