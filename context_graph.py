@@ -40,7 +40,7 @@ RELATION_TYPES = frozenset({
     "RELATED_TO",
     "DEPENDS_ON",
 })
-PROVENANCE_KINDS = frozenset({
+SCHEMA_VERSION = 1\nPROVENANCE_KINDS = frozenset({
     "OWNER_ASSERTION",
     "NOTEBOOK_EVIDENCE",
     "REPOSITORY_EVIDENCE",
@@ -184,6 +184,10 @@ class ContextGraph:
           PRAGMA foreign_keys=ON;
           PRAGMA trusted_schema=OFF;
           PRAGMA busy_timeout=5000;
+          CREATE TABLE IF NOT EXISTS context_graph_meta(
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+          );
           CREATE TABLE IF NOT EXISTS context_entities(
             entity_id TEXT PRIMARY KEY,
             entity_type TEXT NOT NULL,
@@ -218,7 +222,44 @@ class ContextGraph:
             created TEXT NOT NULL,
             PRIMARY KEY(edge_id, provenance_kind, provenance_ref)
           );
+          CREATE TRIGGER IF NOT EXISTS context_entities_no_update
+            BEFORE UPDATE ON context_entities
+            BEGIN SELECT RAISE(ABORT, 'context entity rows are append-only in schema v1'); END;
+          CREATE TRIGGER IF NOT EXISTS context_entities_no_delete
+            BEFORE DELETE ON context_entities
+            BEGIN SELECT RAISE(ABORT, 'context entity rows are append-only in schema v1'); END;
+          CREATE TRIGGER IF NOT EXISTS context_edges_no_update
+            BEFORE UPDATE ON context_edges
+            BEGIN SELECT RAISE(ABORT, 'context edge rows are append-only in schema v1'); END;
+          CREATE TRIGGER IF NOT EXISTS context_edges_no_delete
+            BEFORE DELETE ON context_edges
+            BEGIN SELECT RAISE(ABORT, 'context edge rows are append-only in schema v1'); END;
+          CREATE TRIGGER IF NOT EXISTS context_entity_provenance_no_update
+            BEFORE UPDATE ON context_entity_provenance
+            BEGIN SELECT RAISE(ABORT, 'context entity provenance is append-only'); END;
+          CREATE TRIGGER IF NOT EXISTS context_entity_provenance_no_delete
+            BEFORE DELETE ON context_entity_provenance
+            BEGIN SELECT RAISE(ABORT, 'context entity provenance is append-only'); END;
+          CREATE TRIGGER IF NOT EXISTS context_edge_provenance_no_update
+            BEFORE UPDATE ON context_edge_provenance
+            BEGIN SELECT RAISE(ABORT, 'context edge provenance is append-only'); END;
+          CREATE TRIGGER IF NOT EXISTS context_edge_provenance_no_delete
+            BEFORE DELETE ON context_edge_provenance
+            BEGIN SELECT RAISE(ABORT, 'context edge provenance is append-only'); END;
         """)
+        version = self.db.execute(
+            "SELECT value FROM context_graph_meta WHERE key='schema_version'"
+        ).fetchone()
+        if version is None:
+            with self.db:
+                self.db.execute(
+                    "INSERT INTO context_graph_meta(key,value) VALUES('schema_version',?)",
+                    (str(SCHEMA_VERSION),),
+                )
+        elif version["value"] != str(SCHEMA_VERSION):
+            self.db.close()
+            raise ContextGraphError(
+                f"unsupported context graph schema version: {version['value']}")
         try:
             os.chmod(self.path, 0o600)
         except OSError:
@@ -246,27 +287,26 @@ class ContextGraph:
         entity_id = stable_entity_id(workspace, kind, key)
         created = _now()
 
-        existing = self.db.execute(
-            "SELECT * FROM context_entities WHERE entity_id=?", (entity_id,)
-        ).fetchone()
-        if existing is not None:
-            expected = (kind, key, display, workspace, secrecy)
-            actual = (
-                existing["entity_type"], existing["stable_key"], existing["label"],
-                existing["workspace_id"], existing["confidentiality"],
-            )
-            if actual != expected:
-                raise ContextGraphConflict("stable entity ID already exists with different canonical fields")
-        else:
-            with self.db:
+        with self.db:
+            existing = self.db.execute(
+                "SELECT * FROM context_entities WHERE entity_id=?", (entity_id,)
+            ).fetchone()
+            if existing is not None:
+                expected = (kind, key, display, workspace, secrecy)
+                actual = (
+                    existing["entity_type"], existing["stable_key"], existing["label"],
+                    existing["workspace_id"], existing["confidentiality"],
+                )
+                if actual != expected:
+                    raise ContextGraphConflict(
+                        "stable entity ID already exists with different canonical fields")
+            else:
                 self.db.execute(
                     """INSERT INTO context_entities
                        (entity_id,entity_type,stable_key,label,workspace_id,confidentiality,created)
                        VALUES (?,?,?,?,?,?,?)""",
                     (entity_id, kind, key, display, workspace, secrecy, created),
                 )
-
-        with self.db:
             self.db.execute(
                 """INSERT OR IGNORE INTO context_entity_provenance
                    (entity_id,provenance_kind,provenance_ref,created)
@@ -319,11 +359,11 @@ class ContextGraph:
                 "schema v1 does not relate entities across confidentiality classes")
         edge_id = stable_edge_id(workspace, source.entity_id, relation, target.entity_id)
         created = _now()
-        existing = self.db.execute(
-            "SELECT * FROM context_edges WHERE edge_id=?", (edge_id,)
-        ).fetchone()
-        if existing is None:
-            with self.db:
+        with self.db:
+            existing = self.db.execute(
+                "SELECT * FROM context_edges WHERE edge_id=?", (edge_id,)
+            ).fetchone()
+            if existing is None:
                 self.db.execute(
                     """INSERT INTO context_edges
                        (edge_id,source_entity_id,relation_type,target_entity_id,
@@ -332,18 +372,18 @@ class ContextGraph:
                     (edge_id, source.entity_id, relation, target.entity_id,
                      workspace, source.confidentiality, created),
                 )
-        else:
-            expected = (
-                source.entity_id, relation, target.entity_id, workspace, source.confidentiality)
-            actual = (
-                existing["source_entity_id"], existing["relation_type"],
-                existing["target_entity_id"], existing["workspace_id"],
-                existing["confidentiality"],
-            )
-            if actual != expected:
-                raise ContextGraphConflict("stable edge ID already exists with different canonical fields")
-
-        with self.db:
+            else:
+                expected = (
+                    source.entity_id, relation, target.entity_id, workspace,
+                    source.confidentiality)
+                actual = (
+                    existing["source_entity_id"], existing["relation_type"],
+                    existing["target_entity_id"], existing["workspace_id"],
+                    existing["confidentiality"],
+                )
+                if actual != expected:
+                    raise ContextGraphConflict(
+                        "stable edge ID already exists with different canonical fields")
             self.db.execute(
                 """INSERT OR IGNORE INTO context_edge_provenance
                    (edge_id,provenance_kind,provenance_ref,created)
