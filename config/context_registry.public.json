@@ -334,7 +334,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-entity-relationship-graph-v1",
       "work_order": "docs/work-orders/HOS-CTX-009.md",
-      "status": "VERIFIED",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -358,9 +358,9 @@
           "target_workstream_id": "HOS-CTX-008"
         }
       ],
-      "last_verified_commit": "e82ceb8fe847ae7c0cfd6b40a81259b86136ba06",
-      "resume_point": "Verified graph-foundation candidate with workspace-scoped identity, typed directional relationships, trusted provenance, append-only schema-v1 rows, and fail-closed boundaries.",
-      "next_action": "Owner promotion decision. Draft PR #78 remains non-promotable until explicit owner approval."
+      "last_verified_commit": "8071212c132bb1e7bef0bf62f6adc801a62b6786",
+      "resume_point": "Promoted through PR #78 and post-promotion verified on canonical runtime-0.1.",
+      "next_action": "Preserved. Next bounded Context Engine slice may bridge verified registry facts into graph assertions with provenance."
     },
     {
       "workstream_id": "HOS-FND-001",
