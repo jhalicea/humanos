@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 
 from server_core import *  # Preserve the original server module's public API.
@@ -102,8 +103,11 @@ class _ContextAwareAgent:
         # still receive an explicit fresh route, but cannot cause a short phrase
         # such as "do it" to inherit an unrelated prior workstream implicitly.
         allow_inherit = reference_binding is None and work_binding is None
+        # Mirror accepts timezone only from an explicit owner/runtime setting.
+        # It never derives timezone from IP, device location, model output, or request text.
+        timezone_name = os.environ.get('HUMANOS_TIMEZONE', 'UTC')
         historical = self._router.inspect_history(
-            book, row['input'], current_tx=tx)
+            book, row['input'], current_tx=tx, timezone_name=timezone_name)
         if historical.origin == 'NOTEBOOK_RECOVERY':
             route = historical
         else:
