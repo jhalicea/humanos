@@ -1,6 +1,6 @@
 # HOS-CTX-004 — Notebook Context Recovery / Human-Friendly Continuation
 
-Status: IMPLEMENTED / VERIFICATION PENDING  
+Status: VERIFIED / PROMOTION PENDING  
 Branch: `feature/context-notebook-recovery-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-003`  
@@ -70,3 +70,15 @@ No semantic embeddings, broad entity graph, automatic summary generation, whole-
 ## Promotion gate
 
 Do not merge or release automatically. Promotion requires Jon's explicit approval after verification evidence is recorded.
+
+## Verification evidence
+
+Verified candidate implementation commit: `f974647f2ac29ae185460bc260d52405e77806d3`
+
+GitHub Actions at that exact implementation commit:
+- Regression run `35295104793`: SUCCESS — Ubuntu 24.04 and macOS 15 × Python 3.11/3.13.
+- Encrypted-backup/full-suite run `35295104825`: SUCCESS — Ubuntu 24.04 and macOS 15 × Python 3.11/3.13.
+
+Pre-promotion comparison before evidence bookkeeping: branch was ahead of `runtime-0.1` by 9 commits and behind by 0; changed files were limited to the registry, Context runtime, Mirror wiring, work order, and dedicated recovery tests.
+
+Promotion remains owner-gated.
