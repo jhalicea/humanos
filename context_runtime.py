@@ -199,13 +199,17 @@ class RuntimeContextRouter:
         if workspace_hint:
             records = [item for item in records if item["workspace_id"] == workspace_hint]
 
-        # A fresh route can narrow historical evidence, but it does not by itself
-        # authorize choosing among multiple historical workstreams.
-        fresh_ids = {str(item["workstream_id"]) for item in fresh.candidates}
-        if fresh.selected_workstream:
-            fresh_ids.add(fresh.selected_workstream)
-        if fresh_ids:
-            narrowed = [item for item in records if item["workstream_id"] in fresh_ids]
+        # Subject words may narrow historical evidence. Generic recovery words
+        # ("continue", "earlier", "what we were doing") must not accidentally
+        # select the Context Layer merely because those words are registry topics.
+        subject_tokens = self._history_subject_tokens(text)
+        if subject_tokens:
+            subject_ids = set()
+            for workstream_id, stream in self.registry.workstreams.items():
+                haystack = " ".join((stream.title, stream.project, *stream.topics)).casefold()
+                if any(token in set(re.findall(r"[a-z0-9]+", haystack)) for token in subject_tokens):
+                    subject_ids.add(workstream_id)
+            narrowed = [item for item in records if item["workstream_id"] in subject_ids]
             if narrowed:
                 records = narrowed
 
@@ -264,6 +268,16 @@ class RuntimeContextRouter:
             return False
         return bool(any(pattern.search(stripped) for pattern in _HISTORY_PATTERNS)
                     and _HISTORY_CUES.search(stripped))
+
+    def _history_subject_tokens(self, text: str) -> set[str]:
+        stop = {
+            "continue", "resume", "return", "go", "back", "pick", "up", "finish",
+            "what", "we", "were", "doing", "where", "left", "off", "that", "this",
+            "thing", "work", "earlier", "before", "previous", "last", "old",
+            "yesterday", "from", "to", "the", "a", "an", "it", "please",
+        }
+        return {token for token in re.findall(r"[a-z0-9]+", text.casefold())
+                if token not in stop and len(token) > 2}
 
     def _verified_history_records(self, book, current_tx: Optional[str] = None) -> list[dict[str, str]]:
         rows = book.db.execute(
