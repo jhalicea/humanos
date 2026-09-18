@@ -298,7 +298,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-temporal-resolution-hardening-v1",
       "work_order": "docs/work-orders/HOS-CTX-008.md",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -322,9 +322,9 @@
           "target_workstream_id": "HOS-CTX-007"
         }
       ],
-      "last_verified_commit": null,
-      "resume_point": "Candidate hardens historical temporal intent, eligibility ordering, and timezone-safe timestamp handling.",
-      "next_action": "Run full verification; promotion requires owner approval."
+      "last_verified_commit": "8671387690e64c3af6933c57ee296fb8d6dfbe98",
+      "resume_point": "Verified candidate closes temporal intent, eligibility-ordering, and naive-timestamp gaps.",
+      "next_action": "Owner promotion decision. No merge without explicit approval."
     },
     {
       "workstream_id": "HOS-FND-001",
