@@ -449,7 +449,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-durable-ambiguity-selection-v1",
       "work_order": "docs/work-orders/HOS-CTX-012.md",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -474,9 +474,9 @@
           "target_workstream_id": "HOS-CTX-011"
         }
       ],
-      "last_verified_commit": null,
-      "resume_point": "Candidate persists ordered ambiguity choices in the Notebook and resolves the immediate next explicit selection without duplicate terminal output.",
-      "next_action": "Run full verification. Promotion is blocked until HOS-CTX-011 is promoted and then requires owner approval."
+      "last_verified_commit": "251228f7092cd2fee1691942eb5322803ee4dfe3",
+      "resume_point": "Verified durable ambiguity-selection candidate: ordered Notebook-backed choices resolve by number/ID/public title, generic confirmation never guesses, and ambiguity output is single-delivery.",
+      "next_action": "Blocked on HOS-CTX-011 promotion; after that, owner promotion decision for HOS-CTX-012."
     },
     {
       "workstream_id": "HOS-FND-001",
