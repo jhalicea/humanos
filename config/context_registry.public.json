@@ -262,7 +262,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-trusted-timezone-source-v1",
       "work_order": "docs/work-orders/HOS-CTX-007.md",
-      "status": "REVIEW",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -286,9 +286,9 @@
           "target_workstream_id": "HOS-CTX-006"
         }
       ],
-      "last_verified_commit": null,
-      "resume_point": "Candidate wires explicit HUMANOS_TIMEZONE host configuration into verified Notebook historical resolution.",
-      "next_action": "Run full verification; promotion requires owner approval."
+      "last_verified_commit": "44caa5b0cb9c81fb1f08f350869aebad55cad38a",
+      "resume_point": "Promoted through PR #74 and post-promotion verified on canonical runtime-0.1.",
+      "next_action": "Preserved. Extend with a new bounded Context Engine slice when owner authorizes."
     },
     {
       "workstream_id": "HOS-FND-001",
