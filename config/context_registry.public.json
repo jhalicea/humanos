@@ -406,7 +406,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-host-intent-runtime-identity-v1",
       "work_order": "docs/work-orders/HOS-CTX-011.md",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -437,9 +437,9 @@
           "target_workstream_id": "HOS-CTX-010"
         }
       ],
-      "last_verified_commit": null,
-      "resume_point": "Candidate prioritizes deterministic host/runtime facts before workstream routing and grounds model identity in durable runtime task state.",
-      "next_action": "Run full verification; promotion requires owner approval."
+      "last_verified_commit": "409b25ad71ea84aaf3de302621f9e3bec7909395",
+      "resume_point": "Verified host-intent/runtime-identity candidate: host facts bypass workstream routing, runtime model identity is host-grounded, and model-origin host-only tools fail closed.",
+      "next_action": "Owner promotion decision. Review PR remains non-promotable until explicit approval."
     },
     {
       "workstream_id": "HOS-FND-001",
