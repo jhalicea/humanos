@@ -1,6 +1,8 @@
+import io
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 
 from context_registry import load_registry
@@ -116,6 +118,38 @@ class ContextRuntimeBridgeTests(unittest.TestCase):
         self.assertIn('HOS-INBOX-001', ids)
         self.assertIn('CLI-TEST-001', ids)
 
+    def ambiguous_public_registry(self):
+        self.public.write_text(json.dumps({
+            'schema_version': 1,
+            'workspaces': [{
+                'workspace_id': 'WS-HUMANOS', 'workspace_type': 'HUMANOS_INTERNAL',
+                'public_alias': 'HumanOS', 'confidentiality': 'INTERNAL',
+                'repository': 'jhalicea/humanos', 'topics': ['llm', 'model'],
+                'cross_workspace_policy': 'DENY',
+            }],
+            'workstreams': [
+                {
+                    'workstream_id': 'HOS-A', 'workspace_id': 'WS-HUMANOS',
+                    'title': 'Alpha Model Work', 'project': 'Models',
+                    'repository': 'jhalicea/humanos', 'branch': 'feature/a',
+                    'work_order': None, 'status': 'READY', 'confidentiality': 'INTERNAL',
+                    'topics': ['llm', 'model', 'build'], 'components': [],
+                    'relations': [], 'last_verified_commit': None,
+                    'resume_point': 'alpha', 'next_action': 'alpha next',
+                },
+                {
+                    'workstream_id': 'HOS-B', 'workspace_id': 'WS-HUMANOS',
+                    'title': 'Beta Model Work', 'project': 'Models',
+                    'repository': 'jhalicea/humanos', 'branch': 'feature/b',
+                    'work_order': None, 'status': 'READY', 'confidentiality': 'INTERNAL',
+                    'topics': ['llm', 'model', 'build'], 'components': [],
+                    'relations': [], 'last_verified_commit': None,
+                    'resume_point': 'beta', 'next_action': 'beta next',
+                },
+            ],
+        }), encoding='utf-8')
+        return load_registry(self.public)
+
     def _agent_fixture(self, registry):
         vault = self.root / 'vault'
         book = Notebook(vault)
@@ -168,6 +202,129 @@ class ContextRuntimeBridgeTests(unittest.TestCase):
             self.assertIn('HOS-MAL-001', model.calls[0][0]['content'])
             kinds = [row[0] for row in book.db.execute("SELECT kind FROM events WHERE tx='tx-route'")]
             self.assertIn('CONTEXT_ROUTE', kinds)
+        finally:
+            book.close()
+
+    def test_ambiguity_prompt_is_delivered_once_and_persisted(self):
+        book, binding, model, wrapped = self._agent_fixture(self.ambiguous_public_registry())
+        try:
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                answer = wrapped.run('tx-ambiguous-choice', binding['hcid'], 'build an llm model')
+            self.assertIn('Context confirmation required', answer)
+            self.assertIn('Choose one:', answer)
+            self.assertIn('HOS-A', answer)
+            self.assertIn('HOS-B', answer)
+            self.assertEqual(stderr.getvalue(), '')
+            self.assertEqual(model.calls, [])
+
+            event = book.db.execute(
+                """SELECT payload FROM events
+                   WHERE tx='tx-ambiguous-choice' AND kind='CONTEXT_AMBIGUITY_PENDING'"""
+            ).fetchone()
+            self.assertIsNotNone(event)
+            pending = json.loads(event['payload'])
+            self.assertEqual(set(pending['candidate_ids']), {'HOS-A', 'HOS-B'})
+        finally:
+            book.close()
+
+    def test_numeric_ambiguity_selection_survives_notebook_reopen(self):
+        registry = self.ambiguous_public_registry()
+        book, binding, model, wrapped = self._agent_fixture(registry)
+        hcid = binding['hcid']
+        vault = self.root / 'vault'
+        try:
+            wrapped.run('tx-ambiguous', hcid, 'build an llm model')
+            event = book.db.execute(
+                """SELECT payload FROM events
+                   WHERE tx='tx-ambiguous' AND kind='CONTEXT_AMBIGUITY_PENDING'"""
+            ).fetchone()
+            first_id = json.loads(event['payload'])['candidate_ids'][0]
+        finally:
+            book.close()
+
+        reopened = Notebook(vault)
+        try:
+            reopened.recover()
+            model2 = FakeModel({'final': 'selected context'})
+            workspace = self.root / 'workspace'
+            tools = Tools(workspace)
+            core = self.root / 'core'
+            agent = Agent(reopened, model2, tools, core)
+            wrapped2 = _ContextAwareAgent(agent, RuntimeContextRouter(registry), None)
+            answer = wrapped2.run('tx-select', hcid, '1')
+            self.assertEqual(answer, 'selected context')
+            self.assertEqual(len(model2.calls), 1)
+            prompt = json.dumps(model2.calls[0])
+            self.assertIn(first_id, prompt)
+            resolved = reopened.db.execute(
+                """SELECT payload FROM events
+                   WHERE tx='tx-select' AND kind='CONTEXT_AMBIGUITY_RESOLVED'"""
+            ).fetchone()
+            self.assertIsNotNone(resolved)
+            payload = json.loads(resolved['payload'])
+            self.assertEqual(payload['source_tx'], 'tx-ambiguous')
+            self.assertEqual(payload['workstream_id'], first_id)
+        finally:
+            reopened.close()
+
+    def test_generic_confirm_does_not_guess_and_keeps_choice_pending(self):
+        book, binding, model, wrapped = self._agent_fixture(self.ambiguous_public_registry())
+        try:
+            wrapped.run('tx-ambiguous', binding['hcid'], 'build an llm model')
+            answer = wrapped.run('tx-confirmed', binding['hcid'], 'confirmed!')
+            self.assertIn('confirmation did not identify which context candidate to use', answer)
+            self.assertIn('Choose one:', answer)
+            self.assertEqual(model.calls, [])
+            pending = book.db.execute(
+                """SELECT 1 FROM events
+                   WHERE tx='tx-confirmed' AND kind='CONTEXT_AMBIGUITY_PENDING'"""
+            ).fetchone()
+            self.assertIsNotNone(pending)
+
+            selected = wrapped.run('tx-select', binding['hcid'], '2')
+            self.assertEqual(selected, 'routed answer')
+            self.assertEqual(len(model.calls), 1)
+            resolved = book.db.execute(
+                """SELECT 1 FROM events
+                   WHERE tx='tx-select' AND kind='CONTEXT_AMBIGUITY_RESOLVED'"""
+            ).fetchone()
+            self.assertIsNotNone(resolved)
+        finally:
+            book.close()
+
+    def test_exact_workstream_id_resolves_pending_ambiguity(self):
+        registry = self.ambiguous_public_registry()
+        book, binding, model, wrapped = self._agent_fixture(registry)
+        try:
+            wrapped.run('tx-ambiguous', binding['hcid'], 'build an llm model')
+            answer = wrapped.run('tx-select', binding['hcid'], 'HOS-B')
+            self.assertEqual(answer, 'routed answer')
+            self.assertEqual(len(model.calls), 1)
+            self.assertIn('HOS-B', json.dumps(model.calls[0]))
+        finally:
+            book.close()
+
+    def test_exact_public_title_resolves_pending_ambiguity(self):
+        registry = self.ambiguous_public_registry()
+        book, binding, model, wrapped = self._agent_fixture(registry)
+        try:
+            wrapped.run('tx-ambiguous', binding['hcid'], 'build an llm model')
+            answer = wrapped.run('tx-select-title', binding['hcid'], 'Beta Model Work')
+            self.assertEqual(answer, 'routed answer')
+            self.assertEqual(len(model.calls), 1)
+            self.assertIn('HOS-B', json.dumps(model.calls[0]))
+        finally:
+            book.close()
+
+    def test_unrelated_turn_is_not_captured_by_pending_ambiguity(self):
+        book, binding, model, wrapped = self._agent_fixture(self.ambiguous_public_registry())
+        try:
+            wrapped.run('tx-ambiguous', binding['hcid'], 'build an llm model')
+            answer = wrapped.run('tx-new', binding['hcid'], 'tell me a joke about a cat')
+            self.assertEqual(answer, 'routed answer')
+            self.assertEqual(len(model.calls), 1)
+            self.assertNotIn('AMBIGUITY_SELECTION', json.dumps(model.calls[0]))
         finally:
             book.close()
 
