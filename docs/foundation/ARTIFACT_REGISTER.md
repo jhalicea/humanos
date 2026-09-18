@@ -50,9 +50,11 @@ execution slice and must reconcile component conflicts before concurrent edits.
 commit `cd1075fdf0407588b6808bcc50b08325f8b4130a` and is part of the canonical
 `runtime-0.1` baseline.
 
-`HOS-CTX-003 — Session Workstream Continuity` is the bounded child candidate that
-adds verified same-session conversational continuation over HOS-CTX-002. It is
-an incremental Context Engine/"Brain" primitive, not a separate memory system.
+`HOS-CTX-003 — Session Workstream Continuity` was promoted by PR #70 at merge
+commit `58938e24765c6fc503b2aee73c7d80c14a4ac3b2`. Post-promotion regression
+run `35292104259` and encrypted-backup/full-suite run `35292104260` both passed
+the Ubuntu/macOS × Python 3.11/3.13 matrix. It is now a canonical incremental
+Context Engine/"Brain" primitive, not a separate memory system.
 
 Other HumanOS workstreams remain independently preserved in the context registry.
 Their state is not changed merely because another context workstream is selected.
