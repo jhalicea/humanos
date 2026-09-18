@@ -1,6 +1,6 @@
 # HOS-CTX-005 — Temporal Context + Relevance Resolution
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / POST-PROMOTION VERIFIED  
 Branch: `feature/context-temporal-relevance-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-004`  
@@ -59,3 +59,13 @@ Verified candidate implementation commit: `f750e96fb808a496a957492da8388c29e60b0
 - Pre-verification comparison: 4 commits ahead of `runtime-0.1`, 0 behind; changes limited to Context runtime, dedicated temporal tests, registry metadata, and this work order.
 
 Promotion remains owner-gated.
+
+## Promotion evidence
+
+Owner-authorized PR #72 merged into `runtime-0.1` at `1fb56505a17ff503c14cf31783991efdf31e950b`.
+
+- Post-promotion regression `35297790406`: SUCCESS.
+- Post-promotion encrypted-backup/full-suite `35297790327`: SUCCESS.
+- Post-promotion Pages `35297789718`: SUCCESS.
+
+HOS-CTX-005 is canonical. No release/tag was created.
