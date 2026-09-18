@@ -27,8 +27,7 @@ Schema v1 projects:
 - registry relations already supported by the graph: `EXTENDS`, `RELATED_TO`,
   and `DEPENDS_ON`.
 
-Every projected assertion carries `REGISTRY_EVIDENCE` provenance bound to a
-SHA-256 digest of the exact public registry snapshot used for the projection.
+The projection report records a SHA-256 digest of the exact public registry snapshot.\nEach projected assertion carries `REGISTRY_EVIDENCE` with its own deterministic\nassertion-scoped SHA-256 digest, so unrelated registry metadata changes do not\namplify duplicate provenance.
 
 ## Stable identity rule
 
@@ -78,8 +77,8 @@ Implementation:
 1. Public workspace/workstream entities project deterministically.
 2. Workstream → workspace `BELONGS_TO` edges project deterministically.
 3. Supported public registry relations project with the same direction/type.
-4. Every projected entity/edge has `REGISTRY_EVIDENCE` bound to the public snapshot digest.
-5. Re-running the same projection is idempotent.
+4. Every projected entity/edge has assertion-scoped `REGISTRY_EVIDENCE`; the projection report separately records the exact public-snapshot digest.
+5. Re-running the same projection is idempotent, and unrelated mutable registry metadata changes do not duplicate structural provenance.
 6. Private-overlay-only entities are not projected.
 7. Public relations to non-public targets are skipped and reported.
 8. Unsupported relation types are skipped and reported rather than coerced.
