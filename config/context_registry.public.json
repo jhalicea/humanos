@@ -406,7 +406,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-host-intent-runtime-identity-v1",
       "work_order": "docs/work-orders/HOS-CTX-011.md",
-      "status": "VERIFIED",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -437,9 +437,9 @@
           "target_workstream_id": "HOS-CTX-010"
         }
       ],
-      "last_verified_commit": "409b25ad71ea84aaf3de302621f9e3bec7909395",
-      "resume_point": "Verified host-intent/runtime-identity candidate: host facts bypass workstream routing, runtime model identity is host-grounded, and model-origin host-only tools fail closed.",
-      "next_action": "Owner promotion decision. Review PR remains non-promotable until explicit approval."
+      "last_verified_commit": "cfc6a16e3419077c881a2fcb047ac98df885f32e",
+      "resume_point": "Promoted through PR #82 and post-promotion verified on canonical runtime-0.1.",
+      "next_action": "Preserved. Durable ambiguity selection continued in HOS-CTX-012."
     },
     {
       "workstream_id": "HOS-CTX-012",
@@ -449,7 +449,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-durable-ambiguity-selection-v1",
       "work_order": "docs/work-orders/HOS-CTX-012.md",
-      "status": "VERIFIED",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -474,9 +474,9 @@
           "target_workstream_id": "HOS-CTX-011"
         }
       ],
-      "last_verified_commit": "251228f7092cd2fee1691942eb5322803ee4dfe3",
-      "resume_point": "Verified durable ambiguity-selection candidate; HOS-CTX-011 parent is now canonical and post-promotion verified.",
-      "next_action": "Owner promotion decision. HOS-CTX-011 dependency is promoted and post-promotion verified."
+      "last_verified_commit": "b76e73eda2ef1565135de6e8cc284ab89133aadf",
+      "resume_point": "Promoted through PR #83 and post-promotion verified on canonical runtime-0.1.",
+      "next_action": "Preserved. Next bounded Context Engine slice may address conversational goal continuity or semantic reference resolution."
     },
     {
       "workstream_id": "HOS-FND-001",
