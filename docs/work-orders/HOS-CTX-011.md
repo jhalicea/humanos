@@ -67,6 +67,7 @@ Implementation:
 - `capabilities.py`
 - `engine.py`
 - `server.py`
+- `permissions.py`
 - `tests/test_runtime_info.py`
 - `tests/test_runtime.py`
 - `tests/test_context_runtime_bridge.py`
