@@ -1,6 +1,6 @@
 # HOS-CTX-007 — Trusted Mirror Timezone Source
 
-Status: REVIEW  
+Status: PROMOTED / POST-PROMOTION VERIFIED  
 Branch: `feature/context-trusted-timezone-source-v1`  
 Parent: extends promoted `HOS-CTX-006`
 
@@ -25,3 +25,13 @@ The runtime MUST NOT derive timezone from IP address, geolocation, device locati
 ## Deferred
 
 A future owner/workspace settings service may replace the environment variable while preserving this same explicit trust boundary.
+
+## Promotion evidence
+
+- Verified candidate: `4d539bf2962cfb0dffdf658b275762ec1c6a4153`
+- Pull request: #74
+- Canonical merge: `44caa5b0cb9c81fb1f08f350869aebad55cad38a`
+- Post-promotion regression run `35300420153`: SUCCESS
+- Post-promotion encrypted-backup run `35300420082`: SUCCESS
+- Post-promotion Pages run `35300419751`: SUCCESS
+- No release or tag created.
