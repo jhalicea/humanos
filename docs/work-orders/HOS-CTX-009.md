@@ -1,6 +1,6 @@
 # HOS-CTX-009 — Entity & Relationship Context Graph Foundation
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / POST-PROMOTION VERIFIED  
 Branch: `feature/context-entity-relationship-graph-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-008`  
@@ -124,3 +124,12 @@ by this isolated graph substrate.
 - PR encrypted-backup/full-suite run `35303272036`: SUCCESS across Ubuntu/macOS × Python 3.11/3.13
 - Candidate comparison at verification: 12 commits ahead, 0 behind `runtime-0.1`; four intended files changed.
 - Promotion remains owner-gated.
+
+## Promotion evidence
+
+- Promotion PR: #78
+- Canonical merge: `8071212c132bb1e7bef0bf62f6adc801a62b6786`
+- Post-promotion regression run `35304070382`: SUCCESS
+- Post-promotion encrypted-backup/full-suite run `35304070432`: SUCCESS
+- Post-promotion Pages run `35304069523`: SUCCESS
+- No release or tag created.
