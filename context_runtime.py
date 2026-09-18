@@ -176,7 +176,7 @@ class RuntimeContextRouter:
         )
 
     def inspect_history(self, book, text: str, current_tx: Optional[str] = None,
-                        workspace_hint: Optional[str] = None) -> RuntimeRoute:
+                        workspace_hint: Optional[str] = None, timezone_name: str = "UTC") -> RuntimeRoute:
         """Resolve explicit historical-continuation language from verified Notebook evidence.
 
         This is deliberately deterministic and content-light. It uses checkpointed
@@ -214,7 +214,7 @@ class RuntimeContextRouter:
             if narrowed:
                 records = narrowed
 
-        records, temporal_reason = self._apply_temporal_scope(records, text)
+        records, temporal_reason = self._apply_temporal_scope(records, text, timezone_name)
 
         unique = []
         seen = set()

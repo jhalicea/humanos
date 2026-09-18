@@ -255,6 +255,42 @@
       "next_action": "Run full verification; trusted timezone-source wiring remains a separate bounded slice."
     },
     {
+      "workstream_id": "HOS-CTX-007",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Trusted Mirror Timezone Source",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-trusted-timezone-source-v1",
+      "work_order": "docs/work-orders/HOS-CTX-007.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "temporal",
+        "timezone",
+        "mirror",
+        "configuration",
+        "trust boundary",
+        "brain"
+      ],
+      "components": [
+        "context_runtime.py",
+        "server.py",
+        "tests/test_context_trusted_timezone.py",
+        "config/context_registry.public.json",
+        "docs/work-orders/HOS-CTX-007.md"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-006"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Candidate wires explicit HUMANOS_TIMEZONE host configuration into verified Notebook historical resolution.",
+      "next_action": "Run full verification; promotion requires owner approval."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
