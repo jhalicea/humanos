@@ -1,6 +1,6 @@
 # HOS-CTX-005 — Temporal Context + Relevance Resolution
 
-Status: REVIEW  
+Status: VERIFIED / PROMOTION PENDING  
 Branch: `feature/context-temporal-relevance-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-004`  
@@ -49,3 +49,13 @@ Natural-language ranges such as `three days ago`, user-local timezone/calendar s
 ## Promotion gate
 
 No automatic merge/release. Promotion requires Jon's explicit approval after verification.
+
+## Verification evidence
+
+Verified candidate implementation commit: `f750e96fb808a496a957492da8388c29e60b0ee2`.
+
+- Regression run `35296691364`: SUCCESS — Ubuntu 24.04 and macOS 15 × Python 3.11/3.13.
+- Encrypted-backup/full-suite run `35296691290`: SUCCESS — same four-job matrix.
+- Pre-verification comparison: 4 commits ahead of `runtime-0.1`, 0 behind; changes limited to Context runtime, dedicated temporal tests, registry metadata, and this work order.
+
+Promotion remains owner-gated.
