@@ -399,6 +399,49 @@
       "next_action": "Preserved. Next bounded Context Engine slice should address runtime consumption/currentness or other graph lineage work."
     },
     {
+      "workstream_id": "HOS-CTX-011",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Mirror Host Intent & Runtime Identity",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-host-intent-runtime-identity-v1",
+      "work_order": "docs/work-orders/HOS-CTX-011.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "mirror",
+        "runtime",
+        "identity",
+        "host intent",
+        "capabilities",
+        "tools",
+        "local llm",
+        "brain"
+      ],
+      "components": [
+        "runtime_info.py",
+        "capabilities.py",
+        "engine.py",
+        "server.py",
+        "permissions.py",
+        "tests/test_runtime_info.py",
+        "tests/test_runtime.py",
+        "tests/test_context_runtime_bridge.py",
+        "docs/work-orders/HOS-CTX-011.md",
+        "config/context_registry.public.json"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-010"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Candidate prioritizes deterministic host/runtime facts before workstream routing and grounds model identity in durable runtime task state.",
+      "next_action": "Run full verification; promotion requires owner approval."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
