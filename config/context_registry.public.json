@@ -370,7 +370,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-registry-graph-bridge-v1",
       "work_order": "docs/work-orders/HOS-CTX-010.md",
-      "status": "REVIEW",
+      "status": "VERIFIED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -394,9 +394,9 @@
           "target_workstream_id": "HOS-CTX-009"
         }
       ],
-      "last_verified_commit": null,
-      "resume_point": "Candidate projects validated public registry workspaces, workstreams, membership, and supported relations into the CTX-009 graph with digest-bound registry provenance.",
-      "next_action": "Run full verification and review projection/isolation behavior; promotion requires owner approval."
+      "last_verified_commit": "dbae0e6ce135fbd0e77bebf06bdfed56164f415d",
+      "resume_point": "Verified public Registry-to-Graph bridge with public-only projection, assertion-scoped registry provenance, idempotent membership/relation writes, and fail-closed workspace/confidentiality preflight.",
+      "next_action": "Owner promotion decision. Draft PR #80 remains review-only until explicit owner approval."
     },
     {
       "workstream_id": "HOS-FND-001",
