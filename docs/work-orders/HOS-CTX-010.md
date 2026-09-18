@@ -1,6 +1,6 @@
 # HOS-CTX-010 — Verified Registry → Context Graph Bridge
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / POST-PROMOTION VERIFIED  
 Branch: `feature/context-registry-graph-bridge-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-009`  
@@ -27,7 +27,10 @@ Schema v1 projects:
 - registry relations already supported by the graph: `EXTENDS`, `RELATED_TO`,
   and `DEPENDS_ON`.
 
-The projection report records a SHA-256 digest of the exact public registry snapshot.\nEach projected assertion carries `REGISTRY_EVIDENCE` with its own deterministic\nassertion-scoped SHA-256 digest, so unrelated registry metadata changes do not\namplify duplicate provenance.
+The projection report records a SHA-256 digest of the exact public registry snapshot.
+Each projected assertion carries `REGISTRY_EVIDENCE` with its own deterministic
+assertion-scoped SHA-256 digest, so unrelated registry metadata changes do not
+amplify duplicate provenance.
 
 ## Stable identity rule
 
@@ -98,7 +101,7 @@ Implementation:
 9. Cross-workspace supported relations and confidentiality mismatches fail closed before mutation.
 10. Existing HumanOS tests remain compatible.
 11. Full regression and encrypted-backup matrices pass.
-12. Promotion remains owner-gated.
+12. Promotion was owner-approved and completed through PR #80.
 
 ## Explicit exclusions
 
@@ -127,3 +130,12 @@ not mutate canonical Notebook data or an existing production graph automatically
 - Push encrypted-backup/full-suite run `35304710335`: SUCCESS
 - Candidate comparison at verification: 7 commits ahead, 0 behind `runtime-0.1`; four intended files changed.
 - Promotion remains owner-gated.
+
+## Promotion evidence
+
+- Promotion PR: #80
+- Canonical merge: `41b6fbe86e6472f48ad68cba0a803fc69f4ce8c6`
+- Post-promotion regression run `35305793602`: SUCCESS
+- Post-promotion encrypted-backup/full-suite run `35305793591`: SUCCESS
+- Post-promotion Pages run `35305793310`: SUCCESS
+- No release or tag created.
