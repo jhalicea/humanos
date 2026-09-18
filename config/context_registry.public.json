@@ -180,6 +180,44 @@
       "next_action": "No direct continuation required. Extend the canonical Context Engine lineage with the next bounded context capability."
     },
     {
+      "workstream_id": "HOS-CTX-005",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Temporal Context + Relevance Resolution",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-temporal-relevance-v1",
+      "work_order": "docs/work-orders/HOS-CTX-005.md",
+      "status": "VERIFIED",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "temporal",
+        "time",
+        "chronology",
+        "relevance",
+        "notebook",
+        "history",
+        "mirror",
+        "brain",
+        "context engine"
+      ],
+      "components": [
+        "context_runtime.py",
+        "tests/test_context_temporal_relevance.py",
+        "config/context_registry.public.json",
+        "docs/work-orders/HOS-CTX-005.md"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-004"
+        }
+      ],
+      "last_verified_commit": "f750e96fb808a496a957492da8388c29e60b0ee2",
+      "resume_point": "Candidate adds deterministic yesterday/today/last-week/most-recent filtering over CTX-004 verified Notebook history.",
+      "next_action": "Candidate verified by regression and encrypted-backup matrices on Ubuntu/macOS × Python 3.11/3.13. Await explicit owner promotion approval."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
