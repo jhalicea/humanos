@@ -1,6 +1,6 @@
 # HOS-CTX-008 — Temporal Resolution Hardening
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / POST-PROMOTION VERIFIED  
 Branch: `feature/context-temporal-resolution-hardening-v1`  
 Parent: extends promoted `HOS-CTX-007`  
 Baseline: `1388a3bb4ceb7736655315e6ee052bc856bb1089`
@@ -29,7 +29,7 @@ Close three temporal-resolution integration gaps before the Context Engine expan
 - Naive timestamps use canonical `created_date` rather than the host timezone.
 - Existing CTX-003 through CTX-007 routing behavior remains compatible.
 - Full regression and encrypted-backup matrices pass.
-- Promotion remains owner-gated.
+- Promotion was owner-approved and completed through PR #76.
 
 ## Deferred
 
@@ -42,3 +42,12 @@ Entity/relationship graph work remains a later Context Engine slice. This slice 
 - Encrypted-backup/full-suite run `35300971580`: SUCCESS
 - Branch comparison at verification: 6 commits ahead, 0 behind `runtime-0.1`; five intended files changed.
 - Promotion remains owner-gated.
+
+## Promotion evidence
+
+- Promotion PR: #76
+- Canonical merge: `2265bd5446e440b2855bc55612e9ea58b8d05717`
+- Post-promotion regression run `35301534603`: SUCCESS
+- Post-promotion encrypted-backup/full-suite run `35301534548`: SUCCESS
+- Post-promotion Pages run `35301533726`: SUCCESS
+- No release or tag created.
