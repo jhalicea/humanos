@@ -187,7 +187,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-temporal-relevance-v1",
       "work_order": "docs/work-orders/HOS-CTX-005.md",
-      "status": "VERIFIED",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -213,9 +213,9 @@
           "target_workstream_id": "HOS-CTX-004"
         }
       ],
-      "last_verified_commit": "f750e96fb808a496a957492da8388c29e60b0ee2",
-      "resume_point": "Candidate adds deterministic yesterday/today/last-week/most-recent filtering over CTX-004 verified Notebook history.",
-      "next_action": "Candidate verified by regression and encrypted-backup matrices on Ubuntu/macOS × Python 3.11/3.13. Await explicit owner promotion approval."
+      "last_verified_commit": "1fb56505a17ff503c14cf31783991efdf31e950b",
+      "resume_point": "Promoted by PR #72; post-promotion regression, encrypted-backup/full-suite, and Pages succeeded on merge 1fb56505a17ff503c14cf31783991efdf31e950b.",
+      "next_action": "Extend the canonical Context Engine with the next bounded capability."
     },
     {
       "workstream_id": "HOS-FND-001",
