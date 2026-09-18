@@ -291,6 +291,42 @@
       "next_action": "Preserved. Extend with a new bounded Context Engine slice when owner authorizes."
     },
     {
+      "workstream_id": "HOS-CTX-008",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Temporal Resolution Hardening",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-temporal-resolution-hardening-v1",
+      "work_order": "docs/work-orders/HOS-CTX-008.md",
+      "status": "VERIFIED",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "temporal",
+        "history",
+        "notebook",
+        "continuation",
+        "relevance",
+        "brain"
+      ],
+      "components": [
+        "context_runtime.py",
+        "tests/test_context_temporal_hardening.py",
+        "tests/test_context_notebook_recovery.py",
+        "config/context_registry.public.json",
+        "docs/work-orders/HOS-CTX-008.md"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-007"
+        }
+      ],
+      "last_verified_commit": "8671387690e64c3af6933c57ee296fb8d6dfbe98",
+      "resume_point": "Verified candidate closes temporal intent, eligibility-ordering, and naive-timestamp gaps.",
+      "next_action": "Owner promotion decision. No merge without explicit approval."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
