@@ -102,8 +102,13 @@ class _ContextAwareAgent:
         # still receive an explicit fresh route, but cannot cause a short phrase
         # such as "do it" to inherit an unrelated prior workstream implicitly.
         allow_inherit = reference_binding is None and work_binding is None
-        route = self._router.inspect_session(
-            book, row['hcid'], row['input'], current_tx=tx, allow_inherit=allow_inherit)
+        historical = self._router.inspect_history(
+            book, row['input'], current_tx=tx)
+        if historical.origin == 'NOTEBOOK_RECOVERY':
+            route = historical
+        else:
+            route = self._router.inspect_session(
+                book, row['hcid'], row['input'], current_tx=tx, allow_inherit=allow_inherit)
         if not route.applicable:
             return self._agent.run(tx, hcid, None, context,
                                    reference_binding=reference_binding, work_binding=work_binding)
@@ -112,6 +117,12 @@ class _ContextAwareAgent:
         book.event(tx, 'CONTEXT_ROUTE', safe_route)
         if route.origin == 'SESSION_CONTINUITY' and route.source_tx:
             book.event(tx, 'CONTEXT_SESSION_CONTINUED', {
+                'source_tx': route.source_tx,
+                'workspace_id': route.workspace_id,
+                'workstream_id': route.selected_workstream,
+            })
+        if route.origin == 'NOTEBOOK_RECOVERY' and route.source_tx:
+            book.event(tx, 'CONTEXT_NOTEBOOK_RECOVERED', {
                 'source_tx': route.source_tx,
                 'workspace_id': route.workspace_id,
                 'workstream_id': route.selected_workstream,
