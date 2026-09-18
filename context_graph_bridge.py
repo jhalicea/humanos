@@ -54,9 +54,16 @@ def public_registry_snapshot_sha256(registry: ContextRegistry) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def _provenance_prefix(registry: ContextRegistry) -> tuple[str, str]:
-    digest = public_registry_snapshot_sha256(registry)
-    return digest, f"registry:sha256:{digest}"
+def _assertion_provenance_ref(kind: str, *parts: str) -> str:
+    """Bind provenance to exactly the registry fields that define one graph assertion."""
+    payload = json.dumps(
+        {"kind": kind, "parts": parts},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    digest = hashlib.sha256(payload).hexdigest()
+    return f"registry:assertion:{kind}:sha256:{digest}"
 
 
 def _preflight(registry: ContextRegistry):
@@ -131,7 +138,7 @@ def project_public_registry(registry: ContextRegistry, graph: ContextGraph) -> R
     deterministic and idempotent because CTX-009 uses stable IDs and append-only rows.
     """
     workspaces, workstreams, relations, skipped = _preflight(registry)
-    digest, provenance_prefix = _provenance_prefix(registry)
+    digest = public_registry_snapshot_sha256(registry)
 
     workspace_entities = {}
     for workspace in workspaces:
@@ -142,8 +149,10 @@ def project_public_registry(registry: ContextRegistry, graph: ContextGraph) -> R
             label=workspace.workspace_id,
             confidentiality=workspace.confidentiality,
             provenance_kind="REGISTRY_EVIDENCE",
-            provenance_ref=(
-                f"{provenance_prefix}#workspace:{workspace.workspace_id}"
+            provenance_ref=_assertion_provenance_ref(
+                "workspace",
+                workspace.workspace_id,
+                workspace.confidentiality,
             ),
         )
         workspace_entities[workspace.workspace_id] = entity.entity_id
@@ -157,8 +166,11 @@ def project_public_registry(registry: ContextRegistry, graph: ContextGraph) -> R
             label=stream.workstream_id,
             confidentiality=stream.confidentiality,
             provenance_kind="REGISTRY_EVIDENCE",
-            provenance_ref=(
-                f"{provenance_prefix}#workstream:{stream.workstream_id}"
+            provenance_ref=_assertion_provenance_ref(
+                "workstream",
+                stream.workstream_id,
+                stream.workspace_id,
+                stream.confidentiality,
             ),
         )
         workstream_entities[stream.workstream_id] = entity.entity_id
@@ -171,9 +183,11 @@ def project_public_registry(registry: ContextRegistry, graph: ContextGraph) -> R
             target_entity_id=workspace_entities[stream.workspace_id],
             workspace_id=stream.workspace_id,
             provenance_kind="REGISTRY_EVIDENCE",
-            provenance_ref=(
-                f"{provenance_prefix}#membership:"
-                f"{stream.workstream_id}:{stream.workspace_id}"
+            provenance_ref=_assertion_provenance_ref(
+                "membership",
+                stream.workstream_id,
+                stream.workspace_id,
+                stream.confidentiality,
             ),
         )
         membership_edges.append(edge.edge_id)
@@ -186,9 +200,13 @@ def project_public_registry(registry: ContextRegistry, graph: ContextGraph) -> R
             target_entity_id=workstream_entities[target.workstream_id],
             workspace_id=source.workspace_id,
             provenance_kind="REGISTRY_EVIDENCE",
-            provenance_ref=(
-                f"{provenance_prefix}#relation:{source.workstream_id}:"
-                f"{relation.relation}:{target.workstream_id}"
+            provenance_ref=_assertion_provenance_ref(
+                "relation",
+                source.workstream_id,
+                relation.relation,
+                target.workstream_id,
+                source.workspace_id,
+                source.confidentiality,
             ),
         )
         relation_edges.append(edge.edge_id)
