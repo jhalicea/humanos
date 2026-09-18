@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Protocol
 from notebook import digest, encode
 from runtime_info import recent, request_for, execute as runtime_execute
-from capabilities import REGISTRY, validate_request, model_instructions
+from capabilities import HUMAN_ONLY, REGISTRY, validate_request, model_instructions
 from permissions import task_scope, validate_scope, allows_read
 from source_reader import SourceReader
 from audit_privacy import (context_summary, exception_summary, model_response_summary,
@@ -379,6 +379,14 @@ class Agent:
                         key = digest(encode(request))
                         if key in state.get('denials', []):
                             allowed = False
+                        elif request['name'] in HUMAN_ONLY and not state.get('direct_response'):
+                            allowed = False
+                            denied = request_summary(self.book, request)
+                            denied.update(
+                                allowed=False,
+                                reason='Host-only runtime facts require an explicit human-derived direct request')
+                            self.book.save_task_event(tx, state, 'AUTHORIZATION', denied)
+                            return False
                         elif request['name'] in ('create_file', 'apply_plan', 'undo_plan'):
                             if (request['name'] == 'create_file' and state['permissions'].get('version', 0) >= 6 and
                                     request.get('path') not in state['permissions'].get('create_paths', [])):

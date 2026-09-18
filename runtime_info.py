@@ -42,6 +42,15 @@ def intent(text):
         return 'clock'
     if text == '/notebook' or ('notebook' in text and re.search(r'\b(show|what|tell|is|read)\b', text)):
         return 'notebook'
+    identity_patterns = (
+        r'what model (?:are you|are we using|is running|is this)',
+        r'which model (?:are you|are we using|is running|is this)',
+        r'what (?:llm|language model) (?:are you|are we using|is running|is this)',
+        r'what model .*\byou\b',
+        r'which model .*\byou\b',
+    )
+    if any(re.fullmatch(pattern, normalized) for pattern in identity_patterns):
+        return 'identity'
     capability_patterns = (
         r'what tools (?:do )?(?:we|you) have',
         r'which tools (?:do )?(?:we|you) have',
@@ -50,6 +59,8 @@ def intent(text):
         r'what can you do',
         r'what are your capabilities',
         r'what capabilities (?:do )?(?:we|you) have',
+        r'(?:can you|are you able to) code',
+        r'(?:can you|are you able to) (?:write|create|build) (?:code|an app|apps|a program|programs)',
         r'(?:can you|are you able to) (?:edit|modify|change|rewrite|update) (?:yourself|your own code|your code|humanos|humanos source)',
     )
     if any(re.fullmatch(pattern, normalized) for pattern in capability_patterns):
@@ -58,6 +69,22 @@ def intent(text):
         (re.search(r'\b(can you|are you able|what can you|what do you need|why not)\b', text) and
          re.search(r'\b(file|files|folder|folders|organize|duplicates|do that)\b', text))):
         return 'capabilities'
+
+
+def host_runtime_request(text):
+    """Resolve current-turn host facts before development-context routing.
+
+    These intents are deterministic HumanOS/runtime questions. They must not be
+    inferred from workstream topics or delegated to the model.
+    """
+    names = {
+        'clock': 'current_time',
+        'notebook': 'read_notebook',
+        'capabilities': 'runtime_capabilities',
+        'identity': 'runtime_identity',
+    }
+    kind = intent(text)
+    return {'name': names[kind]} if kind in names else None
 
 
 def workspace_listing_request(text):
@@ -163,7 +190,10 @@ def request_for(text, history, reference_binding=None):
             return {'name': 'plan_organization', 'path': '.'}
         if re.fullmatch(r'(mirror )?(organize|sort) (my |these |the )?inbox[.! ]*', lowered.strip()):
             return {'name': 'plan_inbox_organization', 'path': 'inbox'}
-    kind = intent(text)
+    direct_host = host_runtime_request(text)
+    if direct_host:
+        return direct_host
+    kind = None
     followup = _normalized(text)
     if re.fullmatch(r'(?:do it|why|why not|why not can you try|can you try|what do you mean)', followup):
         for item in reversed(history):
@@ -172,8 +202,9 @@ def request_for(text, history, reference_binding=None):
                 if not re.fullmatch(r'(?:do it|why|why not|why not can you try|can you try|what do you mean)',
                                     _normalized(item['text'])):
                     break
-    names = {'clock': 'current_time', 'notebook': 'read_notebook', 'capabilities': 'runtime_capabilities'}
-    return {'name': names[kind]} if kind else None
+    names = {'clock': 'current_time', 'notebook': 'read_notebook',
+             'capabilities': 'runtime_capabilities', 'identity': 'runtime_identity'}
+    return {'name': names[kind]} if kind in names else None
 
 
 def failure_message(error):
@@ -290,6 +321,17 @@ def execute(book, identity, tx, name, now=None):
         result = 'Your Mac’s local date and time is ' + value + '.'
     elif name == 'runtime_capabilities':
         result = summary()
+    elif name == 'runtime_identity':
+        state = book.task(tx) or {}
+        model = state.get('model')
+        if not isinstance(model, str) or not model:
+            model = 'UNKNOWN'
+        result = (
+            "I’m Mirror, the human-facing interface of HumanOS. "
+            "Current inference model for this transaction: " + model + ". "
+            "Runtime provider: local Ollama. Model identity comes from the bound "
+            "runtime task state, not from a workstream or model guess."
+        )
     elif name == 'recall_notebook':
         state = book.task(tx) or {}
         request = state.get('permissions', {}).get('recall_request')

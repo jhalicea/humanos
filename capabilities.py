@@ -2,7 +2,7 @@
 from copy import deepcopy
 
 
-HUMAN_ONLY = frozenset({'recall_notebook'})
+HUMAN_ONLY = frozenset({'recall_notebook', 'current_time', 'read_notebook', 'runtime_capabilities', 'runtime_identity'})
 
 
 def definition(name, description, scope, effect='read', parameters=None, required=(), available=True):
@@ -23,6 +23,7 @@ REGISTRY = {item['name']: item for item in (
     definition('recall_notebook', 'Search bounded authoritative Life Notebook transcript evidence across the owner’s sessions. Human-direct only.', 'notebook_global',
                parameters={'query': {'type': 'string'}}, required=('query',)),
     definition('runtime_capabilities', 'Report this runtime capability registry.', 'runtime'),
+    definition('runtime_identity', 'Report Mirror identity and the exact bound local inference model for this transaction.', 'runtime'),
     definition('read_source', 'Read allowlisted HumanOS source code, separate from workspace files.', 'source',
                parameters={'path': {'type': 'string', 'default': 'server.py'}, 'offset': {'type': 'integer', 'default': 0}}),
     definition('scan_files', 'List the folder tree with file sizes; bounded scan, no symlinks or hidden files.', 'workspace',
@@ -114,8 +115,10 @@ def summary():
     supported = '\n'.join('- ' + item['name'] + ': ' + item['description'] for item in describe() if item['available'])
     missing = ', '.join(item['description'] for item in describe() if not item['available'])
     return ('I’m Mirror, the human-facing interface of HumanOS. I can help with conversation and planning, '
-            'read files, inspect folders, understand local file context, find exact duplicates, and organize files using a reviewed plan. '
+            'read files, inspect folders, understand local file context, find exact duplicates, organize files using a reviewed plan, '
+            'and write code by creating new files inside the selected workspace after exact-request approval. '
             'File access stays inside the folder you select. Duplicate checks never delete files.\n' + supported +
-            '\nHumanOS source inspection is read-only in this runtime; no source-write or self-modification tool is connected. '
+            '\nHumanOS source inspection is read-only in this runtime; I can code in the selected workspace, but no source-write '
+            'or self-modification tool is connected for HumanOS itself. '
             'A model cannot grant itself that authority.\n' + missing + ' are not connected. Use /files, /read PATH, /duplicates, /organize, '
             '/understand PATH, /smart-organize, /organize-inbox, /apply PLAN-ID, /undo PLAN-ID, /source, /time, /notebook, or /recall QUERY.')
