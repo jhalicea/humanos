@@ -363,6 +363,42 @@
       "next_action": "Preserved. Next bounded Context Engine slice may bridge verified registry facts into graph assertions with provenance."
     },
     {
+      "workstream_id": "HOS-CTX-010",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Verified Registry to Context Graph Bridge",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-registry-graph-bridge-v1",
+      "work_order": "docs/work-orders/HOS-CTX-010.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "graph",
+        "registry",
+        "projection",
+        "provenance",
+        "workspace",
+        "brain",
+        "context engine"
+      ],
+      "components": [
+        "context_graph_bridge.py",
+        "tests/test_context_graph_bridge.py",
+        "docs/work-orders/HOS-CTX-010.md",
+        "config/context_registry.public.json"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-009"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Candidate projects validated public registry workspaces, workstreams, membership, and supported relations into the CTX-009 graph with digest-bound registry provenance.",
+      "next_action": "Run full verification and review projection/isolation behavior; promotion requires owner approval."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
