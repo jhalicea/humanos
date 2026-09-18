@@ -144,7 +144,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-notebook-recovery-v1",
       "work_order": "docs/work-orders/HOS-CTX-004.md",
-      "status": "VERIFIED",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -175,9 +175,9 @@
           "target_workstream_id": "HOS-NB-RECALL-001"
         }
       ],
-      "last_verified_commit": "f974647f2ac29ae185460bc260d52405e77806d3",
-      "resume_point": "Candidate implementation resolves explicit historical continuation from verified checkpointed Notebook CONTEXT_ROUTE evidence across HCIDs, with human-friendly ambiguity and host-only transaction provenance.",
-      "next_action": "Candidate verified by GitHub regression and encrypted-backup matrices on macOS/Linux × Python 3.11/3.13. Await explicit owner promotion approval."
+      "last_verified_commit": "3ba503f7e86ecff376bff90161c9485ebb21bb82",
+      "resume_point": "Promoted by PR #71 into runtime-0.1 at merge 3ba503f7e86ecff376bff90161c9485ebb21bb82; post-promotion regression, encrypted-backup/full-suite, and Pages all succeeded.",
+      "next_action": "No direct continuation required. Extend the canonical Context Engine lineage with the next bounded context capability."
     },
     {
       "workstream_id": "HOS-FND-001",
