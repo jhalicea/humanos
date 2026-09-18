@@ -102,9 +102,11 @@ class NotebookContextRecoveryTests(unittest.TestCase):
             with book.db:
                 book.db.execute("UPDATE events SET payload=? WHERE seq=?", (json.dumps(payload), row["seq"]))
             before = len(model.calls)
-            response = wrapped.run("tx-recover", binding["hcid"], "continue what we were doing earlier")
+            route = router.inspect_history(
+                book, "continue what we were doing earlier", current_tx="tx-recover")
             self.assertEqual(len(model.calls), before)
-            self.assertIn("failed integrity verification", response)
+            self.assertTrue(route.requires_confirmation)
+            self.assertIn("failed integrity verification", route.reason)
         finally:
             book.close()
 
