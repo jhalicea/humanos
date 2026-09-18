@@ -97,7 +97,7 @@ class RuntimeContextRouter:
     def __init__(self, registry: Optional[ContextRegistry] = None, repo_root: Optional[Path] = None):
         self.registry = registry or load_default_registry(repo_root)
 
-    def inspect(self, text: str, workspace_hint: Optional[str] = None) -> RuntimeRoute:
+    def inspect(self, text: str, workspace_hint: Optional[str] = None, timezone_name: str = "UTC") -> RuntimeRoute:
         # Before accepting a score winner, detect cross-workspace relevance. If a
         # private workspace and any other workspace both contain positively matched
         # workstreams, a small score difference must never silently choose which
@@ -214,7 +214,7 @@ class RuntimeContextRouter:
             if narrowed:
                 records = narrowed
 
-        records, temporal_reason = self._apply_temporal_scope(records, text)
+        records, temporal_reason = self._apply_temporal_scope(records, text, timezone_name)
 
         unique = []
         seen = set()
