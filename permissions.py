@@ -68,6 +68,8 @@ def task_scope(row, workspace, version=4, reference_binding=None, work_binding=N
     if version >= 2:
         from runtime_info import request_for
         direct = request_for(row['input'], [], reference_binding=reference_binding) or {}
+        if direct.get('name') == 'runtime_identity':
+            scope['runtime_reads'] = sorted(set(scope['runtime_reads'] + ['runtime_identity']))
         scope['source_paths'] = [direct.get('path', 'server.py')] if direct.get('name') == 'read_source' else []
         scope['scan_paths'] = [direct.get('path', '.')] if direct.get('name') in (
             'scan_files', 'find_duplicates', 'plan_organization') else []
