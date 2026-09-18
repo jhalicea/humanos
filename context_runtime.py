@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -28,6 +29,11 @@ _CONTINUATION_PATTERNS = (
     re.compile(r"^(?:yes|yeah|yep)[,\s]+(?:continue|go ahead|do it|keep going|proceed)$", re.I),
 )
 _TERMINAL_WORKSTREAM_STATES = {"ARCHIVED", "SUPERSEDED"}
+_HISTORY_PATTERNS = (
+    re.compile(r"\b(?:continue|resume|return to|go back to|pick up|finish)\b", re.I),
+    re.compile(r"\b(?:what we were doing|where we left off|that .* thing|previous work|earlier work)\b", re.I),
+)
+_HISTORY_CUES = re.compile(r"\b(?:yesterday|earlier|before|previous|last|old|where we left off|what we were doing|go back)\b", re.I)
 
 
 @dataclass(frozen=True)
@@ -168,6 +174,130 @@ class RuntimeContextRouter:
             source_tx=binding["source_tx"],
         )
 
+    def inspect_history(self, book, text: str, current_tx: Optional[str] = None,
+                        workspace_hint: Optional[str] = None) -> RuntimeRoute:
+        """Resolve explicit historical-continuation language from verified Notebook evidence.
+
+        This is deliberately deterministic and content-light. It uses checkpointed
+        CONTEXT_ROUTE events as the authority, never raw model recollection. Raw
+        TX/HCID identifiers remain host-side. If more than one workstream remains
+        plausible, Mirror asks about human-readable topics instead of guessing.
+        """
+        fresh = self.inspect(text, workspace_hint=workspace_hint)
+        if not self._history_candidate(text):
+            return fresh
+
+        try:
+            book.verify()
+        except Exception:
+            return RuntimeRoute(
+                True, workspace_hint, "AMBIGUOUS", None, (),
+                "Notebook evidence failed integrity verification; historical context cannot be trusted",
+                True, origin="NOTEBOOK_RECOVERY")
+
+        records = self._verified_history_records(book, current_tx=current_tx)
+        if workspace_hint:
+            records = [item for item in records if item["workspace_id"] == workspace_hint]
+
+        # A fresh route can narrow historical evidence, but it does not by itself
+        # authorize choosing among multiple historical workstreams.
+        fresh_ids = {str(item["workstream_id"]) for item in fresh.candidates}
+        if fresh.selected_workstream:
+            fresh_ids.add(fresh.selected_workstream)
+        if fresh_ids:
+            narrowed = [item for item in records if item["workstream_id"] in fresh_ids]
+            if narrowed:
+                records = narrowed
+
+        if re.search(r"\byesterday\b", text, re.I):
+            today = datetime.now(timezone.utc).date()
+            target = today - timedelta(days=1)
+            records = [item for item in records if item["created_date"] == target.isoformat()]
+
+        unique = []
+        seen = set()
+        for item in records:
+            workstream_id = item["workstream_id"]
+            if workstream_id in seen:
+                continue
+            stream = self.registry.workstreams.get(workstream_id)
+            if (stream is None or stream.workspace_id != item["workspace_id"] or
+                    stream.status in _TERMINAL_WORKSTREAM_STATES):
+                continue
+            seen.add(workstream_id)
+            unique.append(item)
+
+        if not unique:
+            # Historical language is explicit intent. Do not silently send it to
+            # the model when verified Notebook evidence cannot bind it.
+            return RuntimeRoute(
+                True, workspace_hint, "AMBIGUOUS", None, (),
+                "no verified historical workstream matches this continuation request",
+                True, origin="NOTEBOOK_RECOVERY")
+
+        if len(unique) > 1:
+            candidates = tuple(
+                self._candidate_payload(item["workstream_id"], 0,
+                                        self.registry.workstreams[item["workstream_id"]].status)
+                for item in unique[:5]
+            )
+            workspace_ids = {item["workspace_id"] for item in unique}
+            workspace_id = next(iter(workspace_ids)) if len(workspace_ids) == 1 else None
+            return RuntimeRoute(
+                True, workspace_id, "AMBIGUOUS", None, candidates,
+                "multiple verified historical workstreams match; choose the topic to continue",
+                True, origin="NOTEBOOK_RECOVERY")
+
+        item = unique[0]
+        stream = self.registry.workstreams[item["workstream_id"]]
+        return RuntimeRoute(
+            True, item["workspace_id"], "CONTINUE", item["workstream_id"],
+            (self._candidate_payload(item["workstream_id"], 0, stream.status),),
+            "resolved from verified historical Notebook context",
+            False, origin="NOTEBOOK_RECOVERY", source_tx=item["source_tx"])
+
+    def _history_candidate(self, text: str) -> bool:
+        if not isinstance(text, str):
+            return False
+        stripped = text.strip()
+        if not stripped or len(stripped) > 240 or len([x for x in stripped.splitlines() if x.strip()]) > 3:
+            return False
+        return bool(any(pattern.search(stripped) for pattern in _HISTORY_PATTERNS)
+                    and _HISTORY_CUES.search(stripped))
+
+    def _verified_history_records(self, book, current_tx: Optional[str] = None) -> list[dict[str, str]]:
+        rows = book.db.execute(
+            """SELECT t.tx,t.created,e.payload
+               FROM transactions t
+               JOIN events e ON e.tx=t.tx AND e.kind='CONTEXT_ROUTE'
+               WHERE t.status='CHECKPOINTED' AND t.tx!=?
+               ORDER BY t.rowid DESC,e.seq DESC LIMIT 100""",
+            (current_tx or "",),
+        ).fetchall()
+        records = []
+        seen_tx = set()
+        for row in rows:
+            if row["tx"] in seen_tx:
+                continue
+            seen_tx.add(row["tx"])
+            try:
+                payload = json.loads(row["payload"])
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if payload.get("requires_confirmation") or payload.get("decision") == "AMBIGUOUS":
+                continue
+            workstream_id = payload.get("selected_workstream")
+            workspace_id = payload.get("workspace_id")
+            if not isinstance(workstream_id, str) or not isinstance(workspace_id, str):
+                continue
+            try:
+                created_date = datetime.fromisoformat(row["created"]).astimezone(timezone.utc).date().isoformat()
+            except (TypeError, ValueError):
+                continue
+            records.append({"source_tx": row["tx"], "workspace_id": workspace_id,
+                            "workstream_id": workstream_id, "created_date": created_date})
+        return records
+
     def _immediate_verified_session_binding(self, book, hcid: str,
                                             current_tx: Optional[str]) -> Optional[dict[str, str]]:
         # Use the immediately preceding transaction, not merely the most recent
@@ -258,14 +388,23 @@ class RuntimeContextRouter:
         if not route.applicable:
             return ""
         if route.requires_confirmation:
-            candidate_ids = ", ".join(str(item["workstream_id"]) for item in route.candidates) or "workspace candidates"
+            labels = []
+            for item in route.candidates:
+                title = item.get("title") if item.get("public") else None
+                labels.append(str(title or item.get("workstream_id") or "private workspace"))
+            candidate_labels = "; ".join(labels) or "no trusted match"
             return ("Context confirmation required before model/tool execution. "
-                    f"Reason: {route.reason}. Candidates: {candidate_ids}.")
+                    f"Reason: {route.reason}. Topics: {candidate_labels}.")
         if route.selected_workstream:
             selected = next((item for item in route.candidates
                              if item["workstream_id"] == route.selected_workstream), None)
             title = f" — {selected['title']}" if selected else ""
-            label = "Context continuity" if route.origin == "SESSION_CONTINUITY" else "Context route"
+            if route.origin == "SESSION_CONTINUITY":
+                label = "Context continuity"
+            elif route.origin == "NOTEBOOK_RECOVERY":
+                label = "Notebook context"
+            else:
+                label = "Context route"
             return (f"{label}: {route.workspace_id} | {route.decision} | "
                     f"{route.selected_workstream}{title}. {route.reason}")
         return f"Context route: {route.workspace_id} | {route.decision}. {route.reason}"
