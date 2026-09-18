@@ -1,6 +1,6 @@
 # HOS-CTX-006 — Local Temporal Context Boundary
 
-Status: REVIEW  
+Status: PROMOTED / POST-PROMOTION VERIFIED  
 Branch: `feature/context-local-time-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-005`  
@@ -35,3 +35,13 @@ No geolocation lookup, IP inference, model timezone inference, embeddings, repla
 ## Deliberate boundary
 
 This slice creates the timezone-safe primitive only. It does not yet decide where Mirror obtains the trusted active timezone. That source must follow workspace/owner context and privacy rules rather than silently using device/IP/model inference.
+
+## Promotion evidence
+
+- Verified candidate: `f74c701087277ce74b3291a2824dde313ccaa1fe`
+- Promotion PR: #73
+- Canonical merge: `102e8ccacd7eacf9da8a61bbb42364e7c8225b20`
+- Post-promotion regression run `35299238969`: SUCCESS
+- Post-promotion encrypted-backup/full-suite run `35299238961`: SUCCESS
+- Post-promotion Pages run `35299238162`: SUCCESS
+- No release or tag created.

@@ -225,7 +225,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-local-time-v1",
       "work_order": "docs/work-orders/HOS-CTX-006.md",
-      "status": "REVIEW",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -250,9 +250,9 @@
           "target_workstream_id": "HOS-CTX-005"
         }
       ],
-      "last_verified_commit": null,
-      "resume_point": "Candidate separates canonical UTC evidence from explicit IANA-timezone calendar interpretation.",
-      "next_action": "Run full verification; trusted timezone-source wiring remains a separate bounded slice."
+      "last_verified_commit": "102e8ccacd7eacf9da8a61bbb42364e7c8225b20",
+      "resume_point": "Promoted by PR #73 and post-promotion verified on canonical runtime-0.1.",
+      "next_action": "Preserved. Trusted timezone-source wiring continued in HOS-CTX-007."
     },
     {
       "workstream_id": "HOS-CTX-007",
@@ -298,7 +298,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/context-temporal-resolution-hardening-v1",
       "work_order": "docs/work-orders/HOS-CTX-008.md",
-      "status": "VERIFIED",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "context",
@@ -322,9 +322,9 @@
           "target_workstream_id": "HOS-CTX-007"
         }
       ],
-      "last_verified_commit": "8671387690e64c3af6933c57ee296fb8d6dfbe98",
-      "resume_point": "Verified candidate closes temporal intent, eligibility-ordering, and naive-timestamp gaps.",
-      "next_action": "Owner promotion decision. No merge without explicit approval."
+      "last_verified_commit": "2265bd5446e440b2855bc55612e9ea58b8d05717",
+      "resume_point": "Promoted by PR #76 and post-promotion verified on canonical runtime-0.1.",
+      "next_action": "Preserved. Extend the Context Engine with the next bounded capability."
     },
     {
       "workstream_id": "HOS-FND-001",
