@@ -1,6 +1,6 @@
 # HOS-CTX-003 — Session Workstream Continuity
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / POST-PROMOTION VERIFIED  
 Branch: `feature/context-session-continuity-v1`  
 Workspace: `WS-HUMANOS`  
 Parent: extends promoted `HOS-CTX-002`  
@@ -106,4 +106,12 @@ Acceptance criteria 1–12: **PASSED** under the tested conditions.
 
 ## Next action
 
-Jon decides whether to promote/merge this verified HOS-CTX-003 candidate into `runtime-0.1`. Do not merge automatically.
+Promoted by PR #70 into `runtime-0.1` at merge commit `58938e24765c6fc503b2aee73c7d80c14a4ac3b2`.
+
+Post-promotion evidence on the exact merge commit:
+
+- regression run `35292104259`: Ubuntu 24.04 + macOS 15, Python 3.11 + 3.13 — all four jobs passed;
+- encrypted-backup/full-suite run `35292104260`: the same four OS/Python combinations — all four jobs passed;
+- Pages run `35292103699`: passed.
+
+No direct continuation is required. Future context/Brain work should extend this promoted lineage through a new bounded workstream.
