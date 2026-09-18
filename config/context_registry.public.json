@@ -327,6 +327,42 @@
       "next_action": "Preserved. Extend the Context Engine with the next bounded capability."
     },
     {
+      "workstream_id": "HOS-CTX-009",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Entity & Relationship Context Graph Foundation",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-entity-relationship-graph-v1",
+      "work_order": "docs/work-orders/HOS-CTX-009.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "graph",
+        "entity",
+        "relationship",
+        "provenance",
+        "workspace",
+        "brain",
+        "context engine"
+      ],
+      "components": [
+        "context_graph.py",
+        "tests/test_context_graph.py",
+        "docs/work-orders/HOS-CTX-009.md",
+        "config/context_registry.public.json"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-008"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Candidate adds a local deterministic provenance-bearing entity/relationship graph substrate without Mirror integration or model authority.",
+      "next_action": "Run full verification and review isolation/provenance behavior; promotion requires owner approval."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
