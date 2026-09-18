@@ -80,3 +80,11 @@ Workstreams use the states defined in `WORKFLOW_STANDARD.md`.
 Document status does not imply runtime implementation. Runtime claims require
 executable/readback evidence. When superseded, preserve provenance and point to
 the replacement rather than silently deleting history.
+
+### HOS-CTX-004 — Notebook Context Recovery / Human-Friendly Continuation
+- Status: PROMOTED / POST-PROMOTION VERIFIED
+- Promotion: PR #71
+- Promotion merge: `3ba503f7e86ecff376bff90161c9485ebb21bb82`
+- Evidence: regression `35296038918` SUCCESS; encrypted-backup/full-suite `35296038902` SUCCESS; Pages `35296038493` SUCCESS.
+- Role: canonical Context Engine primitive connecting verified Life Notebook history to human-friendly historical workstream continuation across conversations/HCIDs.
+- Boundary: deterministic verified workstream recovery only; no broad semantic memory, embeddings, entity graph, or execution authority.
