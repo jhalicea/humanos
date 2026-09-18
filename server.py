@@ -108,21 +108,27 @@ class _ContextAwareAgent:
                 tx, hcid, None, context,
                 reference_binding=reference_binding, work_binding=work_binding)
 
-        # File/plan reference bindings and delegated-work bindings are more
-        # specific authorities than generic conversational continuity. They may
-        # still receive an explicit fresh route, but cannot cause a short phrase
-        # such as "do it" to inherit an unrelated prior workstream implicitly.
-        allow_inherit = reference_binding is None and work_binding is None
-        # Mirror accepts timezone only from an explicit owner/runtime setting.
-        # It never derives timezone from IP, device location, model output, or request text.
-        timezone_name = os.environ.get('HUMANOS_TIMEZONE', 'UTC')
-        historical = self._router.inspect_history(
-            book, row['input'], current_tx=tx, timezone_name=timezone_name)
-        if historical.origin == 'NOTEBOOK_RECOVERY':
-            route = historical
+        pending = self._router.resolve_pending_ambiguity(
+            book, row['hcid'], row['input'], current_tx=tx)
+
+        if pending is not None:
+            route = pending
         else:
-            route = self._router.inspect_session(
-                book, row['hcid'], row['input'], current_tx=tx, allow_inherit=allow_inherit)
+            # File/plan reference bindings and delegated-work bindings are more
+            # specific authorities than generic conversational continuity. They may
+            # still receive an explicit fresh route, but cannot cause a short phrase
+            # such as "do it" to inherit an unrelated prior workstream implicitly.
+            allow_inherit = reference_binding is None and work_binding is None
+            # Mirror accepts timezone only from an explicit owner/runtime setting.
+            # It never derives timezone from IP, device location, model output, or request text.
+            timezone_name = os.environ.get('HUMANOS_TIMEZONE', 'UTC')
+            historical = self._router.inspect_history(
+                book, row['input'], current_tx=tx, timezone_name=timezone_name)
+            if historical.origin == 'NOTEBOOK_RECOVERY':
+                route = historical
+            else:
+                route = self._router.inspect_session(
+                    book, row['hcid'], row['input'], current_tx=tx, allow_inherit=allow_inherit)
         if not route.applicable:
             return self._agent.run(tx, hcid, None, context,
                                    reference_binding=reference_binding, work_binding=work_binding)
@@ -141,11 +147,29 @@ class _ContextAwareAgent:
                 'workspace_id': route.workspace_id,
                 'workstream_id': route.selected_workstream,
             })
+        if route.origin == 'AMBIGUITY_SELECTION' and route.source_tx and not route.requires_confirmation:
+            book.event(tx, 'CONTEXT_AMBIGUITY_RESOLVED', {
+                'source_tx': route.source_tx,
+                'workspace_id': route.workspace_id,
+                'workstream_id': route.selected_workstream,
+            })
+
         notice = self._router.format_for_human(route)
+        if route.requires_confirmation:
+            candidate_ids = [
+                item['workstream_id'] for item in route.candidates
+                if isinstance(item.get('workstream_id'), str)
+            ]
+            if candidate_ids:
+                book.event(tx, 'CONTEXT_AMBIGUITY_PENDING', {
+                    'candidate_ids': candidate_ids,
+                })
+            # This notice is the durable final response. Do not also print it to
+            # stderr, which previously duplicated ambiguity prompts in the terminal.
+            return self._host_final(tx, row['hcid'], row['input'], notice)
+
         if notice:
             print(notice, file=sys.stderr)
-        if route.requires_confirmation:
-            return self._host_final(tx, row['hcid'], row['input'], notice)
 
         original_model = self._agent.model
         self._agent.model = _RoutedModel(original_model, safe_route)
