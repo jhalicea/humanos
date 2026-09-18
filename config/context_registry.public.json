@@ -137,6 +137,49 @@
       "next_action": "No direct continuation required; extend the canonical Context Engine lineage through a new bounded workstream when the next concrete context gap is selected."
     },
     {
+      "workstream_id": "HOS-CTX-004",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Notebook Context Recovery / Human-Friendly Continuation",
+      "project": "Foundation and Context Layer",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/context-notebook-recovery-v1",
+      "work_order": "docs/work-orders/HOS-CTX-004.md",
+      "status": "IMPLEMENTED",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "context",
+        "notebook",
+        "recovery",
+        "history",
+        "historical",
+        "continuation",
+        "conversation",
+        "mirror",
+        "brain",
+        "context engine"
+      ],
+      "components": [
+        "context_runtime.py",
+        "server.py",
+        "tests/test_context_notebook_recovery.py",
+        "config/context_registry.public.json",
+        "docs/work-orders/HOS-CTX-004.md"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-003"
+        },
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-NB-RECALL-001"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Candidate implementation resolves explicit historical continuation from verified checkpointed Notebook CONTEXT_ROUTE evidence across HCIDs, with human-friendly ambiguity and host-only transaction provenance.",
+      "next_action": "Run focused/full verification and CI; promotion requires Jon approval."
+    },
+    {
       "workstream_id": "HOS-FND-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Foundation Workflow and Cross-Chat Continuity",
