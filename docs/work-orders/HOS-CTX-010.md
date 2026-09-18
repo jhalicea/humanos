@@ -55,6 +55,19 @@ registry, and does not make graph rows stronger than repository/Notebook/owner e
 No model output, embeddings, semantic entity merging, Notebook import, Mirror integration,
 or private graph population is introduced.
 
+## Freshness / retraction boundary
+
+CTX-009 graph rows are append-only. If a later registry snapshot removes a workstream or
+relation, CTX-010 does **not** delete the older graph row. The
+`RegistryGraphProjection` report's returned entity/edge ID sets are the authoritative
+description of what this specific snapshot projected; the union of all raw SQLite rows
+is not a current-registry view.
+
+No Mirror/model consumer is wired in this slice. Before runtime consumption, a later
+bounded slice must persist and integrity-bind an active completed projection manifest
+(or use a deterministic rebuild strategy) so stale historical assertions cannot be
+mistaken for current context.
+
 ## Crash/replay boundary
 
 The bridge preflights security/boundary conditions before mutation. Graph inserts remain
