@@ -1,63 +1,198 @@
 # HumanOS Browser Bridge
 
-HumanOS now has a real browser capability with a narrow trust boundary. A local
-model can inspect, navigate, click, type, scroll, download, and capture the
-browser tab that you select. It does not receive browser credentials, cookies,
-extension management, arbitrary JavaScript, DevTools, shell access, or a general
+Status: HOS-BROWSER-001 activation candidate
+
+HumanOS has a governed local browser capability for Chromium-family browsers. The
+browser bridge is a local capability adapter: Mirror may inspect the tab selected
+by the owner and may request bounded browser actions, but the model never receives
+browser cookies, credentials, extension-management authority, arbitrary JavaScript,
+DevTools, shell access, or a general network proxy.
+
+## Responsibility boundary
+
+- **Owner:** loads the bundled unpacked extension once, selects the tab HumanOS may
+  operate, approves browser side effects, and chooses any additional allowed hosts.
+- **HumanOS runtime:** derives browser authority from the current human request and
+  presents exact approval prompts for search/navigation/click/type.
+- **BrowserBroker:** enforces run expiry, capability, hostname, action and byte
+  budgets; records an independent audit chain; and authenticates native-host traffic.
+- **Native host:** authenticated transport only. It does not decide policy.
+- **Extension:** operates only the tab the owner selected with its toolbar button.
+- **Mirror/model:** proposes actions only from runtime-ready registered tools. It
+  cannot configure the bridge or widen the allowlist itself.
+
+The bundled extension has a pinned development key so its HumanOS extension ID is
+stable:
+
+`hdmlcfjlepjknagpdebdlnbdlnjoijbn`
+
+Only the public extension key is in Git. The browser-control HMAC secret is generated
+locally and never committed.
+
+## Install / pair on the local computer
+
+First update the HumanOS checkout to a release that contains HOS-BROWSER-001. Then,
+from the repository, run:
+
+```bash
+humanos --browser-setup
+```
+
+HumanOS detects Brave, Google Chrome, or Chromium when possible. You can select one:
+
+```bash
+humanos --browser-setup --browser-target brave
+humanos --browser-setup --browser-target chrome
+humanos --browser-setup --browser-target chromium
+```
+
+The setup command does **not** open the Life Notebook or invoke a model. It creates
+HumanOS-owned pairing state under `~/.humanos/browser/`, installs the matching
+user-level native-messaging host manifest, and writes only local paths/policy to the
+local runtime config. The 32-byte authentication secret remains in an owner-only
+local file.
+
+The default search provider is DuckDuckGo. Google is optional:
+
+```bash
+humanos --browser-setup --browser-search-provider google
+```
+
+Navigation is host-allowlisted. The selected search provider is automatically added;
+add other sites explicitly and repeat the option for each hostname:
+
+```bash
+humanos --browser-setup \
+  --browser-target brave \
+  --browser-host github.com \
+  --browser-host developer.chrome.com
+```
+
+Running setup again replaces the configured host list while preserving the existing
+HumanOS browser authentication secret.
+
+### Load the extension
+
+In the selected Chromium-family browser:
+
+1. Open the browser's extensions management page.
+2. Enable Developer mode.
+3. Choose **Load unpacked**.
+4. Select the HumanOS repository's `browser-extension/` directory.
+5. Pin the **HumanOS Browser Bridge** toolbar action if convenient.
+
+No browser profile database is edited by the setup command.
+
+### Select the controlled tab
+
+Open the page/tab you want HumanOS to use and click the HumanOS Browser Bridge toolbar
+button. That tab becomes the selected tab. A browser request fails closed when no tab
+has been selected.
+
+HumanOS uses `tab_id: 0` internally as a sentinel meaning **the tab selected by the
+owner**. A non-zero tab id is accepted only when it exactly matches the selected tab.
+
+## Readiness
+
+Check pairing without opening the Notebook:
+
+```bash
+humanos --browser-status
+```
+
+Important fields:
+
+- `configured`: local HumanOS pairing/config exists.
+- `manifest_installed`: the selected browser has the HumanOS native-host manifest.
+- `launcher_ready`: the owner-only native-host launcher is present.
+- `secret_ready`: the local 32-byte secret exists with restrictive permissions.
+- `socket_present`: the browser has launched the native host and its Unix socket is
+  currently present. This normally becomes true after the extension/native connection
+  is active.
+- `selected_tab_required`: always true.
+
+A configured bridge is not claimed connected until a real browser action succeeds.
+
+## Use from Mirror
+
+Start HumanOS normally:
+
+```bash
+humanos
+```
+
+Examples:
+
+```text
+search the internet for HumanOS Browser Bridge
+browse the web for Chrome native messaging documentation
+inspect the browser tab
+navigate the browser to https://github.com/
+```
+
+There is also an explicit command:
+
+```text
+/web HumanOS browser bridge
+```
+
+Search, navigation, click, and type are effectful browser actions and retain the
+interactive HumanOS approval gate. Inspection of the already selected tab is read-only,
+but the turn must still have explicit browser/web/internet scope.
+
+Search is implemented through the owner-configured search provider in the selected
+browser tab, followed by a bounded page inspection. It is **not** an unrestricted
 network proxy.
 
-`browser-extension/` is a Manifest V3 Chrome/Chromium extension. Click its
-toolbar button on the tab you want HumanOS to operate. It accepts commands only
-through Chrome native messaging and rejects requests for another tab.
+## Security limits
 
-`browser_native_host.py` is the extension's local native-messaging host. It
-listens only on an owner-only Unix socket and requires an HMAC over each broker
-request. Its secret is generated locally in an owner-only directory.
+- HTTPS navigation is limited to the configured host allowlist.
+- The browser broker generates a short-lived run envelope in trusted host code; the
+  model cannot create or extend that authority.
+- Native-host requests use an HMAC over the exact request on an owner-only Unix socket.
+- Page text returned to Mirror is bounded.
+- The extension never evaluates model-provided JavaScript.
+- Browser tools never receive browser cookies or credentials directly.
+- The extension operates only the owner-selected tab.
+- Clicks remain human-approved, but arbitrary page JavaScript triggered by an approved
+  click can cause page behavior that the broker cannot fully predict. For sensitive
+  navigation, prefer explicit `browser_navigate`, whose destination is validated
+  against the host allowlist.
+- Safari and Firefox are not supported by this activation slice.
 
-`browser_bridge.py` validates an immutable envelope, enforces capability, URL,
-action, byte, time, and stop limits, collects human approval for side effects,
-and fsyncs an external audit record before and after every action.
+## Remove HumanOS pairing
 
-The trusted host supplies this envelope, never the model:
+The explicit uninstall command removes only the HumanOS-owned native-host manifest and
+HumanOS browser control directory. It does not remove the browser, browser profile, or
+browsing data:
 
-```json
-{
-  "run_id": "work-20260909-01",
-  "authorization": "Owner authorization HOS-BROWSER-001",
-  "expires": 1789000000,
-  "hosts": ["github.com", "docs.google.com"],
-  "capabilities": ["inspect", "navigate", "click", "type", "scroll", "screenshot", "download"],
-  "max_actions": 100,
-  "max_bytes": 1000000
-}
+```bash
+humanos --browser-uninstall
 ```
 
-`inspect` and `screenshot` are read-only. Every other tool requires a separate
-human approval callback immediately before dispatch. `navigate` and `download`
-allow only HTTPS URLs whose host is exactly in `hosts` or its subdomain. The
-extension's page script never evaluates model-provided JavaScript.
+Remove the unpacked extension through the browser UI separately if desired.
 
-## Install and pairing
+## Troubleshooting
 
-1. Load `browser-extension/` as an unpacked extension in Chrome or Chromium.
-2. Copy `browser_extension_manifest.json` to Chrome's native-messaging-hosts
-   directory. Replace `path` with the absolute native-host path and replace the
-   extension ID after Chrome assigns it. Keep that manifest mode 0600.
-3. Start the native host with absolute `--socket` and `--secret` paths in an
-   owner-only control directory. Keep both out of workspaces, Notebooks,
-   repositories, sync directories, model prompts, and extension storage.
-4. Build the broker with `bridge_sender(socket_path, secret_path)` and an
-   approval callback supplied by HumanOS's human interface.
-5. Select a tab through the extension toolbar button before allowing any tool.
+If Mirror reports `REGISTERED_NOT_CONFIGURED`, run `humanos --browser-setup` and
+then `humanos --browser-status`.
 
-The broker receives strict requests such as:
+If `socket_present` is false after pairing, confirm that the unpacked HumanOS
+extension is loaded in the same browser target selected during setup, then reload the
+extension or browser and check status again.
 
-```json
-{"tool":"inspect","tab_id":123,"arguments":{}}
-```
+If a tool says no tab is selected, click the HumanOS extension toolbar button on the
+desired tab.
 
-It returns bounded observations. Page text is capped at 16 KiB and native frames
-at 1 MiB. The normal Mirror tool registry is intentionally unchanged until a
-desktop approval dialog can show clear action-by-action choices. This bridge does
-not automate installation, provide remote audit anchoring, or isolate arbitrary
-native worker processes.
+If navigation says the URL host is outside the immutable allowlist, rerun browser setup
+with the complete intended `--browser-host` list. The model cannot add hosts itself.
+
+## Implementation files
+
+- `browser_setup.py`: owner-only local installation/config/status/uninstall.
+- `browser_bridge.py`: policy boundary, HMAC transport, audit and budgets.
+- `browser_native_host.py`: authenticated socket/native-messaging transport.
+- `browser-extension/`: selected-tab Chrome/Chromium extension.
+- `server_core.py`, `engine.py`, `permissions.py`: runtime discovery, capability
+  truthfulness, human-derived scope, and approval wiring.
+- `docs/work-orders/HOS-BROWSER-001.md`: bounded SDLC acceptance contract.
