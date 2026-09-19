@@ -1,6 +1,6 @@
 # HOS-EXEC-CONTRACTS-001 — Compiled Execution Contracts
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / CANONICAL MERGE VERIFIED  
 Branch: `feature/execution-contracts-v1`  
 Baseline: `13f22ee4310e4385b164d163d72c251e39a92055` (`runtime-0.1`)
 
@@ -72,6 +72,14 @@ Revert the candidate branch. No Notebook/runtime data migration is part of this 
 ## Done condition
 
 The schemas and fail-closed validation primitives are verified on all supported CI matrix variants, with no dispatcher integration or authority expansion.
+
+## Promotion evidence
+
+- Promotion PR: #88.
+- Verified candidate head: `5e4396867d2072b939a2b3735d1b9565388be152`.
+- Canonical merge commit: `6a1baf5d036767e7dc421f19c942c9ac73cca790`.
+- `runtime-0.1` was verified identical to the merge commit immediately after promotion.
+- No release, tag, deployment, runtime data migration, model dispatch, or authority expansion occurred.
 
 ## Next candidate
 
