@@ -94,7 +94,7 @@ def humanos_control_reply(request_id: str, request_digest: str, text: str) -> di
 
 @mcp.tool()
 def humanos_control_submit_work_order(work_order: dict[str, Any]) -> dict[str, Any]:
-    """Record an explicitly Jon-approved immutable work order; never execute it."""
+    """Record an immutable work-order proposal; local owner approval is still required."""
     store = _store()
     try:
         return store.submit_work_order(work_order, current_baseline=_current_baseline())
