@@ -17,6 +17,7 @@ BASE = Path(__file__).resolve().parent
 PASTE_COMMAND = ':paste'
 PASTE_SEND_COMMAND = '/send'
 PASTE_GRACE_SECONDS = 0.04
+PASTE_CONTINUE_GRACE_SECONDS = 0.15
 
 
 def _terminal_line(line):
@@ -29,7 +30,8 @@ def _terminal_line(line):
 
 
 def read_human_input(prompt='HUMAN: ', input_fn=input, stdin=None, output=None,
-                     select_fn=select.select, paste_wait=PASTE_GRACE_SECONDS):
+                     select_fn=select.select, paste_wait=PASTE_GRACE_SECONDS,
+                     paste_continue_wait=PASTE_CONTINUE_GRACE_SECONDS):
     """Read one exact HumanOS turn, including multiline terminal paste payloads.
 
     Normal one-line prompts are unchanged. A burst of already-buffered terminal
@@ -67,7 +69,11 @@ def read_human_input(prompt='HUMAN: ', input_fn=input, stdin=None, output=None,
             break
         lines.append(_terminal_line(line))
         try:
-            ready, _, _ = select_fn([stdin], [], [], 0)
+            # Once a second line proves this is a paste burst, keep an idle
+            # window between chunks. Large terminal pastes can arrive in several
+            # kernel/TTY refills; a zero-time poll split those refills into
+            # separate HUMAN turns and allowed runtime output between fragments.
+            ready, _, _ = select_fn([stdin], [], [], paste_continue_wait)
         except (OSError, TypeError, ValueError):
             break
     return '\n'.join(lines)
