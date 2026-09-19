@@ -29,7 +29,7 @@ No new browser project/workstream is created.
 
 - Add task-scope version 7 for new browser-capable transactions.
 - Keep versions 1-6 byte-for-byte semantically compatible for browser intent.
-- Make new model tasks use v7 while preserved tasks validate against their saved version.
+- Make browser-intent model tasks use v7 while unrelated new tasks keep their existing v4/v5/v6 selection and preserved tasks validate against their saved version.
 - On macOS, use Chrome's user NativeMessagingHosts path for Brave.
 - Allow browser setup record validation to accept an explicit platform in isolated tests/status/uninstall.
 - Add focused regressions for legacy permission semantics and Brave macOS manifest location.
@@ -58,7 +58,7 @@ No new browser project/workstream is created.
 - A saved v4 scope for "search the web..." still evaluates browser_enabled=false.
 - A new v7 scope for explicit browser/web/internet intent evaluates browser_enabled=true.
 - validate_scope accepts v7 and preserves validation of v1-v6.
-- New Agent tasks persist permission version 7.
+- New browser-intent Agent tasks persist permission version 7; unrelated tasks preserve their existing version-selection behavior.
 - Brave/macOS manifest path resolves to
   `~/Library/Application Support/Google/Chrome/NativeMessagingHosts`.
 - Chrome/Chromium paths remain unchanged.
