@@ -39,7 +39,9 @@ SEARCH_PROVIDERS = {
 TARGETS = {
     "darwin": {
         "chrome": "Library/Application Support/Google/Chrome/NativeMessagingHosts",
-        "brave": "Library/Application Support/BraveSoftware/Brave-Browser/NativeMessagingHosts",
+        # Brave overrides its native-messaging lookup to Chrome's standard
+        # user path on macOS (see brave-core BraveMainDelegate).
+        "brave": "Library/Application Support/Google/Chrome/NativeMessagingHosts",
         "chromium": "Library/Application Support/Chromium/NativeMessagingHosts",
     },
     "linux": {
