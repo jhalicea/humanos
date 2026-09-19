@@ -1,6 +1,6 @@
 # HOS-BROWSER-001 — Browser Bridge Activation & Governed Web Access
 
-Status: ACTIVE / OWNER APPROVED IMPLEMENTATION
+Status: VERIFIED / PROMOTION AUTHORIZED
 Workspace: `WS-HUMANOS`
 Project: Capabilities and Tooling
 Workstream: `HOS-BROWSER-001`
@@ -163,14 +163,27 @@ and HumanOS browser control directory, never browser profiles or user browsing d
 - Historical browser implementation: PR #10 browser broker and PR #11 browser tools.
 - Baseline recovery/capability-truth repair: `b45f4eb94be026660ed3415f3213d132bda7955d`.
 
+## Verification evidence
+
+- Verified candidate head: `b1ceadb7fe2d0165b98cce2f8463e932f72049c3`.
+- HumanOS regression workflow run `35454724814`: SUCCESS across Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
+- Representative full regression count: 528 tests, 8 skipped, no failures.
+- Encrypted-backup/full-suite workflow run `35454724812`: SUCCESS.
+- Exact candidate diff reviewed against `runtime-0.1@b45f4eb94be026660ed3415f3213d132bda7955d`.
+- Diff contains the intended browser activation/runtime/docs/tests/registry slice only; no local owner paths, credentials, Notebook content, or secret bytes were found.
+- Chrome native-messaging behavior was cross-checked against current Chrome documentation: exact allowed origins, nativeMessaging permission, absolute macOS/Linux host path, stdin/stdout framing, and browser-specific NativeMessagingHosts locations.
+- Real browser end-to-end readiness remains intentionally unverified until the owner pulls the promoted commit and completes the browser UI pairing/readback on the Mac.
+
 ## Done condition
 
-The activation/configuration path is implemented on the focused branch, relevant and
-full CI evidence is green, the exact diff is reviewed, registry/work-order evidence is
-preserved, and code promotion follows owner authorization. Local browser activation is
-reported as pending until Jon's Mac completes extension pairing and runtime readback.
+The activation/configuration path is implemented and repository-verified, full CI is green,
+the exact diff has been reviewed, rollback is preserved, and owner authorization to proceed
+was given by "do it" in the current conversation. Repository promotion may proceed. Local
+browser readiness remains a separate post-promotion verification step because GitHub cannot
+load an extension or click a browser toolbar button on the owner's Mac.
 
 ## Next action
 
-Implement the smallest activation slice without weakening BrowserBroker or owner approval
-boundaries.
+Promote the verified candidate, then pull `runtime-0.1` on the owner Mac, run
+`humanos --browser-setup`, load the unpacked HumanOS extension once, select a tab,
+and verify with `humanos --browser-status` plus one bounded browser action.
