@@ -36,6 +36,32 @@ class MultilineInputTests(unittest.TestCase):
         )
         self.assertEqual(text, 'first line\nsecond line\nthird line')
 
+    def test_chunked_multiline_paste_waits_for_delayed_refills(self):
+        stdin = FakeTTY('second line\nthird line\n')
+        waits = []
+
+        def chunked_select(readers, _writers, _errors, timeout):
+            waits.append(timeout)
+            stream = readers[0]
+            if len(waits) == 1:
+                return [stream], [], []
+            if len(waits) == 2:
+                # Model a later TTY refill: it is observable only if the reader
+                # waits instead of performing the old zero-time poll.
+                return ([stream] if timeout > 0 else []), [], []
+            return [], [], []
+
+        text = read_human_input(
+            input_fn=lambda _prompt='': 'first line',
+            stdin=stdin,
+            output=io.StringIO(),
+            select_fn=chunked_select,
+            paste_wait=0.01,
+            paste_continue_wait=0.02,
+        )
+        self.assertEqual(text, 'first line\nsecond line\nthird line')
+        self.assertEqual(waits[:2], [0.01, 0.02])
+
     def test_automatic_multiline_paste_preserves_blank_lines(self):
         stdin = FakeTTY('\nthird line\n')
         text = read_human_input(
