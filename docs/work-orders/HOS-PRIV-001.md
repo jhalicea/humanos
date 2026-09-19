@@ -1,6 +1,6 @@
 # HOS-PRIV-001 — FRIEND Outbound Privacy Firewall
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / CANONICAL MERGE VERIFIED  
 Branch: `feature/friend-privacy-firewall-v1`  
 Baseline: `bde51b0f370f64301fc6752cc03babd5c5afc9e1` (`runtime-0.1`)
 
@@ -86,6 +86,14 @@ Revert the candidate branch. No Notebook/runtime data migration is part of this 
 ## Done condition
 
 The external FRIEND boundary deterministically rejects sensitive privacy classes, removes supported sensitive patterns from eligible packets, preserves contract validity, and passes the full CI matrices without dispatcher integration.
+
+## Promotion evidence
+
+- Promotion PR: #89.
+- Verified candidate head: `4a5d29522b2aaa3ce93ca6b77e7e1c1ac6824c66`.
+- Canonical merge commit: `0c5d88ee8bb5f9de6ccf230b577261ac7f2e0908`.
+- `runtime-0.1` was verified identical to the merge commit immediately after promotion.
+- No release, tag, deployment, runtime data migration, automatic dispatch, model routing, declassification, or BodyFixOS integration occurred.
 
 ## Next candidate
 
