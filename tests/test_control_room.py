@@ -68,9 +68,27 @@ class ControlRoomTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             self.store.submit_work_order(value, current_baseline=BASE)
 
-    def test_work_order_ready_only_on_matching_baseline(self):
-        ready = self.store.submit_work_order(order(), current_baseline=BASE)
-        self.assertEqual("READY", ready["state"])
+    def test_work_order_requires_separate_local_approval_and_then_tracks_staleness(self):
+        queued = self.store.submit_work_order(order(), current_baseline=BASE)
+        self.assertEqual("PENDING_LOCAL_APPROVAL", queued["state"])
+        self.assertEqual(
+            "PENDING_LOCAL_APPROVAL",
+            self.store.work_status("HOS-SLICE-MCP-001", current_baseline=BASE)["state"],
+        )
+        with self.assertRaises(PermissionError):
+            self.store.approve_work_order(
+                "HOS-SLICE-MCP-001", "0" * 64,
+                approval_ref="local-confirmation", current_baseline=BASE
+            )
+        approval = self.store.approve_work_order(
+            "HOS-SLICE-MCP-001", queued["payload_digest"],
+            approval_ref="local-confirmation", current_baseline=BASE
+        )
+        self.assertEqual("READY", approval["state"])
+        self.assertEqual(
+            "READY",
+            self.store.work_status("HOS-SLICE-MCP-001", current_baseline=BASE)["state"],
+        )
         self.assertEqual(
             "STALE",
             self.store.work_status("HOS-SLICE-MCP-001", current_baseline="deadbeef")["state"],
