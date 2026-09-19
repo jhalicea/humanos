@@ -1,7 +1,7 @@
 {
   "name": "com.humanos.browser_bridge",
-  "description": "HumanOS Browser Bridge native host (generated locally by browser_setup.py)",
-  "path": "/ABSOLUTE/OWNER/CONTROL/PATH/native-host",
+  "description": "HumanOS Browser Bridge native host (reference template; humanos --browser-setup generates the installed local manifest)",
+  "path": "/OWNER_LOCAL/HUMANOS_BROWSER/native-host",
   "type": "stdio",
   "allowed_origins": [
     "chrome-extension://hdmlcfjlepjknagpdebdlnbdlnjoijbn/"
