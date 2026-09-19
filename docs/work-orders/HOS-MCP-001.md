@@ -19,8 +19,9 @@ Create the first deterministic bridge between the ChatGPT Control Room protocol 
 1. HumanOS can queue an exact owner-approved request for an external ChatGPT/MCP host.
 2. The MCP host can read only requests explicitly approved for external handling.
 3. A response is bound to the exact request digest and appended immutably.
-4. ChatGPT can submit an explicitly Jon-approved Work Order to HumanOS without executing it.
-5. Work Orders are bound to a Git baseline and become STALE when the local baseline differs.
+4. ChatGPT can submit a Work Order proposal without executing or approving it.
+5. Only a separate local HumanOS owner action can approve the exact immutable Work Order digest.
+6. Work Orders are bound to a Git baseline and become STALE when the local baseline differs.
 
 ## Scope
 
@@ -46,14 +47,15 @@ Create the first deterministic bridge between the ChatGPT Control Room protocol 
 - RESTRICTED requests cannot be approved for external egress.
 - Request/response handoff is SHA-256 digest-bound.
 - Exact duplicate responses are idempotent; conflicting responses fail closed.
-- Work Orders require explicit Jon approval fields.
-- Matching baseline reports READY; changed baseline reports STALE.
+- MCP-submitted Work Orders remain PENDING_LOCAL_APPROVAL even if they carry an approval claim.
+- READY requires a separate local owner approval bound to the exact payload digest and baseline.
+- Changed baseline reports STALE after approval.
 - Work Orders are immutable and are never executed by this MCP surface.
 - Full repository regression remains green before promotion.
 
 ## Security boundary
 
-All MCP-returned content is data, not authority. The bridge exposes no arbitrary file read, shell, credential, merge, deploy, or model-execution tool. Local request egress requires an explicit per-request `external_approved` bit. RESTRICTED data is denied external egress in this v1 slice.
+All MCP-returned content is data, not authority. The bridge exposes no arbitrary file read, shell, credential, merge, deploy, local-approval, or model-execution tool. Local request egress requires an explicit per-request `external_approved` bit. RESTRICTED data is denied external egress in this v1 slice. An MCP caller cannot self-assert authority into READY state: local approval is stored separately and is digest/baseline bound.
 
 The MCP wrapper may inspect only the configured repository HEAD through the fixed command `git -C <root> rev-parse HEAD`. No model-supplied shell arguments are accepted.
 
