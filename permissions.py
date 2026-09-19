@@ -21,7 +21,7 @@ def _scope_text(row, work_binding=None):
     return text
 
 
-def task_scope(row, workspace, version=7, reference_binding=None, work_binding=None):
+def task_scope(row, workspace, version=4, reference_binding=None, work_binding=None):
     text = _scope_text(row, work_binding if version >= 6 else None)
     try:
         tokens = shlex.split(text)
