@@ -39,7 +39,9 @@ SEARCH_PROVIDERS = {
 TARGETS = {
     "darwin": {
         "chrome": "Library/Application Support/Google/Chrome/NativeMessagingHosts",
-        "brave": "Library/Application Support/BraveSoftware/Brave-Browser/NativeMessagingHosts",
+        # Brave currently overrides macOS native messaging to Chrome's standard
+        # user NativeMessagingHosts location.
+        "brave": "Library/Application Support/Google/Chrome/NativeMessagingHosts",
         "chromium": "Library/Application Support/Chromium/NativeMessagingHosts",
     },
     "linux": {
@@ -287,7 +289,7 @@ def setup_browser(repo_root, target="auto", hosts=(), search_provider="duckduckg
     return browser_status(repo_root, home=home, platform=platform_name)
 
 
-def _read_runtime_record(home=None):
+def _read_runtime_record(home=None, platform=None):
     path = config_path(home)
     if not path.exists():
         return None
@@ -303,7 +305,7 @@ def _read_runtime_record(home=None):
         raise ValueError("Unsupported local browser runtime config schema")
     if record["extension_id"] != EXTENSION_ID:
         raise PermissionError("Local browser runtime config extension identity differs from HumanOS")
-    platform_name = _platform_name()
+    platform_name = _platform_name(platform)
     if record["target"] not in TARGETS.get(platform_name, {}):
         raise ValueError("Local browser runtime config target is unsupported on this platform")
     if record["search_provider"] not in SEARCH_PROVIDERS:
@@ -370,7 +372,7 @@ def browser_status(repo_root, home=None, platform=None):
     }
     if not path.exists():
         return base
-    record = _read_runtime_record(home)
+    record = _read_runtime_record(home, platform=platform_name)
     manifest_path = native_manifest_path(record["target"], home=home, platform=platform_name)
     launcher = control_root(home) / "native-host"
     socket_path = Path(record["socket"])
@@ -396,7 +398,7 @@ def remove_browser_setup(repo_root, home=None, platform=None):
     """Remove only HumanOS-owned pairing artifacts after an explicit owner command."""
     repo_root = Path(repo_root).resolve()
     _outside_repository(control_root(home), repo_root)
-    record = _read_runtime_record(home)
+    record = _read_runtime_record(home, platform=platform)
     if record is None:
         return {"removed": False, "reason": "HumanOS browser setup is not configured"}
     manifest_path = native_manifest_path(record["target"], home=home, platform=platform)
