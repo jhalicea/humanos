@@ -651,9 +651,9 @@
       "title": "Browser Broker and Tools",
       "project": "Capabilities and Tooling",
       "repository": "jhalicea/humanos",
-      "branch": "feature/browser-broker",
-      "work_order": null,
-      "status": "UNKNOWN",
+      "branch": "feature/browser-activation-v1",
+      "work_order": "docs/work-orders/HOS-BROWSER-001.md",
+      "status": "ACTIVE",
       "confidentiality": "INTERNAL",
       "topics": [
         "browser",
@@ -667,12 +667,21 @@
       "components": [
         "browser_bridge.py",
         "browser_native_host.py",
-        "browser-extension"
+        "browser_setup.py",
+        "browser-extension",
+        "server_core.py",
+        "engine.py",
+        "permissions.py",
+        "BROWSER.md",
+        "tests/test_browser_setup.py",
+        "tests/test_browser_tools.py",
+        "docs/work-orders/HOS-BROWSER-001.md",
+        "config/context_registry.public.json"
       ],
       "relations": [],
-      "last_verified_commit": null,
-      "resume_point": "Multiple browser branches exist; inspect related branches before selecting continuation target.",
-      "next_action": "Compare browser-broker, browser-tools, and current runtime integration before editing."
+      "last_verified_commit": "b45f4eb94be026660ed3415f3213d132bda7955d",
+      "resume_point": "Browser broker/tools are already canonical. Activation slice is implementing owner-only local pairing/config, native-host launch wiring, and browser permission integration.",
+      "next_action": "Implement browser setup/runtime loading and regress activation/security boundaries."
     },
     {
       "workstream_id": "HOS-NB-CAPTURE-001",
