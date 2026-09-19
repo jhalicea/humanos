@@ -166,6 +166,14 @@ class BrowserPermissionTests(unittest.TestCase):
             self.assertTrue(scope['browser_enabled'], text)
             self.assertTrue(allows_read(scope, {'name': 'browser_inspect', 'tab_id': 0}))
 
+    def test_pre_v7_scope_keeps_original_browser_literal_semantics(self):
+        scope = task_scope(
+            self.row('search the web for HumanOS docs'),
+            '/tmp/humanos-browser-workspace',
+            version=4,
+        )
+        self.assertFalse(scope['browser_enabled'])
+
     def test_unrelated_turn_does_not_enable_browser_scope(self):
         scope = task_scope(self.row('tell me something interesting'), '/tmp/humanos-browser-workspace')
         self.assertFalse(scope['browser_enabled'])
