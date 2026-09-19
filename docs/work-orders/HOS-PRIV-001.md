@@ -1,6 +1,6 @@
 # HOS-PRIV-001 — FRIEND Outbound Privacy Firewall
 
-Status: CANDIDATE / OWNER-APPROVED IMPLEMENTATION  
+Status: VERIFIED / PROMOTION PENDING  
 Branch: `feature/friend-privacy-firewall-v1`  
 Baseline: `bde51b0f370f64301fc6752cc03babd5c5afc9e1` (`runtime-0.1`)
 
@@ -72,6 +72,16 @@ Revert the candidate branch. No Notebook/runtime data migration is part of this 
 - Parent canonical commit: `bde51b0f370f64301fc6752cc03babd5c5afc9e1`.
 - Parent promoted foundation: HOS-EXEC-CONTRACTS-001.
 - Existing HumanOS private-context design already follows minimum-disclosure and private-metadata host-side principles.
+
+## Verification evidence
+
+- First candidate head `f099e6f5da56261abb950673aa9a29eaba1e2119` exposed one verifier defect: the residual-secret scanner treated its own `[SECRET_REDACTED]` sentinel as a surviving labeled secret.
+- Minimal repair commit: `2b9c8d5dd5089bb789edf8b55efe77c1f45beffd`.
+- Regression run `35421622103`: SUCCESS across Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
+- Representative regression job: 496 tests, 8 skipped, no failures.
+- Encrypted-backup/full-suite run `35421622067`: SUCCESS across Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
+- Candidate changes remain bounded to the FRIEND privacy firewall, its tests, and this Work Order.
+- No merge, release, tag, deployment, dispatcher integration, model routing, or data migration performed.
 
 ## Done condition
 
