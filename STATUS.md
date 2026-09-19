@@ -1,45 +1,60 @@
 # HumanOS Status Snapshot
 
-Status: HOS-BROWSER-001-R1 ACTIVE
+Status: HOS-BROWSER-001 PROMOTED / LOCAL MAC READBACK PENDING
 Date: 2026-09-19
 Workspace: `WS-HUMANOS`
 Workstream: `HOS-BROWSER-001 — Browser Broker and Tools`
-Slice: `HOS-BROWSER-001-R1 — Browser Activation Compatibility Correction`
-Branch: `fix/browser-activation-r1`
-Baseline: `runtime-0.1@856a41b7852e18f19b872e0f0b6f9367e65ee3d6`
-Parent promotion: PR #91 / `02869089cd336ffac17751a771bd61adcf21229d`
+Canonical branch: `runtime-0.1`
+Canonical promotion: `7c21306aa3dac28cf274e39360d600a7ca7e8abf`
+Parent activation: PR #91 / `02869089cd336ffac17751a771bd61adcf21229d`
+R1 correction: PR #93 / `7c21306aa3dac28cf274e39360d600a7ca7e8abf`
 Work order: `docs/work-orders/HOS-BROWSER-001-R1.md`
 
-## Why this correction exists
+## Canonical outcome
 
-The promoted browser activation changed the meaning of legacy permission scope
-versions by adding web/internet intent under v4-v6. Preserved task scopes must not
-change semantics after upgrade. The correction assigns expanded browser intent to v7
-for new Agent tasks while keeping older saved versions stable.
+HumanOS now has the governed Browser Bridge activation path in the canonical runtime:
 
-Current Brave source also routes macOS native messaging through Chrome's standard
-user NativeMessagingHosts location. The promoted setup used Brave's profile-specific
-path; R1 corrects the lookup and adds a regression.
+- owner-local pairing/config outside Git;
+- stable unpacked extension identity and native messaging;
+- generated native-host launcher/manifest;
+- governed browser search/inspect/navigation/click/type;
+- selected-tab control;
+- truthful extension failure propagation;
+- exact task-scope and interactive approval gates;
+- permission-scope v7 only for browser-intent turns, preserving legacy v1-v6 semantics;
+- corrected Brave/macOS native-messaging lookup.
 
-## Responsibility boundary
+## SDLC / router evidence
 
-Owner -> Context Router -> HOS-BROWSER-001 -> R1 Work Order -> focused branch -> tests/evidence.
-BrowserBroker, native host, extension, Mirror, and interactive browser approval retain
-their promoted responsibilities; R1 does not widen authority.
+Route: `OWNER -> WS-HUMANOS -> HOS-BROWSER-001 -> HOS-BROWSER-001-R1 -> branch -> evidence`.
 
-## Current evidence
+- R1 candidate: `9b6050c3aaccca0032e843652743cb2caf3d470b`.
+- Regression workflow `35456032309`: SUCCESS across macOS/Ubuntu × Python 3.11/3.13.
+- Encrypted-backup workflow `35456032318`: SUCCESS across the same matrix.
+- Exact diff reviewed; no Notebook content, credentials, owner-local paths, secret bytes,
+  cross-workspace data, or model-authority widening were introduced.
+- Chrome native-messaging behavior was checked against current official Chrome docs;
+  Brave/macOS lookup was checked against current Brave source.
+- Promotion was performed only after the exact candidate was green.
 
-- Baseline PR #91 regression and encrypted-backup workflows were independently
-  confirmed green on exact head `cd14dec87ca742785d8f3462b701e0c1915458bf`.
-- R1 focused/full CI: pending.
-- Local Mac browser pairing/readback: pending after canonical promotion.
+## Remaining evidence gap
+
+Repository/CI proof cannot establish that Jon's local Brave extension/native host is
+paired and the selected-tab bridge is live. That requires local post-promotion readback.
 
 ## Rollback
 
-Revert the R1 promotion commit. No Notebook or local browser-state migration is part
-of this correction.
+Revert `7c21306aa3dac28cf274e39360d600a7ca7e8abf` for the R1 correction and, if needed,
+`02869089cd336ffac17751a771bd61adcf21229d` for the parent activation. No Life
+Notebook migration was performed.
 
 ## Next action
 
-Run CI on the exact R1 candidate; resolve any regressions; review diff/privacy; promote
-only if verified, then return to the existing local Mac pairing/readback next action.
+On Jon's Mac:
+
+1. pull canonical `runtime-0.1`;
+2. run `humanos --browser-setup`;
+3. load `browser-extension/` once as an unpacked extension in Brave/Chrome;
+4. click the HumanOS extension on the tab Jon wants Mirror to operate;
+5. run `humanos --browser-status`;
+6. run one bounded browser search/inspect through Mirror and verify the result.
