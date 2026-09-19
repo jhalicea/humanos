@@ -187,7 +187,18 @@ def _blocked_residuals(packet):
     hard_categories = {"PRIVATE_KEY", "KNOWN_TOKEN", "LABELED_SECRET"}
     for field, value in values:
         for category, pattern, _replacement in _REDACTIONS:
-            if category in hard_categories and pattern.search(value):
+            if category not in hard_categories:
+                continue
+            if category == "LABELED_SECRET":
+                # A successful redaction intentionally preserves the label and
+                # separator (for useful context) while replacing only the value.
+                # Do not mistake our own sentinel for a surviving credential.
+                for match in pattern.finditer(value):
+                    if match.group(3) != "[SECRET_REDACTED]":
+                        residual.append((field, category))
+                        break
+                continue
+            if pattern.search(value):
                 residual.append((field, category))
     return residual
 
