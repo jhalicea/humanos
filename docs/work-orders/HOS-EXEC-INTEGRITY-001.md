@@ -1,6 +1,6 @@
 # HOS-EXEC-INTEGRITY-001 — Execution / Input Integrity
 
-Status: CANDIDATE / OWNER-APPROVED IMPLEMENTATION  
+Status: PROMOTED / CANONICAL MERGE VERIFIED  
 Branch: `fix/exec-integrity-paste-framing-v1`  
 Baseline: `2d4b383c6723177a3d1ad6ef3774d79dc8e6b7cd` (`runtime-0.1`)
 
@@ -32,7 +32,18 @@ The observed session began with 22 unfinished execution transactions and showed 
 
 ## Rollback
 
-Revert the candidate branch/commit. No Notebook data migration is part of this slice.
+Revert promotion commit `eca9652cef75962b98cc60e314f952f8e56bcd1b` if rollback is required. No Notebook data migration is part of this slice.
+
+## Verification and promotion evidence
+
+- Candidate head: `0a3f01fa1fe60a4d3c8a63979d918e18517b4a2f`
+- Regression run `35409587970`: SUCCESS across Ubuntu 24.04/macOS 15 × Python 3.11/3.13; representative job ran 472 tests with 8 skipped and no failures.
+- Encrypted-backup/full-suite run `35409587986`: SUCCESS across Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
+- Owner approved promotion on 2026-09-18.
+- Promotion PR: #86.
+- Canonical merge commit: `eca9652cef75962b98cc60e314f952f8e56bcd1b`.
+- `runtime-0.1` was verified identical to the merge commit immediately after promotion.
+- No Notebook migration, transaction deletion, task close, release, or tag was performed.
 
 ## Next candidate
 
