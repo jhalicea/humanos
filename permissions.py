@@ -64,8 +64,9 @@ def task_scope(row, workspace, version=4, reference_binding=None, work_binding=N
             'list_paths': ['.'] + sorted(set(paths)) if listing else [],
             'runtime_reads': ['current_time', 'read_notebook', 'runtime_capabilities'],
             'browser_enabled': bool(
-                re.search(r'\b(browser|web|internet|website|online)\b', text, re.I)
-                or re.search(r'\bsearch\b.*\b(web|internet|online)\b', text, re.I)
+                (re.search(r'\b(browser|web|internet|website|online|browse|webpage)\b', text, re.I)
+                 or re.search(r'\bsearch\b.*\b(web|internet|online)\b', text, re.I))
+                if version >= 7 else re.search(r'\bbrowser\b', text, re.I)
             ),
             'writes': 'EXACT_REQUEST_APPROVAL'}
     if version >= 2:
@@ -100,7 +101,7 @@ def task_scope(row, workspace, version=4, reference_binding=None, work_binding=N
 def validate_scope(scope, row, workspace, book=None):
     # The source input remains immutable. Reject altered/unsupported saved policy;
     # do not silently widen a task when implementation defaults change.
-    if scope.get('version') not in (1, 2, 3, 4, 5, 6):
+    if scope.get('version') not in (1, 2, 3, 4, 5, 6, 7):
         raise PermissionError('Unsupported saved task policy version')
     reference_binding = scope.get('reference_binding') if scope.get('version', 0) >= 5 else None
     if reference_binding:

@@ -34,7 +34,7 @@ class BrowserPermissionTests(unittest.TestCase):
         return {"tx": "tx", "hcid": "hcid", "input": text}
 
     def test_explicit_web_intent_enables_all_browser_tools(self):
-        scope = task_scope(self.row("search the web for HumanOS"), "/tmp/workspace")
+        scope = task_scope(self.row("search the web for HumanOS"), "/tmp/workspace", version=7)
         self.assertTrue(scope["browser_enabled"])
         for name in ("browser_search", "browser_inspect", "browser_navigate", "browser_click", "browser_type"):
             request = {"name": name}

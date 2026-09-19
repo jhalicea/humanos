@@ -47,6 +47,13 @@ class BrowserSetupTests(unittest.TestCase):
         self.assertEqual(extension_id_from_key(), EXTENSION_ID)
         self.assertRegex(EXTENSION_ID, r"^[a-p]{32}$")
 
+    def test_brave_macos_uses_chrome_native_messaging_lookup(self):
+        path = native_manifest_path("brave", self.home, "darwin")
+        self.assertEqual(
+            path,
+            (self.home / "Library/Application Support/Google/Chrome/NativeMessagingHosts/com.humanos.browser_bridge.json").resolve(),
+        )
+
     def test_setup_creates_private_local_pairing_outside_repo(self):
         report = self.setup(hosts=["github.com"], search_provider="duckduckgo")
         root = control_root(self.home)
@@ -162,9 +169,26 @@ class BrowserPermissionTests(unittest.TestCase):
             'search the web for Chrome native messaging',
             'open this website online',
         ):
-            scope = task_scope(self.row(text), '/tmp/humanos-browser-workspace')
+            scope = task_scope(self.row(text), '/tmp/humanos-browser-workspace', version=7)
             self.assertTrue(scope['browser_enabled'], text)
             self.assertTrue(allows_read(scope, {'name': 'browser_inspect', 'tab_id': 0}))
+
+    def test_saved_pre_v7_scope_keeps_original_browser_literal_semantics(self):
+        scope = task_scope(
+            self.row('search the web for HumanOS docs'),
+            '/tmp/humanos-browser-workspace',
+            version=4,
+        )
+        self.assertFalse(scope['browser_enabled'])
+
+    def test_v7_scope_enables_explicit_web_intent(self):
+        scope = task_scope(
+            self.row('search the web for HumanOS docs'),
+            '/tmp/humanos-browser-workspace',
+            version=7,
+        )
+        self.assertTrue(scope['browser_enabled'])
+        self.assertTrue(allows_read(scope, {'name': 'browser_search', 'tab_id': 0, 'query': 'HumanOS docs'}))
 
     def test_unrelated_turn_does_not_enable_browser_scope(self):
         scope = task_scope(self.row('tell me something interesting'), '/tmp/humanos-browser-workspace')
