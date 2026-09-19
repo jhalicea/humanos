@@ -653,7 +653,7 @@
       "repository": "jhalicea/humanos",
       "branch": "fix/browser-activation-r1",
       "work_order": "docs/work-orders/HOS-BROWSER-001-R1.md",
-      "status": "ACTIVE",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "browser",
@@ -679,9 +679,9 @@
         "config/context_registry.public.json"
       ],
       "relations": [],
-      "last_verified_commit": "02869089cd336ffac17751a771bd61adcf21229d",
-      "resume_point": "PR #91 is promoted. R1 correction is active to preserve legacy permission-scope semantics and correct Brave/macOS native-messaging lookup.",
-      "next_action": "Run focused/full CI on R1, review exact diff, then promote under the owner's current authorization if green."
+      "last_verified_commit": "7c21306aa3dac28cf274e39360d600a7ca7e8abf",
+      "resume_point": "PR #93 promoted R1 compatibility correction at 7c21306aa3dac28cf274e39360d600a7ca7e8abf after green regression and encrypted-backup matrices. Browser activation code is canonical; local Mac pairing/readback is still pending.",
+      "next_action": "On the owner Mac, pull runtime-0.1, run humanos --browser-setup, load browser-extension/ once as unpacked, select a tab, verify humanos --browser-status, and run one bounded browser_search or browser_inspect action."
     },
     {
       "workstream_id": "HOS-NB-CAPTURE-001",
