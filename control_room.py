@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import secrets
 import sqlite3
@@ -15,6 +16,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 DATA_CLASSES = frozenset({"PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"})
+OUTBOUND_DATA_CLASSES = frozenset({"PUBLIC", "INTERNAL", "CONFIDENTIAL"})
 SIZE_CLASSES = frozenset({"XS", "S", "M", "L"})
 RISK_CLASSES = frozenset({"R0", "R1", "R2", "R3", "INCIDENT", "EXPERIMENT"})
 WORK_ID_RE = re.compile(r"^HOS-[A-Z0-9][A-Z0-9-]{2,127}$")
@@ -34,7 +36,13 @@ def _digest_text(value: str) -> str:
 
 
 def _encode(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
 
 
 def _require_text(name: str, value: Any, *, limit: int = 100_000) -> str:
@@ -42,7 +50,16 @@ def _require_text(name: str, value: Any, *, limit: int = 100_000) -> str:
         raise ValueError(f"{name} must be non-empty text")
     if len(value) > limit:
         raise ValueError(f"{name} exceeds {limit} characters")
+    if "\x00" in value:
+        raise ValueError(f"{name} cannot contain NUL")
     return value
+
+
+def _require_string_list(name: str, value: Any, *, max_items: int = 128, item_limit: int = 4096) -> list[str]:
+    if not isinstance(value, list) or len(value) > max_items:
+        raise ValueError(f"{name} must be a list with at most {max_items} items")
+    return [_require_text(f"{name}[{index}]", item, limit=item_limit)
+            for index, item in enumerate(value)]
 
 
 class ControlRoomStore:
@@ -50,12 +67,21 @@ class ControlRoomStore:
 
     def __init__(self, path: str | Path):
         self.path = Path(path).expanduser()
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(self.path)
+        self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if self.path.exists() and self.path.is_symlink():
+            raise PermissionError("Control Room database cannot be a symlink")
+        if os.name == "posix":
+            os.chmod(self.path.parent, 0o700)
+        self.db = sqlite3.connect(self.path, timeout=5)
         self.db.row_factory = sqlite3.Row
+        if os.name == "posix":
+            os.chmod(self.path, 0o600)
         with self.db:
             self.db.execute("PRAGMA journal_mode=WAL")
             self.db.execute("PRAGMA synchronous=FULL")
+            self.db.execute("PRAGMA foreign_keys=ON")
+            self.db.execute("PRAGMA busy_timeout=5000")
+            self.db.execute("PRAGMA trusted_schema=OFF")
             self.db.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS control_requests(
@@ -63,7 +89,7 @@ class ControlRoomStore:
                     owner TEXT NOT NULL,
                     text TEXT NOT NULL,
                     text_digest TEXT NOT NULL,
-                    data_class TEXT NOT NULL,
+                    data_class TEXT NOT NULL CHECK(data_class IN ('PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED')),
                     external_approved INTEGER NOT NULL CHECK(external_approved IN (0,1)),
                     created_at TEXT NOT NULL
                 );
@@ -87,8 +113,14 @@ class ControlRoomStore:
                     work_id TEXT PRIMARY KEY REFERENCES control_work_orders(work_id),
                     payload_digest TEXT NOT NULL,
                     baseline_commit TEXT NOT NULL,
-                    approved_by TEXT NOT NULL,
+                    approved_by TEXT NOT NULL CHECK(approved_by='jon'),
                     approval_ref TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS control_invalidations(
+                    work_id TEXT PRIMARY KEY REFERENCES control_work_orders(work_id),
+                    reason TEXT NOT NULL,
+                    observed_baseline TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
                 CREATE TRIGGER IF NOT EXISTS control_requests_no_update
@@ -115,6 +147,12 @@ class ControlRoomStore:
                 CREATE TRIGGER IF NOT EXISTS control_approvals_no_delete
                   BEFORE DELETE ON control_approvals
                   BEGIN SELECT RAISE(ABORT, 'immutable control approval'); END;
+                CREATE TRIGGER IF NOT EXISTS control_invalidations_no_update
+                  BEFORE UPDATE ON control_invalidations
+                  BEGIN SELECT RAISE(ABORT, 'immutable control invalidation'); END;
+                CREATE TRIGGER IF NOT EXISTS control_invalidations_no_delete
+                  BEFORE DELETE ON control_invalidations
+                  BEGIN SELECT RAISE(ABORT, 'immutable control invalidation'); END;
                 """
             )
 
@@ -124,7 +162,7 @@ class ControlRoomStore:
     def queue_local_request(self, text: str, *, data_class: str = "INTERNAL", external_approved: bool = False, owner: str = "jon") -> dict[str, Any]:
         text = _require_text("text", text)
         owner = _require_text("owner", owner, limit=128)
-        data_class = str(data_class).upper()
+        data_class = str(data_class).strip().upper()
         if data_class not in DATA_CLASSES:
             raise ValueError("unsupported data_class")
         if data_class == "RESTRICTED" and external_approved:
@@ -143,7 +181,7 @@ class ControlRoomStore:
         row = self.db.execute(
             """SELECT r.* FROM control_requests r
             LEFT JOIN control_responses s ON s.request_id=r.request_id
-            WHERE r.external_approved=1 AND r.data_class!='RESTRICTED'
+            WHERE r.external_approved=1
               AND s.request_id IS NULL
             ORDER BY r.created_at, r.request_id LIMIT 1"""
         ).fetchone()
@@ -151,6 +189,8 @@ class ControlRoomStore:
             return None
         if _digest_text(row["text"]) != row["text_digest"]:
             raise RuntimeError("control request failed integrity validation")
+        if row["data_class"] not in OUTBOUND_DATA_CLASSES:
+            raise PermissionError("queued request data class is not allowed to leave HumanOS")
         return {"request_id": row["request_id"], "request_digest": row["text_digest"], "data_class": row["data_class"], "text": row["text"], "created_at": row["created_at"]}
 
     def append_external_response(self, request_id: str, request_digest: str, text: str, *, responder: str = "chatgpt") -> dict[str, Any]:
@@ -163,7 +203,7 @@ class ControlRoomStore:
             raise KeyError("unknown request_id")
         if row["text_digest"] != request_digest or _digest_text(row["text"]) != row["text_digest"]:
             raise PermissionError("request digest mismatch")
-        if not row["external_approved"] or row["data_class"] == "RESTRICTED":
+        if not row["external_approved"] or row["data_class"] not in OUTBOUND_DATA_CLASSES:
             raise PermissionError("request is not authorized for external response")
         text_digest = _digest_text(text)
         existing = self.db.execute("SELECT * FROM control_responses WHERE request_id=?", (request_id,)).fetchone()
@@ -206,12 +246,10 @@ class ControlRoomStore:
         order["rollback"] = _require_text("rollback", order["rollback"])
         order["done_condition"] = _require_text("done_condition", order["done_condition"])
         for field in ("scope", "non_goals", "allowed_actions", "forbidden_actions", "acceptance_tests"):
-            value = order[field]
-            if not isinstance(value, list) or any(not isinstance(x, str) or not x.strip() for x in value):
-                raise ValueError(f"{field} must be a list of non-empty strings")
-        order["data_class"] = str(order["data_class"]).upper()
-        order["size_class"] = str(order["size_class"]).upper()
-        order["risk_class"] = str(order["risk_class"]).upper()
+            order[field] = _require_string_list(field, order[field])
+        order["data_class"] = str(order["data_class"]).strip().upper()
+        order["size_class"] = str(order["size_class"]).strip().upper()
+        order["risk_class"] = str(order["risk_class"]).strip().upper()
         if order["data_class"] not in DATA_CLASSES:
             raise ValueError("unsupported data_class")
         if order["size_class"] not in SIZE_CLASSES:
@@ -232,7 +270,12 @@ class ControlRoomStore:
 
     def submit_work_order(self, work_order: Mapping[str, Any], *, current_baseline: str | None) -> dict[str, Any]:
         order = self._validate_work_order(work_order)
-        payload = _encode(order)
+        try:
+            payload = _encode(order)
+        except (TypeError, ValueError) as error:
+            raise ValueError("work_order is not canonical JSON data") from error
+        if len(payload.encode("utf-8")) > 200_000:
+            raise ValueError("canonical work_order exceeds 200000 bytes")
         digest = _digest_text(payload)
         baseline = order["baseline_commit"]
         state = "PENDING_LOCAL_APPROVAL"
@@ -256,35 +299,45 @@ class ControlRoomStore:
     ) -> dict[str, Any]:
         work_id = str(work_id).upper()
         approval_ref = _require_text("approval_ref", approval_ref, limit=512)
-        row = self.db.execute(
-            "SELECT * FROM control_work_orders WHERE work_id=?", (work_id,)
-        ).fetchone()
-        if not row:
-            raise KeyError("unknown work_id")
-        if _digest_text(row["payload"]) != row["payload_digest"]:
-            raise RuntimeError("work order failed integrity validation")
-        if payload_digest != row["payload_digest"]:
-            raise PermissionError("work-order payload digest mismatch")
-        if current_baseline is None:
-            raise PermissionError("local baseline is unknown; approval cannot be bound")
-        if row["baseline_commit"] != str(current_baseline).lower():
-            raise PermissionError("work order is stale and cannot be approved")
-        existing = self.db.execute(
-            "SELECT * FROM control_approvals WHERE work_id=?", (work_id,)
-        ).fetchone()
-        if existing:
-            if (existing["payload_digest"] == payload_digest and
-                    existing["baseline_commit"] == row["baseline_commit"] and
-                    existing["approval_ref"] == approval_ref):
-                return {"work_id": work_id, "state": "READY", "record_state": "IDEMPOTENT",
-                        "approved_at": existing["created_at"]}
-            raise RuntimeError("conflicting local approval already exists")
-        stamp = _now()
-        with self.db:
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            row = self.db.execute(
+                "SELECT * FROM control_work_orders WHERE work_id=?", (work_id,)
+            ).fetchone()
+            if not row:
+                raise KeyError("unknown work_id")
+            if _digest_text(row["payload"]) != row["payload_digest"]:
+                raise RuntimeError("work order failed integrity validation")
+            if payload_digest != row["payload_digest"]:
+                raise PermissionError("work-order payload digest mismatch")
+            if self.db.execute(
+                "SELECT 1 FROM control_invalidations WHERE work_id=?", (work_id,)
+            ).fetchone():
+                raise PermissionError("stale work order requires a fresh work_id and approval")
+            if current_baseline is None:
+                raise PermissionError("local baseline is unknown; approval cannot be bound")
+            if row["baseline_commit"] != str(current_baseline).lower():
+                raise PermissionError("work order is stale and cannot be approved")
+            existing = self.db.execute(
+                "SELECT * FROM control_approvals WHERE work_id=?", (work_id,)
+            ).fetchone()
+            if existing:
+                if (existing["payload_digest"] == payload_digest and
+                        existing["baseline_commit"] == row["baseline_commit"] and
+                        existing["approval_ref"] == approval_ref):
+                    self.db.commit()
+                    return {"work_id": work_id, "state": "READY", "record_state": "IDEMPOTENT",
+                            "approved_at": existing["created_at"]}
+                raise RuntimeError("conflicting local approval already exists")
+            stamp = _now()
             self.db.execute(
                 "INSERT INTO control_approvals VALUES(?,?,?,?,?,?)",
                 (work_id, payload_digest, row["baseline_commit"], "jon", approval_ref, stamp),
             )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
         return {"work_id": work_id, "state": "READY", "record_state": "RECORDED",
                 "approved_at": stamp}
 
@@ -297,17 +350,28 @@ class ControlRoomStore:
         approval = self.db.execute(
             "SELECT * FROM control_approvals WHERE work_id=?", (row["work_id"],)
         ).fetchone()
+        invalidation = self.db.execute(
+            "SELECT * FROM control_invalidations WHERE work_id=?", (row["work_id"],)
+        ).fetchone()
         if not approval:
             state = "PENDING_LOCAL_APPROVAL"
         elif approval["payload_digest"] != row["payload_digest"] or approval["baseline_commit"] != row["baseline_commit"]:
             raise RuntimeError("local approval binding failed integrity validation")
+        elif invalidation:
+            state = "STALE"
         elif current_baseline is None:
             state = "BASELINE_UNKNOWN"
         elif row["baseline_commit"] != str(current_baseline).lower():
+            stamp = _now()
+            with self.db:
+                self.db.execute(
+                    "INSERT OR IGNORE INTO control_invalidations VALUES(?,?,?,?)",
+                    (row["work_id"], "BASELINE_CHANGED", str(current_baseline).lower(), stamp),
+                )
             state = "STALE"
         else:
             state = "READY"
-        return {"work_id": row["work_id"], "payload_digest": row["payload_digest"], "baseline_commit": row["baseline_commit"], "state": state, "created_at": row["created_at"], "locally_approved": bool(approval)}
+        return {"work_id": row["work_id"], "payload_digest": row["payload_digest"], "baseline_commit": row["baseline_commit"], "state": state, "created_at": row["created_at"], "locally_approved": bool(approval), "stale_sticky": bool(invalidation) or state == "STALE"}
 
     def pending_work_orders(self, *, current_baseline: str | None) -> list[dict[str, Any]]:
         rows = self.db.execute("SELECT work_id FROM control_work_orders ORDER BY created_at, work_id").fetchall()
