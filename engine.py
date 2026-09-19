@@ -392,7 +392,7 @@ class Agent:
                                       {'role': 'user', 'content': row['input']}],
                          'context': packet, 'workspace': str(self.tools.workspace),
                          'permissions': task_scope(row, self.tools.workspace,
-                                                   version=6 if work_binding else (5 if reference_binding else 4),
+                                                   version=7,
                                                    reference_binding=reference_binding, work_binding=work_binding),
                          'reference_binding': reference_binding, 'work_binding': work_binding, 'approvals': []}
                 if reference_binding is not None:
