@@ -84,6 +84,40 @@ class Tools:
         self.source = SourceReader()
         self.browser = browser
 
+    def capability_states(self):
+        """Truthful executor state for the model and human-facing capability UI."""
+        states = {}
+        for name, spec in REGISTRY.items():
+            if not spec.get('available'):
+                states[name] = {
+                    'registered': True, 'configured': False, 'connected': False,
+                    'ready': False, 'state': 'NO_EXECUTOR',
+                    'reason': 'no executor is connected for this capability',
+                }
+                continue
+            if name.startswith('browser_'):
+                if self.browser is None:
+                    states[name] = {
+                        'registered': True, 'configured': False, 'connected': False,
+                        'ready': False, 'state': 'REGISTERED_NOT_CONFIGURED',
+                        'reason': 'the browser tool is installed in HumanOS but the local browser bridge is not configured',
+                        'next_action': ('Pair the HumanOS Browser Bridge extension/native host, then add the browser '
+                                        'configuration block described in BROWSER.md. Human approval gates remain required.'),
+                    }
+                else:
+                    states[name] = {
+                        'registered': True, 'configured': True, 'connected': None,
+                        'ready': True, 'state': 'CONFIGURED_CONNECTION_UNVERIFIED',
+                        'reason': ('the browser broker is configured; native-host/tab connectivity is verified on the '
+                                   'first bounded browser action'),
+                    }
+                continue
+            states[name] = {
+                'registered': True, 'configured': True, 'connected': True,
+                'ready': True, 'state': 'READY', 'reason': 'in-process executor is connected',
+            }
+        return states
+
     def execute(self, request, authorize, runtime=None, tx=None):
         result = {'ok': False, 'stdout': '', 'stderr': '', 'artifacts': [], 'authorization': 'DENIED'}
         fd = None
@@ -92,7 +126,9 @@ class Tools:
             name, path = request.get('name'), request.get('path', '.')
             if name.startswith('browser_'):
                 if self.browser is None:
-                    raise PermissionError('Browser bridge is not configured')
+                    raise PermissionError(
+                        'Browser bridge is registered but not configured. Pair the HumanOS Browser Bridge '
+                        'extension/native host and add the browser configuration described in BROWSER.md.')
                 tool = name.removeprefix('browser_')
                 arguments = {key: value for key, value in request.items() if key not in ('name', 'tab_id')}
                 original_approve = self.browser.approve
@@ -320,7 +356,7 @@ class Agent:
                         'mode': reference_binding['mode']}
                 packet['recent_transcript_sources'] = [{k: v for k, v in item.items() if k != 'text'} for item in history]
                 state = {'phase': 'MODEL', 'steps': 0, 'elapsed': 0, 'model': self.model.name,
-                         'messages': [{'role': 'system', 'content': SYSTEM + '\n' + model_instructions() + '\nContext packet:\n' + encode(packet)},
+                         'messages': [{'role': 'system', 'content': SYSTEM + '\n' + model_instructions(self.tools.capability_states()) + '\nContext packet:\n' + encode(packet)},
                                       *[{'role': item['role'].lower().replace('human', 'user'), 'content': item['text']} for item in history],
                                       {'role': 'user', 'content': row['input']}],
                          'context': packet, 'workspace': str(self.tools.workspace),
@@ -422,7 +458,8 @@ class Agent:
                         self.book.save_task_event(tx, state, 'AUTHORIZATION', authorization)
                         return allowed
                     observation = self.tools.execute(state['pending'], policy,
-                        runtime=lambda name: runtime_execute(self.book, identity, tx, name), tx=tx)
+                        runtime=lambda name: runtime_execute(
+                            self.book, identity, tx, name, capabilities=self.tools.capability_states()), tx=tx)
                     self.book.event(tx, 'TOOL_RESULT', observation_summary(self.book, state['pending'], observation))
                     frame = capture_reference_frame(tx, state['pending'], observation)
                     if frame:
