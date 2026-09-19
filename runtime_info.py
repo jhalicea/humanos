@@ -312,7 +312,7 @@ def format_observation(request, observation):
     return observation['stdout']
 
 
-def execute(book, identity, tx, name, now=None):
+def execute(book, identity, tx, name, now=None, capabilities=None):
     row = book.get_transaction(tx)
     if not row or row['hcid'] != identity['hcid'] or book.get_identity(row['hcid']) != identity or identity['binding'] != 'VERIFIED':
         raise PermissionError('Runtime query requires the verified transaction identity')
@@ -320,7 +320,7 @@ def execute(book, identity, tx, name, now=None):
         value = (now or datetime.now().astimezone()).isoformat(timespec='seconds')
         result = 'Your Mac’s local date and time is ' + value + '.'
     elif name == 'runtime_capabilities':
-        result = summary()
+        result = summary(capabilities)
     elif name == 'runtime_identity':
         state = book.task(tx) or {}
         model = state.get('model')

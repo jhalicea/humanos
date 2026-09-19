@@ -61,6 +61,18 @@ def describe():
     return deepcopy(list(REGISTRY.values()))
 
 
+def runtime_describe(states=None):
+    """Overlay runtime executor state onto the static registration contract."""
+    items = describe()
+    states = states or {}
+    for item in items:
+        state = states.get(item['name'])
+        if state:
+            item['runtime_state'] = deepcopy(state)
+            item['available'] = bool(state.get('ready'))
+    return items
+
+
 def validate_request(request):
     if not isinstance(request, dict) or not isinstance(request.get('name'), str):
         raise PermissionError('Tool request must have a name')
@@ -85,7 +97,7 @@ def validate_request(request):
     return result
 
 
-def model_instructions():
+def model_instructions(states=None):
     from notebook import encode
     lines = ['Available tools and valid JSON syntax examples. Put arguments directly beside name; '
              'never wrap them in parameters or arguments. The registry lists tools, not workspace files. '
@@ -97,11 +109,16 @@ def model_instructions():
                 'text': 'TEXT_REQUESTED_BY_HUMAN',
                 'destination': 'DESTINATION_FROM_HUMAN_OR_PLAN/file.txt',
                 'plan_id': 'PLAN-ID-FROM-TOOL', 'offset': 0}
-    for spec in describe():
+    for spec in runtime_describe(states):
         if spec['name'] in HUMAN_ONLY:
             continue
         if not spec['available']:
-            lines.append(spec['name'] + ': unavailable; no executor connected.')
+            state = spec.get('runtime_state') or {}
+            reason = state.get('reason') or 'no executor connected'
+            line = spec['name'] + ': unavailable; ' + reason + '.'
+            if state.get('next_action'):
+                line += ' Next action: ' + state['next_action']
+            lines.append(line)
             continue
         request = {'name': spec['name']}
         for key, prop in spec['parameters']['properties'].items():
@@ -111,14 +128,30 @@ def model_instructions():
     return '\n'.join(lines)
 
 
-def summary():
-    supported = '\n'.join('- ' + item['name'] + ': ' + item['description'] for item in describe() if item['available'])
-    missing = ', '.join(item['description'] for item in describe() if not item['available'])
+def summary(states=None):
+    items = runtime_describe(states)
+    supported = '\n'.join(
+        '- ' + item['name'] + ': ' + item['description']
+        for item in items if item['available'])
+    unavailable = []
+    for item in items:
+        if item['available']:
+            continue
+        state = item.get('runtime_state') or {}
+        label = state.get('state', 'UNAVAILABLE')
+        reason = state.get('reason') or 'no executor connected'
+        line = '- ' + item['name'] + ': ' + label + ' — ' + reason
+        if state.get('next_action'):
+            line += '. Next action: ' + state['next_action']
+        unavailable.append(line)
+    missing = '\n'.join(unavailable)
     return ('I’m Mirror, the human-facing interface of HumanOS. I can help with conversation and planning, '
             'read files, inspect folders, understand local file context, find exact duplicates, organize files using a reviewed plan, '
             'and write code by creating new files inside the selected workspace after exact-request approval. '
-            'File access stays inside the folder you select. Duplicate checks never delete files.\n' + supported +
+            'File access stays inside the folder you select. Duplicate checks never delete files.\n'
+            'Ready capabilities:\n' + supported +
             '\nHumanOS source inspection is read-only in this runtime; I can code in the selected workspace, but no source-write '
             'or self-modification tool is connected for HumanOS itself. '
-            'A model cannot grant itself that authority.\n' + missing + ' are not connected. Use /files, /read PATH, /duplicates, /organize, '
-            '/understand PATH, /smart-organize, /organize-inbox, /apply PLAN-ID, /undo PLAN-ID, /source, /time, /notebook, or /recall QUERY.')
+            'A model cannot grant itself that authority.\nUnavailable or not ready:\n' + missing +
+            '\nUse /files, /read PATH, /duplicates, /organize, /understand PATH, /smart-organize, '
+            '/organize-inbox, /apply PLAN-ID, /undo PLAN-ID, /source, /time, /notebook, or /recall QUERY.')

@@ -210,7 +210,7 @@ class HumanOSRuntime:
     def run(self, args):
         if args.status:
             self.book.verify()
-            print(json.dumps(dict(self.book.status(), pending=self.pending,
+            print(json.dumps(dict(self.book.status(), pending=self.book.recovery_pending(),
                                   file_plans=self.tools.manager.pending()), indent=2))
             return
         if getattr(args, 'close_task', None):
@@ -221,6 +221,12 @@ class HumanOSRuntime:
             self.deliver(tx, final)
             return
         if args.resume:
+            recovery_kind = self.book.recovery_classification(args.resume)
+            if recovery_kind != 'RESUMABLE':
+                raise RuntimeError(
+                    'Transaction ' + args.resume + ' is ' + recovery_kind +
+                    '; --resume is allowed only for RESUMABLE tasks with preserved execution state. '
+                    'Use --status to inspect it; use --close-task only when you intentionally want to close a failed turn.')
             work = getattr(self, 'work', None)
             item = work.by_tx(args.resume) if work is not None else None
             agent = self._work_agent(item) if item else self.agent
@@ -230,11 +236,17 @@ class HumanOSRuntime:
                 self._finish_work(item, args.resume, response)
             self.deliver(args.resume, response)
             return
-        execution_pending = [t for t in self.pending if t.get('recovery_kind') != 'DELIVERY' and
-                             (self.book.task(t['tx']) or {}).get('phase') != 'EXTERNAL_CAPTURE_PENDING']
-        if execution_pending:
-            print(str(len(execution_pending)) + ' unfinished execution transaction(s) need attention; use --status and --resume TX-ID. '
-                  'Completed tools are not replayed blindly.', file=sys.stderr)
+        recovery = self.book.recovery_summary()
+        if recovery['total_visible'] or recovery['preserved_historical']:
+            print(
+                'HumanOS recovery: ' +
+                str(recovery['resumable']) + ' resumable; ' +
+                str(recovery['needs_reconciliation']) + ' reconciliation; ' +
+                str(recovery['capture_only']) + ' capture-only; ' +
+                str(recovery['delivery_unconfirmed']) + ' delivery-only; ' +
+                str(recovery['preserved_historical']) + ' historical recovery record(s) preserved. '
+                'Nothing is replayed automatically; use --status for details.',
+                file=sys.stderr)
         binding = None
         if self.tools.manager.pending():
             print('A file plan needs review; use --status for its ID and folder. No moves were replayed on startup.', file=sys.stderr)
