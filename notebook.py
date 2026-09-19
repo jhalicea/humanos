@@ -775,7 +775,8 @@ class Notebook:
         for delivery in self.delivery_pending():
             if delivery['tx'] not in queue:
                 item = dict(delivery)
-                item['recovery_kind'] = 'DELIVERY_UNCONFIRMED'
+                item['recovery_kind'] = 'DELIVERY'
+                item['lifecycle_state'] = 'DELIVERY_UNCONFIRMED'
                 queue[item['tx']] = item
         return list(queue.values())
 
@@ -794,6 +795,7 @@ class Notebook:
             'NEEDS_RECONCILIATION': 'needs_reconciliation',
             'CAPTURE_ONLY': 'capture_only',
             'DELIVERY_UNCONFIRMED': 'delivery_unconfirmed',
+            'DELIVERY': 'delivery_unconfirmed',
             'FAILED_FINAL': 'failed_final',
         }
         for item in queue:
