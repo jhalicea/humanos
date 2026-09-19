@@ -17,7 +17,11 @@ class BrowserBrokerTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.calls = []
         self.approvals = []
-        self.broker = BrowserBroker(envelope(), Path(self.temp.name) / 'state', self.calls.append,
+        def send(request):
+            self.calls.append(request)
+            return {'ok': True, 'observation': {'accepted': request['tool']}}
+        self.send = send
+        self.broker = BrowserBroker(envelope(), Path(self.temp.name) / 'state', self.send,
                                     approve=lambda value: self.approvals.append(value) or True)
 
     def tearDown(self): self.temp.cleanup()
@@ -49,20 +53,33 @@ class BrowserBrokerTests(unittest.TestCase):
 
     def test_kill_budget_and_expiry_deny(self):
         self.broker.stop(); self.assertFalse(self.call('inspect')['ok'])
-        short = BrowserBroker(envelope(max_actions=1), Path(self.temp.name) / 'short', lambda _: {})
+        short = BrowserBroker(envelope(max_actions=1), Path(self.temp.name) / 'short',
+                              lambda request: {'ok': True, 'observation': {'accepted': request['tool']}})
         self.assertTrue(short.execute({'tool':'inspect','tab_id':1,'arguments':{}})['ok'])
         self.assertFalse(short.execute({'tool':'inspect','tab_id':1,'arguments':{}})['ok'])
         with self.assertRaises(ValueError):
             BrowserBroker(envelope(expires=int(time.time())-1), Path(self.temp.name) / 'expired', lambda _: {})
 
     def test_immutable_envelope_and_tab_identity(self):
-        source = envelope(); broker = BrowserBroker(source, Path(self.temp.name) / 'immutable', lambda _: {}, approve=lambda _: True)
+        source = envelope(); broker = BrowserBroker(
+            source, Path(self.temp.name) / 'immutable',
+            lambda request: {'ok': True, 'observation': {'accepted': request['tool']}},
+            approve=lambda _: True)
         source['hosts'].clear(); self.assertTrue(broker.execute({'tool':'navigate','tab_id':1,'arguments':{'url':'https://example.com'}})['ok'])
         self.assertFalse(broker.execute({'tool':'inspect','tab_id':True,'arguments':{}})['ok'])
 
     def test_invalid_envelope_rejected(self):
         for change in ({'hosts': []}, {'capabilities':['shell']}, {'max_actions':0}, {'expires':int(time.time())-1}):
             with self.assertRaises(ValueError): BrowserEnvelope(envelope(**change))
+
+    def test_extension_failure_is_not_reported_as_broker_success(self):
+        broker = BrowserBroker(
+            envelope(), Path(self.temp.name) / 'extension-failure',
+            lambda _: {'ok': False, 'error': 'selected tab rejected command'},
+            approve=lambda _: True)
+        result = broker.execute({'tool': 'inspect', 'tab_id': 0, 'arguments': {}})
+        self.assertFalse(result['ok'])
+        self.assertIn('selected tab rejected command', result['error'])
 
     def test_audit_tamper_stops_the_next_action_before_effect(self):
         self.assertTrue(self.call('inspect')['ok'])
