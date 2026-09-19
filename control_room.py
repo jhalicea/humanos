@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import secrets
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -82,6 +83,14 @@ class ControlRoomStore:
                     initial_state TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS control_approvals(
+                    work_id TEXT PRIMARY KEY REFERENCES control_work_orders(work_id),
+                    payload_digest TEXT NOT NULL,
+                    baseline_commit TEXT NOT NULL,
+                    approved_by TEXT NOT NULL,
+                    approval_ref TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE TRIGGER IF NOT EXISTS control_requests_no_update
                   BEFORE UPDATE ON control_requests
                   BEGIN SELECT RAISE(ABORT, 'immutable control request'); END;
@@ -100,6 +109,12 @@ class ControlRoomStore:
                 CREATE TRIGGER IF NOT EXISTS control_work_orders_no_delete
                   BEFORE DELETE ON control_work_orders
                   BEGIN SELECT RAISE(ABORT, 'immutable control work order'); END;
+                CREATE TRIGGER IF NOT EXISTS control_approvals_no_update
+                  BEFORE UPDATE ON control_approvals
+                  BEGIN SELECT RAISE(ABORT, 'immutable control approval'); END;
+                CREATE TRIGGER IF NOT EXISTS control_approvals_no_delete
+                  BEFORE DELETE ON control_approvals
+                  BEGIN SELECT RAISE(ABORT, 'immutable control approval'); END;
                 """
             )
 
@@ -115,8 +130,7 @@ class ControlRoomStore:
         if data_class == "RESTRICTED" and external_approved:
             raise PermissionError("RESTRICTED requests cannot be approved for external MCP egress")
         stamp = _now()
-        seed = f"{owner}\0{stamp}\0{text}\0{self.db.total_changes}".encode("utf-8")
-        request_id = "HOS-REQ-" + _digest_bytes(seed)[:16].upper()
+        request_id = "HOS-REQ-" + secrets.token_hex(8).upper()
         text_digest = _digest_text(text)
         with self.db:
             self.db.execute(
@@ -221,12 +235,7 @@ class ControlRoomStore:
         payload = _encode(order)
         digest = _digest_text(payload)
         baseline = order["baseline_commit"]
-        if current_baseline is None:
-            state = "BASELINE_UNKNOWN"
-        elif baseline != str(current_baseline).lower():
-            state = "STALE"
-        else:
-            state = "READY"
+        state = "PENDING_LOCAL_APPROVAL"
         existing = self.db.execute("SELECT * FROM control_work_orders WHERE work_id=?", (order["work_id"],)).fetchone()
         if existing:
             if existing["payload_digest"] == digest and existing["payload"] == payload:
@@ -237,19 +246,68 @@ class ControlRoomStore:
             self.db.execute("INSERT INTO control_work_orders VALUES(?,?,?,?,?,?)", (order["work_id"], payload, digest, baseline, state, stamp))
         return {"work_id": order["work_id"], "payload_digest": digest, "state": state, "record_state": "RECORDED"}
 
+    def approve_work_order(
+        self,
+        work_id: str,
+        payload_digest: str,
+        *,
+        approval_ref: str,
+        current_baseline: str | None,
+    ) -> dict[str, Any]:
+        work_id = str(work_id).upper()
+        approval_ref = _require_text("approval_ref", approval_ref, limit=512)
+        row = self.db.execute(
+            "SELECT * FROM control_work_orders WHERE work_id=?", (work_id,)
+        ).fetchone()
+        if not row:
+            raise KeyError("unknown work_id")
+        if _digest_text(row["payload"]) != row["payload_digest"]:
+            raise RuntimeError("work order failed integrity validation")
+        if payload_digest != row["payload_digest"]:
+            raise PermissionError("work-order payload digest mismatch")
+        if current_baseline is None:
+            raise PermissionError("local baseline is unknown; approval cannot be bound")
+        if row["baseline_commit"] != str(current_baseline).lower():
+            raise PermissionError("work order is stale and cannot be approved")
+        existing = self.db.execute(
+            "SELECT * FROM control_approvals WHERE work_id=?", (work_id,)
+        ).fetchone()
+        if existing:
+            if (existing["payload_digest"] == payload_digest and
+                    existing["baseline_commit"] == row["baseline_commit"] and
+                    existing["approval_ref"] == approval_ref):
+                return {"work_id": work_id, "state": "READY", "record_state": "IDEMPOTENT",
+                        "approved_at": existing["created_at"]}
+            raise RuntimeError("conflicting local approval already exists")
+        stamp = _now()
+        with self.db:
+            self.db.execute(
+                "INSERT INTO control_approvals VALUES(?,?,?,?,?,?)",
+                (work_id, payload_digest, row["baseline_commit"], "jon", approval_ref, stamp),
+            )
+        return {"work_id": work_id, "state": "READY", "record_state": "RECORDED",
+                "approved_at": stamp}
+
     def work_status(self, work_id: str, *, current_baseline: str | None) -> dict[str, Any]:
         row = self.db.execute("SELECT * FROM control_work_orders WHERE work_id=?", (str(work_id).upper(),)).fetchone()
         if not row:
             raise KeyError("unknown work_id")
         if _digest_text(row["payload"]) != row["payload_digest"]:
             raise RuntimeError("work order failed integrity validation")
-        if current_baseline is None:
+        approval = self.db.execute(
+            "SELECT * FROM control_approvals WHERE work_id=?", (row["work_id"],)
+        ).fetchone()
+        if not approval:
+            state = "PENDING_LOCAL_APPROVAL"
+        elif approval["payload_digest"] != row["payload_digest"] or approval["baseline_commit"] != row["baseline_commit"]:
+            raise RuntimeError("local approval binding failed integrity validation")
+        elif current_baseline is None:
             state = "BASELINE_UNKNOWN"
         elif row["baseline_commit"] != str(current_baseline).lower():
             state = "STALE"
         else:
             state = "READY"
-        return {"work_id": row["work_id"], "payload_digest": row["payload_digest"], "baseline_commit": row["baseline_commit"], "state": state, "created_at": row["created_at"]}
+        return {"work_id": row["work_id"], "payload_digest": row["payload_digest"], "baseline_commit": row["baseline_commit"], "state": state, "created_at": row["created_at"], "locally_approved": bool(approval)}
 
     def pending_work_orders(self, *, current_baseline: str | None) -> list[dict[str, Any]]:
         rows = self.db.execute("SELECT work_id FROM control_work_orders ORDER BY created_at, work_id").fetchall()
