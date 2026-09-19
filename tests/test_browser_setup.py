@@ -5,6 +5,8 @@ import stat
 import tempfile
 import unittest
 
+from permissions import allows_read, task_scope
+
 from browser_setup import (
     EXTENSION_ID,
     browser_status,
@@ -147,6 +149,29 @@ class BrowserExtensionStaticTests(unittest.TestCase):
         self.assertIn("command.tab_id !== 0", worker)
         self.assertIn("No tab is selected in HumanOS extension", worker)
         self.assertIn("waitForTabComplete", worker)
+
+
+class BrowserPermissionTests(unittest.TestCase):
+    def row(self, text):
+        return {'tx': 'TX-browser-scope', 'hcid': 'HCID-browser-scope', 'input': text}
+
+    def test_explicit_browser_web_and_internet_intent_enables_scope(self):
+        for text in (
+            'inspect the browser',
+            'browse the internet for HumanOS docs',
+            'search the web for Chrome native messaging',
+            'open this website online',
+        ):
+            scope = task_scope(self.row(text), '/tmp/humanos-browser-workspace')
+            self.assertTrue(scope['browser_enabled'], text)
+            self.assertTrue(allows_read(scope, {'name': 'browser_inspect', 'tab_id': 0}))
+
+    def test_unrelated_turn_does_not_enable_browser_scope(self):
+        scope = task_scope(self.row('tell me something interesting'), '/tmp/humanos-browser-workspace')
+        self.assertFalse(scope['browser_enabled'])
+        self.assertFalse(allows_read(scope, {'name': 'browser_inspect', 'tab_id': 0}))
+        self.assertFalse(allows_read(
+            scope, {'name': 'browser_search', 'tab_id': 0, 'query': 'humanos'}))
 
 
 if __name__ == "__main__":
