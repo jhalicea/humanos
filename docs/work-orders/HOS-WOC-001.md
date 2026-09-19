@@ -1,6 +1,6 @@
 # HOS-WOC-001 — Minimal Work Order Compiler
 
-Status: VERIFIED / PROMOTION PENDING  
+Status: PROMOTED / CANONICAL MERGE VERIFIED  
 Branch: `feature/work-order-compiler-v1`  
 Baseline: `2c45256128aed441724660243019643d02e59ec8` (`runtime-0.1`)
 
@@ -83,6 +83,14 @@ Revert the candidate branch. No Notebook/runtime migration is part of this slice
 ## Done condition
 
 An already-approved architecture decision can be deterministically transformed into a validator-clean Work Order with immutable baseline and stable source fingerprint provenance, while no execution or dispatch capability is added.
+
+## Promotion evidence
+
+- Promotion PR: #95.
+- Verified candidate head: `71fe853938ff04021d4b5836902e6820e7040bb9`.
+- Canonical merge commit: `52e66077f86726e76d648d7f84a63a7bbc209da7`.
+- `runtime-0.1` was verified identical to the merge commit immediately after promotion.
+- No release, tag, deployment, automatic dispatch, model routing, execution, Browser Bridge modification, Context Router modification, swarm modification, Notebook migration, or BodyFixOS integration occurred.
 
 ## Next candidate
 
