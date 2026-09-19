@@ -1,59 +1,45 @@
 # HumanOS Status Snapshot
 
-Status: HOS-BROWSER-001 PROMOTED / LOCAL PAIRING PENDING
+Status: HOS-BROWSER-001-R1 ACTIVE
 Date: 2026-09-19
 Workspace: `WS-HUMANOS`
 Workstream: `HOS-BROWSER-001 — Browser Broker and Tools`
-Branch: `feature/browser-activation-v1`
-Baseline: `runtime-0.1@b45f4eb94be026660ed3415f3213d132bda7955d`
-Verified implementation: `b1ceadb7fe2d0165b98cce2f8463e932f72049c3`
-Promotion commit: `02869089cd336ffac17751a771bd61adcf21229d`
-Promotion PR: #91
-Global router/index: GitHub issue #67
-Work order: `docs/work-orders/HOS-BROWSER-001.md`
+Slice: `HOS-BROWSER-001-R1 — Browser Activation Compatibility Correction`
+Branch: `fix/browser-activation-r1`
+Baseline: `runtime-0.1@856a41b7852e18f19b872e0f0b6f9367e65ee3d6`
+Parent promotion: PR #91 / `02869089cd336ffac17751a771bd61adcf21229d`
+Work order: `docs/work-orders/HOS-BROWSER-001-R1.md`
 
-## Outcome
+## Why this correction exists
 
-Continue the existing Browser Broker workstream and make the already-merged browser
-capability operably installable/configurable for local Mirror without weakening owner
-authority or browser safety boundaries.
+The promoted browser activation changed the meaning of legacy permission scope
+versions by adding web/internet intent under v4-v6. Preserved task scopes must not
+change semantics after upgrade. The correction assigns expanded browser intent to v7
+for new Agent tasks while keeping older saved versions stable.
 
-The slice adds owner-only local setup, stable unpacked-extension identity,
-`nativeMessaging`, native-host launcher/manifest generation, runtime discovery,
-governed browser search, selected-tab sentinel handling, exact task-scope/approval
-gates, extension-failure propagation, tests, and updated operating documentation.
+Current Brave source also routes macOS native messaging through Chrome's standard
+user NativeMessagingHosts location. The promoted setup used Brave's profile-specific
+path; R1 corrects the lookup and adds a regression.
 
-## Responsibility boundaries
+## Responsibility boundary
 
-- Owner: implementation/promotion authority and unavoidable browser UI extension load/tab selection.
-- Context Router: routes WS-HUMANOS -> HOS-BROWSER-001; grants no execution authority.
-- Work Order/SDLC: bounds scope, tests, rollback, and evidence.
-- Local setup: writes only HumanOS-owned pairing artifacts outside Git.
-- BrowserBroker: host/capability/action/byte/time/HMAC/audit policy boundary.
-- Native host: authenticated transport only.
-- Extension: selected-tab executor only.
-- Mirror/model: requests only runtime-ready registered tools.
-- Runtime approval gate: exact effectful browser approval.
-- CI: evidence, never authority.
+Owner -> Context Router -> HOS-BROWSER-001 -> R1 Work Order -> focused branch -> tests/evidence.
+BrowserBroker, native host, extension, Mirror, and interactive browser approval retain
+their promoted responsibilities; R1 does not widen authority.
 
-## Verification evidence
+## Current evidence
 
-- Regression workflow `35454724814`: SUCCESS on Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
-- Representative regression suite: 528 tests, 8 skipped, no failures.
-- Encrypted-backup/full-suite workflow `35454724812`: SUCCESS.
-- Exact implementation diff reviewed; no local owner paths, Notebook content, credentials, or secret bytes found.
-- Current Chrome native-messaging constraints cross-checked against official Chrome documentation.
-- Real browser end-to-end connectivity is not yet claimed; it requires local post-promotion pairing/readback on Jon's Mac.
+- Baseline PR #91 regression and encrypted-backup workflows were independently
+  confirmed green on exact head `cd14dec87ca742785d8f3462b701e0c1915458bf`.
+- R1 focused/full CI: pending.
+- Local Mac browser pairing/readback: pending after canonical promotion.
 
 ## Rollback
 
-Revert the eventual promotion commit or reset to canonical baseline
-`b45f4eb94be026660ed3415f3213d132bda7955d`.
-No Life Notebook migration is part of this slice. Local uninstall removes only
-HumanOS-owned browser pairing artifacts.
+Revert the R1 promotion commit. No Notebook or local browser-state migration is part
+of this correction.
 
 ## Next action
 
-Repository promotion is complete. On the owner Mac: pull `runtime-0.1`, run `humanos --browser-setup`, load
-`browser-extension/` once as an unpacked extension, click the extension on the
-selected tab, run `humanos --browser-status`, and execute one bounded browser test.
+Run CI on the exact R1 candidate; resolve any regressions; review diff/privacy; promote
+only if verified, then return to the existing local Mac pairing/readback next action.
