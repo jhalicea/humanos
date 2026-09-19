@@ -107,7 +107,8 @@ class Tools:
                         'ready': False, 'state': 'REGISTERED_NOT_CONFIGURED',
                         'reason': reason,
                         'next_action': ('Run humanos --browser-setup, load the HumanOS unpacked extension, select a tab, '
-                                        'then verify with humanos --browser-status. Human approval gates remain required.'),
+                                        'then verify with humanos --browser-status. See BROWSER.md for the governed setup path. '
+                                        'Human approval gates remain required.'),
                     }
                 else:
                     states[name] = {
