@@ -68,6 +68,12 @@ class BrowserBrokerTests(unittest.TestCase):
         source['hosts'].clear(); self.assertTrue(broker.execute({'tool':'navigate','tab_id':1,'arguments':{'url':'https://example.com'}})['ok'])
         self.assertFalse(broker.execute({'tool':'inspect','tab_id':True,'arguments':{}})['ok'])
 
+    def test_extension_failure_is_not_reported_as_success(self):
+        self.broker.send = lambda request: {'ok': False, 'error': 'No tab is selected'}
+        result = self.call('inspect')
+        self.assertFalse(result['ok'])
+        self.assertIn('No tab is selected', result['error'])
+
     def test_invalid_envelope_rejected(self):
         for change in ({'hosts': []}, {'capabilities':['shell']}, {'max_actions':0}, {'expires':int(time.time())-1}):
             with self.assertRaises(ValueError): BrowserEnvelope(envelope(**change))
