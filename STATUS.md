@@ -1,51 +1,58 @@
 # HumanOS Status Snapshot
 
-Status: CANONICAL / POST-PROMOTION VERIFIED
-Date: 2026-09-17
-Global routing/index control plane: GitHub issue #67
-Canonical branch: `runtime-0.1`
-Canonical head: `3ba503f7e86ecff376bff90161c9485ebb21bb82`
-Promoted workstream: `HOS-CTX-004 — Notebook Context Recovery / Human-Friendly Continuation`
-Promotion PR: #70
+Status: HOS-BROWSER-001 VERIFIED / PROMOTION PENDING
+Date: 2026-09-19
+Workspace: `WS-HUMANOS`
+Workstream: `HOS-BROWSER-001 — Browser Broker and Tools`
+Branch: `feature/browser-activation-v1`
+Baseline: `runtime-0.1@b45f4eb94be026660ed3415f3213d132bda7955d`
+Verified implementation: `b1ceadb7fe2d0165b98cce2f8463e932f72049c3`
+Global router/index: GitHub issue #67
+Work order: `docs/work-orders/HOS-BROWSER-001.md`
 
-HOS-FND-001, HOS-CTX-001, HOS-CTX-002, HOS-CTX-003, and HOS-CTX-004 are promoted in `runtime-0.1`. Unrelated workstreams remain independently preserved.
+## Outcome
 
-## HOS-CTX-003 operational behavior
+Continue the existing Browser Broker workstream and make the already-merged browser
+capability operably installable/configurable for local Mirror without weakening owner
+authority or browser safety boundaries.
 
-Mirror can inherit an immediately preceding verified workstream for short explicit follow-ups such as `do it`, `continue`, `keep going`, and `go ahead`.
+The slice adds owner-only local setup, stable unpacked-extension identity,
+`nativeMessaging`, native-host launcher/manifest generation, runtime discovery,
+governed browser search, selected-tab sentinel handling, exact task-scope/approval
+gates, extension-failure propagation, tests, and updated operating documentation.
 
-The canonical safety rule remains narrow: fresh request routing wins; only the immediately preceding checkpointed deterministic route in the same HCID can seed implicit continuity; an ordinary or unfinished intervening turn breaks inheritance; file/plan and delegated-work bindings remain more specific authorities; source transaction provenance stays host-side; conversational continuity grants no branch/tool/merge authority.
+## Responsibility boundaries
 
-## Context Engine / Brain lineage
+- Owner: implementation/promotion authority and unavoidable browser UI extension load/tab selection.
+- Context Router: routes WS-HUMANOS -> HOS-BROWSER-001; grants no execution authority.
+- Work Order/SDLC: bounds scope, tests, rollback, and evidence.
+- Local setup: writes only HumanOS-owned pairing artifacts outside Git.
+- BrowserBroker: host/capability/action/byte/time/HMAC/audit policy boundary.
+- Native host: authenticated transport only.
+- Extension: selected-tab executor only.
+- Mirror/model: requests only runtime-ready registered tools.
+- Runtime approval gate: exact effectful browser approval.
+- CI: evidence, never authority.
 
-`HOS-CTX-001 Registry → HOS-CTX-002 Runtime Routing → HOS-CTX-003 Session Continuity → HOS-CTX-004 Historical Notebook Continuity → future bounded Context Engine increments`
+## Verification evidence
 
-- Life Notebook = durable chronology/evidence/provenance.
-- Context Engine = determine what verified state is relevant now.
-- Mirror = human-facing interaction.
-- models/agents/tools = bounded consumers of context.
+- Regression workflow `35454724814`: SUCCESS on Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
+- Representative regression suite: 528 tests, 8 skipped, no failures.
+- Encrypted-backup/full-suite workflow `35454724812`: SUCCESS.
+- Exact implementation diff reviewed; no local owner paths, Notebook content, credentials, or secret bytes found.
+- Current Chrome native-messaging constraints cross-checked against official Chrome documentation.
+- Real browser end-to-end connectivity is not yet claimed; it requires local post-promotion pairing/readback on Jon's Mac.
 
-Future temporal/entity/retrieval/goal/permission context should extend this lineage rather than create competing hidden memory systems.
+## Rollback
 
-## Promotion and verification evidence
-
-- PR #70 merged into `runtime-0.1`.
-- Promotion merge: `58938e24765c6fc503b2aee73c7d80c14a4ac3b2`.
-- GitHub commit verification: valid.
-- Post-promotion regression run `35292104259`: all four Ubuntu/macOS × Python 3.11/3.13 jobs passed.
-- Post-promotion encrypted-backup/full-suite run `35292104260`: all four matrix jobs passed.
-- Pages run `35292103699`: passed.
-
-## Known next gaps
-
-Cross-HCID/cross-session semantic continuation, human-friendly Notebook recovery/automatic transaction resolution, temporal/entity/relationship context, Notebook evidence retrieval/composition, goal/project state context, and broader permission-aware Context Engine composition remain separate future bounded work.
+Revert the eventual promotion commit or reset to canonical baseline
+`b45f4eb94be026660ed3415f3213d132bda7955d`.
+No Life Notebook migration is part of this slice. Local uninstall removes only
+HumanOS-owned browser pairing artifacts.
 
 ## Next action
 
-Route the next actual request through the canonical Context Engine lineage. Create a new bounded workstream only for the concrete gap Jon selects; do not reopen HOS-CTX-003 as an unlimited feature stream.
-
-## HOS-CTX-004 canonical behavior
-
-Mirror can resolve explicit historical continuation across conversations/HCIDs from verified checkpointed Notebook CONTEXT_ROUTE evidence. A unique eligible workstream can continue deterministically; multiple plausible workstreams require human-friendly topic disambiguation; raw transaction identifiers remain host-side; tampered or unfinished evidence is not authority.
-
-Post-promotion evidence: PR #71 merge `3ba503f7e86ecff376bff90161c9485ebb21bb82`; regression `35296038918` SUCCESS; encrypted-backup/full-suite `35296038902` SUCCESS; Pages `35296038493` SUCCESS.
+Promote the verified candidate under the owner's current "do it" authorization.
+Then on the owner Mac: pull `runtime-0.1`, run `humanos --browser-setup`, load
+`browser-extension/` once as an unpacked extension, click the extension on the
+selected tab, run `humanos --browser-status`, and execute one bounded browser test.

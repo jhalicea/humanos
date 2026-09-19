@@ -1,63 +1,72 @@
 # HumanOS Browser Bridge
 
-HumanOS now has a real browser capability with a narrow trust boundary. A local
-model can inspect, navigate, click, type, scroll, download, and capture the
-browser tab that you select. It does not receive browser credentials, cookies,
-extension management, arbitrary JavaScript, DevTools, shell access, or a general
-network proxy.
+HumanOS provides governed local browser access to only the tab the owner explicitly selects.
+The responsibility chain is: Owner -> HumanOS task scope/approval -> BrowserBroker -> native host -> selected-tab extension.
 
-`browser-extension/` is a Manifest V3 Chrome/Chromium extension. Click its
-toolbar button on the tab you want HumanOS to operate. It accepts commands only
-through Chrome native messaging and rejects requests for another tab.
+## Capability truth
 
-`browser_native_host.py` is the extension's local native-messaging host. It
-listens only on an owner-only Unix socket and requires an HMAC over each broker
-request. Its secret is generated locally in an owner-only directory.
+Browser tools are not simply available/unavailable. HumanOS distinguishes registered, configured, connection-unverified, and ready-for-action states.
+When pairing is absent, Mirror reports REGISTERED_NOT_CONFIGURED and does not advertise the browser tools to the model as executable.
 
-`browser_bridge.py` validates an immutable envelope, enforces capability, URL,
-action, byte, time, and stop limits, collects human approval for side effects,
-and fsyncs an external audit record before and after every action.
+## Setup
 
-The trusted host supplies this envelope, never the model:
+Run:
 
-```json
-{
-  "run_id": "work-20260909-01",
-  "authorization": "Owner authorization HOS-BROWSER-001",
-  "expires": 1789000000,
-  "hosts": ["github.com", "docs.google.com"],
-  "capabilities": ["inspect", "navigate", "click", "type", "scroll", "screenshot", "download"],
-  "max_actions": 100,
-  "max_bytes": 1000000
-}
-```
+    humanos --browser-setup
 
-`inspect` and `screenshot` are read-only. Every other tool requires a separate
-human approval callback immediately before dispatch. `navigate` and `download`
-allow only HTTPS URLs whose host is exactly in `hosts` or its subdomain. The
-extension's page script never evaluates model-provided JavaScript.
+Optional target selection:
 
-## Install and pairing
+    humanos --browser-setup --browser-target brave
+    humanos --browser-setup --browser-target chrome
+    humanos --browser-setup --browser-target chromium
 
-1. Load `browser-extension/` as an unpacked extension in Chrome or Chromium.
-2. Copy `browser_extension_manifest.json` to Chrome's native-messaging-hosts
-   directory. Replace `path` with the absolute native-host path and replace the
-   extension ID after Chrome assigns it. Keep that manifest mode 0600.
-3. Start the native host with absolute `--socket` and `--secret` paths in an
-   owner-only control directory. Keep both out of workspaces, Notebooks,
-   repositories, sync directories, model prompts, and extension storage.
-4. Build the broker with `bridge_sender(socket_path, secret_path)` and an
-   approval callback supplied by HumanOS's human interface.
-5. Select a tab through the extension toolbar button before allowing any tool.
+Optional search provider and extra HTTPS hosts:
 
-The broker receives strict requests such as:
+    humanos --browser-setup --browser-search-provider google
+    humanos --browser-setup --browser-host github.com --browser-host developer.chrome.com
 
-```json
-{"tool":"inspect","tab_id":123,"arguments":{}}
-```
+Setup writes owner-only pairing state outside the repository under ~/.humanos/browser/ and installs the native-messaging host manifest in the selected browser's per-user NativeMessagingHosts directory.
+The 32-byte HMAC secret never enters Git or model prompts.
 
-It returns bounded observations. Page text is capped at 16 KiB and native frames
-at 1 MiB. The normal Mirror tool registry is intentionally unchanged until a
-desktop approval dialog can show clear action-by-action choices. This bridge does
-not automate installation, provide remote audit anchoring, or isolate arbitrary
-native worker processes.
+The bundled unpacked extension has a pinned development key and stable extension ID:
+
+    hdmlcfjlepjknagpdebdlnbdlnjoijbn
+
+## Owner browser action
+
+HumanOS does not silently modify browser profile databases. After setup, open the browser extension management page, enable Developer mode, choose Load unpacked, and select this repository's browser-extension/ directory.
+Then open the tab HumanOS may operate and click the HumanOS extension toolbar button. tab_id 0 means the tab the human selected; a non-zero ID must exactly match that selected tab.
+
+Check pairing without opening the Life Notebook:
+
+    humanos --browser-status
+
+## Mirror use
+
+Explicit browser/web/internet intent establishes browser scope. Examples include 'search the web for ...', 'browse the internet ...', and 'inspect the browser'.
+browser_inspect is read-only. browser_search, browser_navigate, browser_click, and browser_type require the HumanOS interactive approval gate for the exact request.
+BrowserBroker independently enforces HTTPS host allowlists, short-lived run authority, capability/action/byte limits, HMAC transport, audit evidence, and stop state.
+
+browser_search navigates the selected tab to the owner-configured search provider and then returns a bounded inspection of the results page. It is not an unrestricted backend network proxy.
+
+## Native messaging
+
+The Manifest V3 extension declares nativeMessaging and connects only to com.humanos.browser_bridge.
+The browser launches an owner-only generated wrapper executable. That wrapper supplies the exact socket and secret arguments required by browser_native_host.py.
+The native host authenticates broker requests with HMAC and forwards bounded native-messaging frames over stdin/stdout.
+The extension never evaluates model-provided JavaScript.
+
+Extension-origin failures are propagated as HumanOS tool failures; transport success is not treated as action success.
+
+## Removal
+
+Remove only HumanOS-owned pairing artifacts with:
+
+    humanos --browser-uninstall
+
+This does not delete browser profiles, browsing data, other native-message hosts, or the unpacked extension.
+
+## Evidence boundary
+
+Current Chrome native-messaging documentation requires nativeMessaging permission, an absolute native-host path on macOS/Linux, exact non-wildcard allowed_origins, framed stdin/stdout transport, and browser-specific NativeMessagingHosts locations.
+Repository tests verify deterministic setup and policy boundaries. Real end-to-end readiness remains unverified until post-promotion pairing/readback on the owner's Mac.

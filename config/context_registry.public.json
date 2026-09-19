@@ -651,9 +651,9 @@
       "title": "Browser Broker and Tools",
       "project": "Capabilities and Tooling",
       "repository": "jhalicea/humanos",
-      "branch": "feature/browser-broker",
-      "work_order": null,
-      "status": "UNKNOWN",
+      "branch": "feature/browser-activation-v1",
+      "work_order": "docs/work-orders/HOS-BROWSER-001.md",
+      "status": "PROMOTION_PENDING",
       "confidentiality": "INTERNAL",
       "topics": [
         "browser",
@@ -667,12 +667,21 @@
       "components": [
         "browser_bridge.py",
         "browser_native_host.py",
-        "browser-extension"
+        "browser_setup.py",
+        "browser-extension",
+        "server_core.py",
+        "engine.py",
+        "permissions.py",
+        "BROWSER.md",
+        "tests/test_browser_setup.py",
+        "tests/test_browser_tools.py",
+        "docs/work-orders/HOS-BROWSER-001.md",
+        "config/context_registry.public.json"
       ],
       "relations": [],
-      "last_verified_commit": null,
-      "resume_point": "Multiple browser branches exist; inspect related branches before selecting continuation target.",
-      "next_action": "Compare browser-broker, browser-tools, and current runtime integration before editing."
+      "last_verified_commit": "b1ceadb7fe2d0165b98cce2f8463e932f72049c3",
+      "resume_point": "Browser activation implementation verified on b1ceadb7 with full regression and encrypted-backup CI green; owner authorized promotion. Local browser UI pairing/readback remains post-promotion evidence.",
+      "next_action": "Promote verified candidate, then pull runtime-0.1 on the owner Mac and complete local browser setup/extension selection/readback."
     },
     {
       "workstream_id": "HOS-NB-CAPTURE-001",
