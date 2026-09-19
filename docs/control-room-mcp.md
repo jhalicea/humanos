@@ -11,7 +11,7 @@ The server exposes five bounded tools:
 - `humanos_control_capabilities` — read bridge limits and visible repo baseline.
 - `humanos_control_next_request` — read one local request Jon explicitly approved for external handling.
 - `humanos_control_reply` — append one digest-bound response to that exact request.
-- `humanos_control_submit_work_order` — record an explicitly Jon-approved immutable Work Order.
+- `humanos_control_submit_work_order` — record an immutable Work Order proposal; it remains pending local owner approval.
 - `humanos_control_work_status` — read baseline READY/STALE/UNKNOWN state.
 
 There is no execute, shell, arbitrary file, GitHub, merge, deploy, delete, secret, or Notebook-write tool.
@@ -36,7 +36,16 @@ A request without `--approve-external` never crosses the MCP boundary. RESTRICTE
 
 ### External ChatGPT host → local HumanOS
 
-ChatGPT may call `humanos_control_submit_work_order` with the compiled Control Room Work Order. The server records it immutably. It does not execute it. If `HUMANOS_REPO_ROOT` is configured, the approved baseline is compared with local Git HEAD. A mismatch reports `STALE`.
+ChatGPT may call `humanos_control_submit_work_order` with the compiled Control Room Work Order. The server records it immutably, but an MCP caller cannot make it READY. The initial state is `PENDING_LOCAL_APPROVAL`.
+
+Jon then approves the exact recorded payload locally, outside the MCP tool surface:
+
+```bash
+python3 control_room_cli.py work-orders
+python3 control_room_cli.py approve-work HOS-... <payload_digest> --approval-ref local-review
+```
+
+The local approval is bound to both the immutable payload digest and current Git baseline. If `HUMANOS_REPO_ROOT` differs from the Work Order baseline, local approval fails; if the baseline later moves, status becomes `STALE`.
 
 Execution remains a separate future HumanOS mechanism with its own permission and evidence gates.
 
@@ -89,9 +98,10 @@ No tunnel, remote endpoint, OAuth credential, API key, or ChatGPT app registrati
 - MCP inputs and outputs are untrusted data.
 - No external content grants approval or expands scope.
 - No passwords, API keys, tokens, cookies, private keys, auth headers, or recovery secrets belong in requests.
-- Work Orders require `approved_by=jon`, `decision=APPROVE`, an `approval_ref`, and a Git-style `baseline_commit`.
-- The bridge stores Work Orders but cannot execute them.
-- A material Git baseline change makes a recorded Work Order STALE.
+- External Work Orders may carry a Jon approval claim for provenance, but that claim does not grant local authority.
+- READY requires a separate local-only approval record bound to the exact payload digest and Git baseline.
+- The MCP surface exposes no local-approval tool and cannot execute Work Orders.
+- A material Git baseline change makes a locally approved Work Order STALE.
 - Exact retries are idempotent; conflicting content fails closed.
 
 ## Dependency note
