@@ -1,12 +1,14 @@
 # HumanOS Status Snapshot
 
-Status: HOS-BROWSER-001 VERIFIED / PROMOTION PENDING
+Status: HOS-BROWSER-001 PROMOTED / LOCAL PAIRING PENDING
 Date: 2026-09-19
 Workspace: `WS-HUMANOS`
 Workstream: `HOS-BROWSER-001 — Browser Broker and Tools`
 Branch: `feature/browser-activation-v1`
 Baseline: `runtime-0.1@b45f4eb94be026660ed3415f3213d132bda7955d`
 Verified implementation: `b1ceadb7fe2d0165b98cce2f8463e932f72049c3`
+Promotion commit: `02869089cd336ffac17751a771bd61adcf21229d`
+Promotion PR: #91
 Global router/index: GitHub issue #67
 Work order: `docs/work-orders/HOS-BROWSER-001.md`
 
@@ -52,7 +54,6 @@ HumanOS-owned browser pairing artifacts.
 
 ## Next action
 
-Promote the verified candidate under the owner's current "do it" authorization.
-Then on the owner Mac: pull `runtime-0.1`, run `humanos --browser-setup`, load
+Repository promotion is complete. On the owner Mac: pull `runtime-0.1`, run `humanos --browser-setup`, load
 `browser-extension/` once as an unpacked extension, click the extension on the
 selected tab, run `humanos --browser-status`, and execute one bounded browser test.
