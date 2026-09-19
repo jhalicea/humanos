@@ -7,7 +7,9 @@ mailbox plus immutable work-order intake. It never executes a work order.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
+import re
 from pathlib import Path
 from typing import Any
 
@@ -31,18 +33,27 @@ def _current_baseline() -> str | None:
     root = os.environ.get(ROOT_ENV)
     if not root:
         return None
+    git = shutil.which("git")
+    if not git:
+        return None
     try:
+        repo = Path(root).expanduser().resolve(strict=True)
+        if not repo.is_dir():
+            return None
+        env = {key: value for key, value in os.environ.items()
+               if not key.startswith("GIT_")}
         result = subprocess.run(
-            ["git", "-C", str(Path(root).expanduser()), "rev-parse", "HEAD"],
+            [git, "-c", "core.fsmonitor=false", "-C", str(repo), "rev-parse", "--verify", "HEAD"],
             check=True,
             capture_output=True,
             text=True,
             timeout=5,
+            env=env,
         )
     except (OSError, subprocess.SubprocessError):
         return None
     value = result.stdout.strip().lower()
-    return value or None
+    return value if re.fullmatch(r"[0-9a-f]{40,64}", value) else None
 
 
 def _store() -> ControlRoomStore:
