@@ -81,6 +81,16 @@ class BrowserBrokerTests(unittest.TestCase):
         self.assertFalse(result['ok'])
         self.assertIn('selected tab rejected command', result['error'])
 
+
+    def test_extension_failure_is_not_reported_as_success(self):
+        broker = BrowserBroker(
+            envelope(), Path(self.temp.name) / 'extension-failure',
+            lambda _: {'ok': False, 'error': 'No tab is selected in HumanOS extension'},
+            approve=lambda _: True)
+        result = broker.execute({'tool': 'inspect', 'tab_id': 0, 'arguments': {}})
+        self.assertFalse(result['ok'])
+        self.assertIn('No tab is selected', result['error'])
+
     def test_audit_tamper_stops_the_next_action_before_effect(self):
         self.assertTrue(self.call('inspect')['ok'])
         path = Path(self.temp.name) / 'state' / 'ledger' / 'actions.jsonl'
