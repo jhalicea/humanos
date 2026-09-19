@@ -3,7 +3,19 @@
   "name": "HumanOS Browser Bridge",
   "version": "0.1.0",
   "description": "Executes broker-approved HumanOS browser actions on a selected tab.",
-  "permissions": ["activeTab", "scripting", "tabs", "downloads"],
-  "background": {"service_worker": "service-worker.js", "type": "module"},
-  "action": {"default_title": "HumanOS: select this tab"}
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "downloads",
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "HumanOS: select this tab"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt7E2PNU8f8/U4XVaFCUxoHSXuKQ78r9d05O8dCH5QGfyzB0V9n/N8MMrBzO/F/jjFXGZ29Bv9jXFAqv417Y8DgFrENlhjRfdwoSfPe4QN4V6Ab90/R3tswF/RGSHwUwOX1M4gK+YCZ2SWeQfPdWIoXW9EZYMxqBNDrseK1lvST5QBmKCYfa65JzmtdIsUrAQHTmGuw6SDW4043uGXn8PKNYc7UQyxBXdYY4LNjqKX5hy9QWyNPRsNCSBKBLKdgSphHRsZiBkY3IClgzKgO6fFj7dk9yGUifQfHh+9OMoHVQXNd+bJ4t4BqGqnOfZPpVQlr4ByMZlc4RaqOq7gggRjQIDAQAB"
 }
