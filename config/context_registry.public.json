@@ -863,6 +863,49 @@
       "last_verified_commit": null,
       "resume_point": "Multiple file/document branches exist; inspect them before creating another file-context stream.",
       "next_action": "Reconcile contextual-file-intelligence, document-context-extraction, and file-organization branches."
+    },
+    {
+      "workstream_id": "HOS-MCP-001",
+      "workspace_id": "WS-HUMANOS",
+      "title": "ChatGPT ↔ HumanOS Control Room MCP Boundary",
+      "project": "Control Plane and External Interfaces",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/control-room-mcp-v1",
+      "work_order": "docs/work-orders/HOS-MCP-001.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "mcp",
+        "chatgpt",
+        "control room",
+        "work order",
+        "approval",
+        "external interface",
+        "mailbox",
+        "delegation",
+        "routing"
+      ],
+      "components": [
+        "control_room.py",
+        "control_mcp_server.py",
+        "control_room_cli.py",
+        "tests/test_control_room.py",
+        "docs/control-room-mcp.md",
+        "docs/work-orders/HOS-MCP-001.md"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-SWARM-001"
+        },
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-FND-001"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Candidate implements the bounded Control Room MCP store and tool surface with a separate local-only digest/baseline approval gate. Full HumanOS regression, live MCP round trip, independent R3 review, and owner promotion approval remain required.",
+      "next_action": "Run CI/full regression and MCP SDK round-trip tests on the immutable candidate, then complete independent security review and live owner-host acceptance before promotion."
     }
   ]
 }
