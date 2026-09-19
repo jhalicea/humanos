@@ -92,7 +92,7 @@ class Tools:
                 states[name] = {
                     'registered': True, 'configured': False, 'connected': False,
                     'ready': False, 'state': 'NO_EXECUTOR',
-                    'reason': 'no executor is connected for this capability',
+                    'reason': 'not connected; no executor is connected for this capability',
                 }
                 continue
             if name.startswith('browser_'):
