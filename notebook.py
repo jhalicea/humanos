@@ -717,10 +717,106 @@ class Notebook:
     def message_count(self, tx):
         return self.db.execute('SELECT COUNT(*) FROM transcript WHERE tx=?', (tx,)).fetchone()[0]
 
+    def recovery_classification(self, tx):
+        """Classify preserved transaction state without replaying model/tool work."""
+        transaction = self.get_transaction(tx)
+        if not transaction:
+            return 'UNKNOWN'
+        state = self.task(tx) or {}
+        phase = state.get('phase')
+        if phase == 'EXTERNAL_CAPTURE_PENDING':
+            return 'CAPTURE_ONLY'
+        if state.get('outcome') == 'NEEDS_RECONCILIATION':
+            return 'NEEDS_RECONCILIATION'
+        if state.get('failure_finalized') or state.get('outcome') == 'FAILED':
+            return 'FAILED_FINAL'
+        if transaction['status'] == 'CHECKPOINTED':
+            if phase == 'COMPLETE' and state.get('delivery') != 'WRITTEN_TO_OUTPUT_STREAM':
+                return 'DELIVERY_UNCONFIRMED'
+            return 'CLOSED'
+        if not state:
+            # A bare STARTED/RECOVERY_REQUIRED row has preserved input but no
+            # durable execution state. Treating it as resumable would recreate a
+            # model/tool task from historical text, which is unsafe.
+            return 'NEEDS_RECONCILIATION'
+        if 'permissions' not in state:
+            return 'NEEDS_RECONCILIATION'
+        if phase == 'EXECUTING':
+            from capabilities import REGISTRY
+            pending = state.get('pending') or {}
+            effect = REGISTRY.get(pending.get('name'), {}).get('effect')
+            if effect not in ('read', 'network_read', 'plan'):
+                return 'NEEDS_RECONCILIATION'
+        if phase in ('MODEL', 'TOOL', 'FINAL', 'EXECUTING'):
+            return 'RESUMABLE'
+        if phase == 'COMPLETE':
+            return 'NEEDS_RECONCILIATION'
+        return 'NEEDS_RECONCILIATION'
+
+    def recovery_pending(self):
+        """Return classified preserved work; capture/history is never made executable."""
+        queue = {}
+        for row in self.db.execute("SELECT * FROM transactions WHERE status!='CHECKPOINTED' ORDER BY created,tx"):
+            item = dict(row)
+            item['recovery_kind'] = self.recovery_classification(item['tx'])
+            queue[item['tx']] = item
+
+        # A failure final can checkpoint execution while still leaving an
+        # interrupted side effect for explicit reconciliation.
+        for row in self.db.execute("SELECT tx FROM transactions WHERE status='CHECKPOINTED' ORDER BY created,tx"):
+            tx = row['tx']
+            if self.recovery_classification(tx) == 'NEEDS_RECONCILIATION':
+                item = dict(self.get_transaction(tx))
+                item['recovery_kind'] = 'NEEDS_RECONCILIATION'
+                queue.setdefault(tx, item)
+
+        # Delivery is a separate concern from execution. Do not turn it into a
+        # resumable model/tool transaction.
+        for delivery in self.delivery_pending():
+            if delivery['tx'] not in queue:
+                item = dict(delivery)
+                item['recovery_kind'] = 'DELIVERY_UNCONFIRMED'
+                queue[item['tx']] = item
+        return list(queue.values())
+
+    def recovery_summary(self):
+        queue = self.recovery_pending()
+        counts = {
+            'resumable': 0,
+            'needs_reconciliation': 0,
+            'capture_only': 0,
+            'delivery_unconfirmed': 0,
+            'failed_final': 0,
+            'preserved_historical': 0,
+        }
+        mapping = {
+            'RESUMABLE': 'resumable',
+            'NEEDS_RECONCILIATION': 'needs_reconciliation',
+            'CAPTURE_ONLY': 'capture_only',
+            'DELIVERY_UNCONFIRMED': 'delivery_unconfirmed',
+            'FAILED_FINAL': 'failed_final',
+        }
+        for item in queue:
+            key = mapping.get(item.get('recovery_kind'))
+            if key:
+                counts[key] += 1
+        active_txs = {item.get('tx') for item in queue if item.get('tx')}
+        for row in self.db.execute("SELECT tx,scope FROM recovery WHERE closed=0"):
+            tx = row['tx']
+            if tx and tx in active_txs:
+                continue
+            counts['preserved_historical'] += 1
+        counts['total_visible'] = sum(
+            counts[key] for key in ('resumable', 'needs_reconciliation', 'capture_only',
+                                    'delivery_unconfirmed', 'failed_final'))
+        return counts
+
     def status(self):
         return {'transactions': [dict(r) for r in self.db.execute('SELECT * FROM transactions')],
                 'identities': [dict(r) for r in self.db.execute('SELECT * FROM identities')],
                 'open_recovery': [dict(r) for r in self.db.execute('SELECT * FROM recovery WHERE closed=0')],
+                'recovery_queue': self.recovery_pending(),
+                'recovery_summary': self.recovery_summary(),
                 'pending_delivery': self.delivery_pending()}
 
     def delivery_pending(self):
@@ -991,5 +1087,4 @@ class Notebook:
                 delivery['tx'], error, uncertain=uncertain,
                 fallback_already_recorded=record is not None,
             )
-        return ([dict(r) for r in self.db.execute("SELECT * FROM transactions WHERE status!='CHECKPOINTED'")]
-                + self.delivery_pending())
+        return self.recovery_pending()
