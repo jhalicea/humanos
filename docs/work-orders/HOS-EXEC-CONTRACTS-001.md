@@ -1,6 +1,6 @@
 # HOS-EXEC-CONTRACTS-001 — Compiled Execution Contracts
 
-Status: CANDIDATE / OWNER-APPROVED IMPLEMENTATION  
+Status: VERIFIED / PROMOTION PENDING  
 Branch: `feature/execution-contracts-v1`  
 Baseline: `13f22ee4310e4385b164d163d72c251e39a92055` (`runtime-0.1`)
 
@@ -59,6 +59,15 @@ Revert the candidate branch. No Notebook/runtime data migration is part of this 
 - Owner approval: current conversation, 2026-09-18.
 - Parent canonical commit: `13f22ee4310e4385b164d163d72c251e39a92055`.
 - HumanOS Work Loop v1.1 design: approved architecture distinguishes rich architectural context from compiled execution state and requires stale work orders to be revalidated.
+
+## Verification evidence
+
+- Candidate head: `5070f299471f52f1fccf61fd66bc2f5c4a7cbd3d`.
+- Regression run `35415184009`: SUCCESS across Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
+- Representative regression job: 485 tests, 8 skipped, no failures.
+- Encrypted-backup/full-suite run `35415184001`: SUCCESS across Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
+- Candidate comparison at verification: five intended files added; no runtime dispatcher, router, swarm, Notebook schema, or BodyFixOS files changed.
+- No merge, release, tag, deployment, or data migration performed.
 
 ## Done condition
 
