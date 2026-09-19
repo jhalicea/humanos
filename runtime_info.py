@@ -158,11 +158,20 @@ def request_for(text, history, reference_binding=None):
         if not words or words[0] != '/recall':
             return {'name': 'recall_notebook', 'query': ''}
         return {'name': 'recall_notebook', 'query': ' '.join(words[1:])}
+
+    # Explicit web actions are host-derived tool requests. Capability questions
+    # such as "can you search the internet?" remain runtime_capabilities queries.
     if words and words[0] == '/web' and len(words) > 1:
         return {'name': 'browser_search', 'tab_id': 0, 'query': ' '.join(words[1:])}
-    natural_web = re.match(
-        r'^\s*(?:please\s+)?(?:search|browse)\s+(?:the\s+)?(?:web|internet|online)'
-        r'(?:\s+for)?\s+(.+?)\s*[.!?]?\s*                '/smart-organize': 'plan_contextual_organization', '/understand': 'understand_file',
+    natural_web = re.fullmatch(
+        r'\s*(?:please\s+)?(?:search|browse)\s+(?:the\s+)?(?:web|internet|online)'
+        r'(?:\s+for)?\s+(.+?)\s*[.!?]?\s*',
+        text, re.I | re.S)
+    if natural_web and natural_web.group(1).strip():
+        return {'name': 'browser_search', 'tab_id': 0, 'query': natural_web.group(1).strip()}
+
+    commands = {'/files': 'scan_files', '/duplicates': 'find_duplicates', '/organize': 'plan_organization',
+                '/smart-organize': 'plan_contextual_organization', '/understand': 'understand_file',
                 '/organize-inbox': 'plan_inbox_organization', '/read': 'read_file', '/source': 'read_source'}
     if words and words[0] in commands and len(words) <= 3:
         name = commands[words[0]]
@@ -182,13 +191,11 @@ def request_for(text, history, reference_binding=None):
         return browse
     lowered = text.casefold()
     excluded = bool(re.search(r'\b(not|never|avoid|except|without|exclude|excluding|don.t)\b', lowered))
-    bare_server = any(token.strip('.,!?;:`\"\'') == 'server.py' for token in words)
+    bare_server = any(token.strip('.,!?;:`"\'') == 'server.py' for token in words)
     if not excluded and re.search(r'\b(read|show|inspect)\b', lowered) and (
             bare_server or 'where this instance is running' in lowered or 'your source' in lowered):
         return {'name': 'read_source', 'path': 'server.py'}
     if not excluded:
-        # Only complete, unambiguous phrases grant a whole-folder scan. Folder
-        # qualifiers and exclusions must never be silently widened to '.'.
         if re.fullmatch(r'(find|check|scan|show)( for)? duplicates?[.! ]*', lowered.strip()):
             return {'name': 'find_duplicates', 'path': '.'}
         if re.fullmatch(r'(organize|sort) (my |these |the )?(files|folders)[.! ]*', lowered.strip()):
@@ -210,7 +217,6 @@ def request_for(text, history, reference_binding=None):
     names = {'clock': 'current_time', 'notebook': 'read_notebook',
              'capabilities': 'runtime_capabilities', 'identity': 'runtime_identity'}
     return {'name': names[kind]} if kind in names else None
-
 
 def failure_message(error):
     text = str(error)
