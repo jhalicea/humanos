@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Chrome native-messaging host for the HumanOS Browser Bridge."""
+"""Chrome/Chromium native-messaging host for the HumanOS Browser Bridge."""
 import argparse
 import os
 from pathlib import Path
@@ -16,15 +16,27 @@ def main():
     path = Path(args.socket)
     if not path.is_absolute():
         raise ValueError('Socket path must be absolute')
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if path.exists() or path.is_socket():
         path.unlink()
     bridge = NativeBridge(path, args.secret, sys.stdin.buffer, sys.stdout.buffer)
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
-        server.bind(str(path)); os.chmod(path, 0o600); server.listen(1)
-        while True:
-            connection, _ = server.accept()
-            with connection:
-                bridge.serve_once(connection)
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
+            server.bind(str(path))
+            os.chmod(path, 0o600)
+            server.listen(1)
+            while True:
+                connection, _ = server.accept()
+                with connection:
+                    bridge.serve_once(connection)
+    finally:
+        # A normal browser/native-port shutdown must not leave a stale readiness
+        # marker. Unexpected process death remains visible and fails on connect.
+        try:
+            if path.exists() or path.is_socket():
+                path.unlink()
+        except OSError:
+            pass
 
 
 if __name__ == '__main__':

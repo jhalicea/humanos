@@ -118,8 +118,16 @@ class BrowserBroker:
             self._validate(request)
             if request['tool'] in RISKY and not self.approve({'authorization': self.envelope.data['authorization'], **request}):
                 raise PermissionError('Human browser approval required')
-            observation = self.send(request)
-            result = {'ok': True, 'observation': observation}
+            extension = self.send(request)
+            if not isinstance(extension, dict) or type(extension.get('ok')) is not bool:
+                raise ValueError('Browser extension returned an invalid response envelope')
+            if extension['ok']:
+                exact(extension, 'ok observation')
+                result = {'ok': True, 'observation': extension['observation']}
+            else:
+                exact(extension, 'ok error')
+                bounded_text(extension['error'], 4096, 'browser extension error')
+                result = {'ok': False, 'error': 'Browser extension: ' + extension['error']}
         except (PermissionError, ValueError, TypeError, OSError) as error:
             result = {'ok': False, 'error': str(error)}
         self._record({'kind': 'RESULT', 'time': self.clock(), 'run_id': self.envelope.data['run_id'], 'result': result})

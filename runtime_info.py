@@ -62,10 +62,12 @@ def intent(text):
         r'(?:can you|are you able to) code',
         r'(?:can you|are you able to) (?:write|create|build) (?:code|an app|apps|a program|programs)',
         r'(?:can you|are you able to) (?:edit|modify|change|rewrite|update) (?:yourself|your own code|your code|humanos|humanos source)',
+        r'(?:can you|are you able to) (?:browse|search) (?:the )?(?:web|internet|online)',
+        r'(?:do you have|have you got) (?:web|internet|browser) access',
     )
     if any(re.fullmatch(pattern, normalized) for pattern in capability_patterns):
         return 'capabilities'
-    if (text == '/capabilities' or 'search the internet' in text or
+    if (text == '/capabilities' or
         (re.search(r'\b(can you|are you able|what can you|what do you need|why not)\b', text) and
          re.search(r'\b(file|files|folder|folders|organize|duplicates|do that)\b', text))):
         return 'capabilities'
@@ -156,6 +158,14 @@ def request_for(text, history, reference_binding=None):
         if not words or words[0] != '/recall':
             return {'name': 'recall_notebook', 'query': ''}
         return {'name': 'recall_notebook', 'query': ' '.join(words[1:])}
+    if words and words[0] == '/web' and len(words) > 1:
+        return {'name': 'browser_search', 'tab_id': 0, 'query': ' '.join(words[1:])}
+    natural_web = re.fullmatch(
+        r'\s*(?:please\s+)?(?:search|browse)\s+(?:the\s+)?(?:web|internet|online)'
+        r'(?:\s+for)?\s+(.+?)\s*[.!?]?\s*',
+        text, re.I | re.S)
+    if natural_web and natural_web.group(1).strip():
+        return {'name': 'browser_search', 'tab_id': 0, 'query': natural_web.group(1).strip()}
     commands = {'/files': 'scan_files', '/duplicates': 'find_duplicates', '/organize': 'plan_organization',
                 '/smart-organize': 'plan_contextual_organization', '/understand': 'understand_file',
                 '/organize-inbox': 'plan_inbox_organization', '/read': 'read_file', '/source': 'read_source'}
@@ -260,6 +270,25 @@ def format_observation(request, observation):
                     'Use /files to see its contents. HumanOS source code is separate: use /source server.py.')
         return 'I could not complete that action: ' + error
     name = request['name']
+    if name.startswith('browser_'):
+        payload = json.loads(observation['stdout'])
+        browser_observation = payload.get('observation') if isinstance(payload, dict) else None
+        if not isinstance(browser_observation, dict):
+            return 'Browser action completed, but returned no structured page observation.'
+        if name in ('browser_search', 'browser_inspect'):
+            title = browser_observation.get('title', '')
+            url = browser_observation.get('url', '')
+            page_text = browser_observation.get('text', '')
+            heading = 'Web search results' if name == 'browser_search' else 'Selected browser tab'
+            return heading + ': ' + title + '\nURL: ' + url + '\n\n' + page_text
+        if name == 'browser_navigate':
+            return ('Browser navigated the selected tab to ' + browser_observation.get('url', '') +
+                    (' — ' + browser_observation.get('title', '') if browser_observation.get('title') else ''))
+        if name == 'browser_click':
+            return 'Browser clicked the approved selector in the selected tab.'
+        if name == 'browser_type':
+            return 'Browser typed the approved text into the selected tab.'
+        return observation['stdout']
     if name == 'read_source':
         page = json.loads(observation['stdout'])
         answer = 'HumanOS source: ' + page['source'] + '\n\n' + page['text']

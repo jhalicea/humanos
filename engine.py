@@ -75,7 +75,7 @@ class Tools:
     Each path component is opened with O_NOFOLLOW; symlinks and hardlinked files
     are rejected. Create uses O_EXCL and never overwrites user files.
     """
-    def __init__(self, workspace, browser=None):
+    def __init__(self, workspace, browser=None, browser_search_url=None):
         self.workspace = Path(workspace).resolve()
         if self.workspace in (Path('/'), Path.home(), Path(__file__).resolve().parent):
             raise PermissionError('Select a dedicated work folder, not your home, system root, or HumanOS source directory')
@@ -83,6 +83,7 @@ class Tools:
         self.manager = None
         self.source = SourceReader()
         self.browser = browser
+        self.browser_search_url = browser_search_url
 
     def capability_states(self):
         """Truthful executor state for the model and human-facing capability UI."""
@@ -96,13 +97,18 @@ class Tools:
                 }
                 continue
             if name.startswith('browser_'):
-                if self.browser is None:
+                search_missing = name == 'browser_search' and not self.browser_search_url
+                if self.browser is None or search_missing:
+                    reason = ('the browser tool is installed in HumanOS but the local browser bridge is not configured'
+                              if self.browser is None else
+                              'the browser bridge is configured but no browser search provider is configured')
                     states[name] = {
                         'registered': True, 'configured': False, 'connected': False,
                         'ready': False, 'state': 'REGISTERED_NOT_CONFIGURED',
-                        'reason': 'the browser tool is installed in HumanOS but the local browser bridge is not configured',
-                        'next_action': ('Pair the HumanOS Browser Bridge extension/native host, then add the browser '
-                                        'configuration block described in BROWSER.md. Human approval gates remain required.'),
+                        'reason': reason,
+                        'next_action': ('Run humanos --browser-setup, load the HumanOS unpacked extension, select a tab, '
+                                        'then verify with humanos --browser-status. See BROWSER.md for the governed setup path. '
+                                        'Human approval gates remain required.'),
                     }
                 else:
                     states[name] = {
@@ -127,17 +133,42 @@ class Tools:
             if name.startswith('browser_'):
                 if self.browser is None:
                     raise PermissionError(
-                        'Browser bridge is registered but not configured. Pair the HumanOS Browser Bridge '
-                        'extension/native host and add the browser configuration described in BROWSER.md.')
-                tool = name.removeprefix('browser_')
-                arguments = {key: value for key, value in request.items() if key not in ('name', 'tab_id')}
+                        'Browser bridge is registered but not configured. Run humanos --browser-setup, '
+                        'load the HumanOS extension, select a tab, then check humanos --browser-status.')
+                # Every browser request passes the durable task-scope policy exactly
+                # once. For effectful tools that policy invokes the runtime's human
+                # approval prompt before BrowserBroker sees an ALLOWED decision.
+                if not authorize(request):
+                    raise PermissionError('HumanOS policy did not authorize this browser request')
                 original_approve = self.browser.approve
-                self.browser.approve = lambda _: authorize(request)
+                self.browser.approve = lambda _: True
                 try:
-                    response = self.browser.execute({'tool': tool, 'tab_id': request['tab_id'], 'arguments': arguments})
+                    if name == 'browser_search':
+                        if not self.browser_search_url:
+                            raise PermissionError('Browser search provider is not configured')
+                        query = urllib.parse.quote_plus(request['query'])
+                        url = self.browser_search_url.format(query=query)
+                        navigate = self.browser.execute({
+                            'tool': 'navigate', 'tab_id': request['tab_id'], 'arguments': {'url': url}})
+                        if not navigate['ok']:
+                            response = navigate
+                        else:
+                            inspect = self.browser.execute({
+                                'tool': 'inspect', 'tab_id': request['tab_id'], 'arguments': {}})
+                            response = inspect if not inspect['ok'] else {
+                                'ok': True, 'observation': inspect['observation'], 'search_url': url}
+                    else:
+                        tool = name.removeprefix('browser_')
+                        arguments = {key: value for key, value in request.items() if key not in ('name', 'tab_id')}
+                        response = self.browser.execute({
+                            'tool': tool, 'tab_id': request['tab_id'], 'arguments': arguments})
                 finally:
                     self.browser.approve = original_approve
-                result.update(ok=response['ok'], stdout=encode(response), authorization='ALLOWED' if response['ok'] else 'DENIED')
+                if response['ok']:
+                    result.update(ok=True, stdout=encode(response), authorization='ALLOWED')
+                else:
+                    result.update(ok=False, stderr=response.get('error', 'Browser action failed'),
+                                  stdout=encode(response), authorization='ALLOWED')
                 return result
             if name == 'read_source':
                 if not authorize(request):
@@ -423,7 +454,15 @@ class Agent:
                                 reason='Host-only runtime facts require an explicit human-derived direct request')
                             self.book.save_task_event(tx, state, 'AUTHORIZATION', denied)
                             return False
-                        elif request['name'] in ('create_file', 'apply_plan', 'undo_plan'):
+                        elif request['name'] in (
+                                'create_file', 'apply_plan', 'undo_plan',
+                                'browser_search', 'browser_navigate', 'browser_click', 'browser_type'):
+                            if request['name'].startswith('browser_') and not state['permissions'].get('browser_enabled'):
+                                allowed = False
+                                denied = request_summary(self.book, request)
+                                denied.update(allowed=False, reason='Human input did not authorize browser/web access')
+                                self.book.save_task_event(tx, state, 'AUTHORIZATION', denied)
+                                return False
                             if (request['name'] == 'create_file' and state['permissions'].get('version', 0) >= 6 and
                                     request.get('path') not in state['permissions'].get('create_paths', [])):
                                 allowed = False
