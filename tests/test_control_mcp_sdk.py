@@ -4,12 +4,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mcp import Client
+try:
+    from mcp import Client
+    import control_mcp_server
+    MCP_AVAILABLE = True
+except ModuleNotFoundError:
+    Client = None
+    control_mcp_server = None
+    MCP_AVAILABLE = False
 
-import control_mcp_server
 from control_room import ControlRoomStore
 
 
+@unittest.skipUnless(MCP_AVAILABLE, "optional MCP SDK is not installed")
 class ControlMCPIntegrationTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
