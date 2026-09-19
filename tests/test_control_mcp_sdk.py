@@ -66,7 +66,7 @@ class ControlMCPIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         store.close()
 
-    async def test_mcp_work_order_is_recorded_not_executed_and_baseline_bound(self):
+    async def test_mcp_work_order_cannot_self_approve(self):
         head = self._head()
         work_order = {
             "work_id": "HOS-SLICE-MCP-SDK-001",
@@ -81,9 +81,9 @@ class ControlMCPIntegrationTests(unittest.IsolatedAsyncioTestCase):
             "non_goals": ["execute work"],
             "allowed_actions": ["queue only"],
             "forbidden_actions": ["merge", "deploy", "shell"],
-            "acceptance_tests": ["MCP returns READY on matching HEAD"],
+            "acceptance_tests": ["MCP cannot make itself READY"],
             "rollback": "Delete isolated test database.",
-            "done_condition": "Work order can be read back as READY.",
+            "done_condition": "Work order remains pending until local approval.",
             "data_class": "INTERNAL",
             "size_class": "S",
             "risk_class": "R3",
@@ -93,12 +93,24 @@ class ControlMCPIntegrationTests(unittest.IsolatedAsyncioTestCase):
             result = await client.call_tool(
                 "humanos_control_submit_work_order", {"work_order": work_order}
             )
-            self.assertEqual("READY", result.structured_content["state"])
+            self.assertEqual("PENDING_LOCAL_APPROVAL", result.structured_content["state"])
+            digest = result.structured_content["payload_digest"]
             status = await client.call_tool(
                 "humanos_control_work_status", {"work_id": work_order["work_id"]}
             )
-            self.assertEqual("READY", status.structured_content["state"])
+            self.assertEqual("PENDING_LOCAL_APPROVAL", status.structured_content["state"])
             self.assertEqual(head, status.structured_content["baseline_commit"])
+
+        store = ControlRoomStore(self.db_path)
+        store.approve_work_order(
+            work_order["work_id"], digest,
+            approval_ref="local-test-owner", current_baseline=head,
+        )
+        self.assertEqual(
+            "READY",
+            store.work_status(work_order["work_id"], current_baseline=head)["state"],
+        )
+        store.close()
 
 
 if __name__ == "__main__":
