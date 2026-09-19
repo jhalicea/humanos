@@ -44,6 +44,8 @@ REGISTRY = {item['name']: item for item in (
                parameters={'plan_id': {'type': 'string'}}, required=('plan_id',)),
     definition('undo_plan', 'Undo a specific organization plan without overwriting changed files; approval required.', 'workspace', 'organize',
                parameters={'plan_id': {'type': 'string'}}, required=('plan_id',)),
+    definition('browser_search', 'Search the public web in the selected browser tab using the owner-configured search provider; approval required.', 'browser', 'browser_write',
+               parameters={'tab_id': {'type': 'integer', 'default': 0}, 'query': {'type': 'string'}}, required=('query',)),
     definition('browser_inspect', 'Inspect the browser tab explicitly selected in the HumanOS extension.', 'browser',
                parameters={'tab_id': {'type': 'integer', 'default': 0}}),
     definition('browser_navigate', 'Open an allowlisted HTTPS URL in the selected browser tab; approval required.', 'browser', 'browser_write',
@@ -106,7 +108,7 @@ def model_instructions(states=None):
     examples = {'path': 'PATH_FROM_HUMAN_OR_OBSERVATION.txt', 'content': 'TEXT_REQUESTED_BY_HUMAN',
                 'source': 'PATH_FROM_HUMAN_OR_OBSERVATION.txt', 'tab_id': 0,
                 'url': 'https://URL_FROM_HUMAN_OR_OBSERVATION.invalid', 'selector': 'SELECTOR_FROM_OBSERVATION',
-                'text': 'TEXT_REQUESTED_BY_HUMAN',
+                'text': 'TEXT_REQUESTED_BY_HUMAN', 'query': 'SEARCH_QUERY_FROM_HUMAN',
                 'destination': 'DESTINATION_FROM_HUMAN_OR_PLAN/file.txt',
                 'plan_id': 'PLAN-ID-FROM-TOOL', 'offset': 0}
     for spec in runtime_describe(states):
