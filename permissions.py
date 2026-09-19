@@ -63,7 +63,10 @@ def task_scope(row, workspace, version=4, reference_binding=None, work_binding=N
             'read_paths': sorted(set(paths)) if file_read else [],
             'list_paths': ['.'] + sorted(set(paths)) if listing else [],
             'runtime_reads': ['current_time', 'read_notebook', 'runtime_capabilities'],
-            'browser_enabled': bool(re.search(r'\bbrowser\b', text, re.I)),
+            'browser_enabled': bool(
+                re.search(r'\b(browser|web|internet|website|online)\b', text, re.I)
+                or re.search(r'\bsearch\b.*\b(web|internet|online)\b', text, re.I)
+            ),
             'writes': 'EXACT_REQUEST_APPROVAL'}
     if version >= 2:
         from runtime_info import request_for
@@ -118,7 +121,7 @@ def validate_scope(scope, row, workspace, book=None):
 
 def allows_read(scope, request):
     name = request.get('name')
-    if name == 'browser_inspect':
+    if isinstance(name, str) and name.startswith('browser_'):
         return scope.get('browser_enabled', False)
     if name == 'read_file':
         path = request.get('path')
