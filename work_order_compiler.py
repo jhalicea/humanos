@@ -127,11 +127,28 @@ def validate_approved_decision(decision):
     return decision
 
 
+def _fingerprint_material(decision):
+    """Return canonical decision content without its self-referential fingerprint."""
+    material = copy.deepcopy(decision)
+    prefix = f"{decision['decision_id']}#sha256:"
+    material["provenance_references"] = [
+        item
+        for item in material["provenance_references"]
+        if not (item["type"] == "decision" and item["reference"].startswith(prefix))
+    ]
+    return material
+
+
 def decision_fingerprint(decision):
-    """Return SHA-256 over the exact canonical JSON representation of a valid decision."""
+    """Return stable SHA-256 over canonical approved decision content.
+
+    The compiler-generated fingerprint reference for this same decision ID is
+    excluded from hash material; including it would create a circular hash.
+    Other provenance remains part of the fingerprint.
+    """
     validate_approved_decision(decision)
     canonical = json.dumps(
-        decision,
+        _fingerprint_material(decision),
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,
