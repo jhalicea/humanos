@@ -1,6 +1,6 @@
 # HOS-BROWSER-001-R1 — Browser Activation Compatibility Correction
 
-Status: ACTIVE / OWNER APPROVED IMPLEMENTATION
+Status: PROMOTED / VERIFIED / LOCAL READBACK PENDING
 Workspace: `WS-HUMANOS`
 Workstream: `HOS-BROWSER-001 — Browser Broker and Tools`
 Branch: `fix/browser-activation-r1`
@@ -82,3 +82,24 @@ Revert the correction commit. No local or Notebook data migration is required.
 Focused and full tests are green on the exact candidate commit, diff review is clean,
 the correction is promoted under owner authorization, and local Mac pairing remains
 truthfully pending until runtime readback is performed.
+
+
+## Verification evidence
+
+- Verified candidate: `9b6050c3aaccca0032e843652743cb2caf3d470b`.
+- Regression workflow `35456032309`: SUCCESS on Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
+- Encrypted-backup workflow `35456032318`: SUCCESS on the same four matrix combinations.
+- Promotion PR: #93.
+- Promotion commit: `7c21306aa3dac28cf274e39360d600a7ca7e8abf`.
+- Exact diff reviewed for authority expansion, Notebook/private data, local owner paths,
+  secret material, and unrelated component changes; no such leakage or widening found.
+- Parent activation PR #91 exact head `cd14dec87ca742785d8f3462b701e0c1915458bf`
+  was independently confirmed green before this correction.
+- Real browser end-to-end connectivity remains intentionally unverified until owner-Mac
+  pairing and one bounded action readback are completed.
+
+## Post-promotion next action
+
+On the owner Mac, update `runtime-0.1`, run `humanos --browser-setup`, load the
+unpacked `browser-extension/` once, click the extension on the selected tab, run
+`humanos --browser-status`, then execute one bounded browser search/inspect test.
