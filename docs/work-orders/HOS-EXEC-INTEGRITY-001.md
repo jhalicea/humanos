@@ -1,0 +1,39 @@
+# HOS-EXEC-INTEGRITY-001 — Execution / Input Integrity
+
+Status: CANDIDATE / OWNER-APPROVED IMPLEMENTATION  
+Branch: `fix/exec-integrity-paste-framing-v1`  
+Baseline: `2d4b383c6723177a3d1ad6ef3774d79dc8e6b7cd` (`runtime-0.1`)
+
+## Objective
+
+Prevent a large multiline terminal paste from being fragmented into multiple HumanOS turns when later TTY chunks are not immediately buffered. Fragmentation can create unintended transactions and visually interleave runtime/context notices with the remaining pasted text.
+
+## Evidence
+
+The observed session began with 22 unfinished execution transactions and showed runtime metadata such as `Context route:` appearing inside the visual body of a long pasted message. Current `read_human_input` waited briefly for the first extra line but used a zero-time poll after every subsequent line, so a delayed TTY refill could terminate capture prematurely.
+
+## Approved scope
+
+1. Preserve normal one-line input behavior.
+2. Preserve explicit `:paste` / `/send` framing.
+3. Once automatic multiline paste is detected, wait through a bounded idle window for later TTY refills.
+4. Add a deterministic regression reproducing a delayed second refill.
+5. Rely on existing transaction/recovery regressions for duplicate transaction prevention, resumable model outage, preserved tool results, unfinished-turn coexistence, and delivery idempotency.
+6. Do not delete, close, or mutate the already-existing unfinished transactions.
+7. Do not expand into Work Order automation, FRIEND routing, model routing, or BodyFixOS.
+
+## Acceptance criteria
+
+- A simulated delayed terminal refill remains one exact HumanOS message.
+- Blank lines and leading whitespace remain unchanged.
+- Explicit paste mode remains unchanged.
+- Existing transaction/resume/replay tests remain green.
+- No destructive recovery or migration occurs.
+
+## Rollback
+
+Revert the candidate branch/commit. No Notebook data migration is part of this slice.
+
+## Next candidate
+
+Execution Work Order schema + FRIEND packet schema + stale-baseline check.
