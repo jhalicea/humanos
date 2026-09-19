@@ -1,6 +1,6 @@
 # HOS-FLOW-001 — Effortless Work Preparation
 
-Status: CANDIDATE / OWNER-APPROVED IMPLEMENTATION  
+Status: VERIFIED / PROMOTION PENDING  
 Branch: `feature/effortless-work-prep-v1`  
 Baseline: `563cd3abd3a9af6c2ebd85b4c790a41d4a6880aa` (`runtime-0.1`)
 
@@ -82,6 +82,17 @@ Revert the candidate branch. No local Notebook/runtime data migration is part of
 - Owner direction: make the experience “perfect, effortless and Apple like.”
 - Parent canonical commit: `563cd3abd3a9af6c2ebd85b4c790a41d4a6880aa`.
 - Parent promoted foundations: HOS-EXEC-CONTRACTS-001, HOS-PRIV-001, HOS-WOC-001.
+
+## Verification evidence
+
+- Verified candidate head before evidence preservation: `dd7cdbf9d90e554e68c9046e5b4dd45caa965203`.
+- Regression run `35472481062`: SUCCESS across Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
+- Representative regression job: 552 tests, 8 skipped, no failures.
+- Encrypted-backup/full-suite run `35472481085`: SUCCESS across Ubuntu 24.04/macOS 15 × Python 3.11/3.13.
+- Exact candidate diff remained bounded to the FRIEND assignment compiler, preparation/presentation layer, assignment schema, tests, and this Work Order.
+- Default review-card tests verify that hashes, schema names, packet IDs, and Work Order IDs are not exposed in the normal surface.
+- Full audit artifacts remain available through `details()`.
+- No dispatch, execution, model/provider selection, Mirror wiring, Browser Bridge change, Context Router change, swarm change, Notebook migration, deployment, or BodyFixOS integration occurred.
 
 ## Done condition
 
