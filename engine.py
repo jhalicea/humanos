@@ -453,7 +453,15 @@ class Agent:
                                 reason='Host-only runtime facts require an explicit human-derived direct request')
                             self.book.save_task_event(tx, state, 'AUTHORIZATION', denied)
                             return False
-                        elif request['name'] in ('create_file', 'apply_plan', 'undo_plan'):
+                        elif request['name'] in (
+                                'create_file', 'apply_plan', 'undo_plan',
+                                'browser_search', 'browser_navigate', 'browser_click', 'browser_type'):
+                            if request['name'].startswith('browser_') and not state['permissions'].get('browser_enabled'):
+                                allowed = False
+                                denied = request_summary(self.book, request)
+                                denied.update(allowed=False, reason='Human input did not authorize browser/web access')
+                                self.book.save_task_event(tx, state, 'AUTHORIZATION', denied)
+                                return False
                             if (request['name'] == 'create_file' and state['permissions'].get('version', 0) >= 6 and
                                     request.get('path') not in state['permissions'].get('create_paths', [])):
                                 allowed = False
