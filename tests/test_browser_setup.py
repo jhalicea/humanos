@@ -51,7 +51,7 @@ class BrowserSetupTests(unittest.TestCase):
         path = native_manifest_path("brave", self.home, "darwin")
         self.assertEqual(
             path,
-            self.home / "Library/Application Support/Google/Chrome/NativeMessagingHosts/com.humanos.browser_bridge.json",
+            (self.home / "Library/Application Support/Google/Chrome/NativeMessagingHosts/com.humanos.browser_bridge.json").resolve(),
         )
 
     def test_setup_creates_private_local_pairing_outside_repo(self):
