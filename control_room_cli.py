@@ -48,6 +48,11 @@ def main() -> int:
     response = sub.add_parser("response", help="Read a returned response")
     response.add_argument("request_id")
 
+    approve = sub.add_parser("approve-work", help="Locally approve one exact immutable work order")
+    approve.add_argument("work_id")
+    approve.add_argument("payload_digest")
+    approve.add_argument("--approval-ref", default="local-cli")
+
     sub.add_parser("next-external", help="Preview the next externally approved request")
     sub.add_parser("work-orders", help="List recorded work-order baseline states")
 
@@ -62,6 +67,11 @@ def main() -> int:
             ))
         elif args.command == "response":
             print(store.local_response(args.request_id))
+        elif args.command == "approve-work":
+            print(store.approve_work_order(
+                args.work_id, args.payload_digest,
+                approval_ref=args.approval_ref, current_baseline=baseline(),
+            ))
         elif args.command == "next-external":
             print(store.next_external_request())
         elif args.command == "work-orders":
