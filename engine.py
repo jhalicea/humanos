@@ -386,14 +386,22 @@ class Agent:
                         'path': reference_binding['path'], 'source_tx': reference_binding['source_tx'],
                         'mode': reference_binding['mode']}
                 packet['recent_transcript_sources'] = [{k: v for k, v in item.items() if k != 'text'} for item in history]
+                legacy_scope_version = 6 if work_binding else (5 if reference_binding else 4)
+                browser_scope = task_scope(
+                    row, self.tools.workspace, version=7,
+                    reference_binding=reference_binding, work_binding=work_binding)
+                permissions = (
+                    browser_scope if browser_scope.get('browser_enabled') else
+                    task_scope(
+                        row, self.tools.workspace, version=legacy_scope_version,
+                        reference_binding=reference_binding, work_binding=work_binding)
+                )
                 state = {'phase': 'MODEL', 'steps': 0, 'elapsed': 0, 'model': self.model.name,
                          'messages': [{'role': 'system', 'content': SYSTEM + '\n' + model_instructions(self.tools.capability_states()) + '\nContext packet:\n' + encode(packet)},
                                       *[{'role': item['role'].lower().replace('human', 'user'), 'content': item['text']} for item in history],
                                       {'role': 'user', 'content': row['input']}],
                          'context': packet, 'workspace': str(self.tools.workspace),
-                         'permissions': task_scope(row, self.tools.workspace,
-                                                   version=7,
-                                                   reference_binding=reference_binding, work_binding=work_binding),
+                         'permissions': permissions,
                          'reference_binding': reference_binding, 'work_binding': work_binding, 'approvals': []}
                 if reference_binding is not None:
                     self.book.event(tx, 'REFERENCE_BOUND', {
@@ -463,7 +471,7 @@ class Agent:
                                 denied.update(allowed=False, reason='Human input did not authorize browser/web access')
                                 self.book.save_task_event(tx, state, 'AUTHORIZATION', denied)
                                 return False
-                            if (request['name'] == 'create_file' and state['permissions'].get('version', 0) >= 6 and
+                            if (request['name'] == 'create_file' and state['permissions'].get('work_binding') and
                                     request.get('path') not in state['permissions'].get('create_paths', [])):
                                 allowed = False
                                 denied = request_summary(self.book, request)
