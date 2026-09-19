@@ -653,7 +653,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/browser-activation-v1",
       "work_order": "docs/work-orders/HOS-BROWSER-001.md",
-      "status": "ACTIVE",
+      "status": "PROMOTION_PENDING",
       "confidentiality": "INTERNAL",
       "topics": [
         "browser",
@@ -679,9 +679,9 @@
         "config/context_registry.public.json"
       ],
       "relations": [],
-      "last_verified_commit": "b45f4eb94be026660ed3415f3213d132bda7955d",
-      "resume_point": "Browser broker/tools are already canonical. Activation slice is implementing owner-only local pairing/config, native-host launch wiring, and browser permission integration.",
-      "next_action": "Implement browser setup/runtime loading and regress activation/security boundaries."
+      "last_verified_commit": "b1ceadb7fe2d0165b98cce2f8463e932f72049c3",
+      "resume_point": "Browser activation implementation verified on b1ceadb7 with full regression and encrypted-backup CI green; owner authorized promotion. Local browser UI pairing/readback remains post-promotion evidence.",
+      "next_action": "Promote verified candidate, then pull runtime-0.1 on the owner Mac and complete local browser setup/extension selection/readback."
     },
     {
       "workstream_id": "HOS-NB-CAPTURE-001",
