@@ -1,6 +1,6 @@
 # HOS-BROWSER-001 — Browser Bridge Activation & Governed Web Access
 
-Status: VERIFIED / PROMOTION AUTHORIZED
+Status: PROMOTED / LOCAL PAIRING PENDING
 Workspace: `WS-HUMANOS`
 Project: Capabilities and Tooling
 Workstream: `HOS-BROWSER-001`
@@ -172,6 +172,7 @@ and HumanOS browser control directory, never browser profiles or user browsing d
 - Exact candidate diff reviewed against `runtime-0.1@b45f4eb94be026660ed3415f3213d132bda7955d`.
 - Diff contains the intended browser activation/runtime/docs/tests/registry slice only; no local owner paths, credentials, Notebook content, or secret bytes were found.
 - Chrome native-messaging behavior was cross-checked against current Chrome documentation: exact allowed origins, nativeMessaging permission, absolute macOS/Linux host path, stdin/stdout framing, and browser-specific NativeMessagingHosts locations.
+- Promotion PR #91 merged at `02869089cd336ffac17751a771bd61adcf21229d`.
 - Real browser end-to-end readiness remains intentionally unverified until the owner pulls the promoted commit and completes the browser UI pairing/readback on the Mac.
 
 ## Done condition
