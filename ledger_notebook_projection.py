@@ -45,7 +45,7 @@ def project_all_pairs(ledger, notebook_root):
             pairs.append((human, row))
             human = None
         else:
-            raise ValueError("ledger contains an assistant without a preceding human")
+            pending += 1
     if human is not None:
         pending += 1
     projected = 0
