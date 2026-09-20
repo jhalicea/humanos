@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from capture_current_conversation import capture_current, resolve_source
-from conversation_ledger import append_conversation_id_correction, import_messages, read_ledger
+from conversation_ledger import append_conversation_id_correction, import_messages, read_ledger, verify_ledger
 
 
 class ConversationLedgerTests(unittest.TestCase):
@@ -85,8 +85,20 @@ class ConversationLedgerTests(unittest.TestCase):
                               json.dumps({"type": "response_item", "payload": {"id": "u1", "role": "user",
                               "content": [{"type": "input_text", "text": "capture"}]}}) + "\n", encoding="utf-8")
             ledger = root / "ledger.jsonl"
-            self.assertEqual(capture_current(ledger, source), {"added": 1, "total": 1})
-            self.assertEqual(capture_current(ledger, source), {"added": 0, "total": 1})
+            first_result = capture_current(ledger, source)
+            self.assertEqual(first_result["added"], 1)
+            self.assertEqual(first_result["status"], "CHECKPOINTED")
+            result = capture_current(ledger, source)
+            self.assertEqual(result["added"], 0)
+            self.assertEqual(result["status"], "CHECKPOINTED")
+
+    def test_verify_ledger_fails_on_digest_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp) / "ledger.jsonl"
+            ledger.write_text(json.dumps({"source": "s", "source_id": "1", "conversation_id": "c",
+                "role": "HUMAN", "text": "changed", "content_digest": "wrong"}) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "digest mismatch"):
+                verify_ledger(ledger)
 
 
 if __name__ == "__main__":
