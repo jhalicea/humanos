@@ -36,8 +36,8 @@ class LedgerNotebookProjectionTests(unittest.TestCase):
                              "content_digest": hashlib.sha256(text.encode()).hexdigest()})
             ledger.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
             notebook = root / "notebook"
-            self.assertEqual(project_all_pairs(ledger, notebook), {"status": "CHECKPOINTED", "projected": 2, "skipped": 0})
-            self.assertEqual(project_all_pairs(ledger, notebook), {"status": "CHECKPOINTED", "projected": 0, "skipped": 2})
+            self.assertEqual(project_all_pairs(ledger, notebook), {"status": "CHECKPOINTED", "projected": 2, "skipped": 0, "pending": 0})
+            self.assertEqual(project_all_pairs(ledger, notebook), {"status": "CHECKPOINTED", "projected": 0, "skipped": 2, "pending": 0})
 
 
 if __name__ == "__main__":
