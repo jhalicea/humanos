@@ -13,6 +13,7 @@ class ConversationLedgerTests(unittest.TestCase):
             root = Path(tmp)
             source = root / "source.jsonl"
             source.write_text("\n".join([
+                json.dumps({"type": "session_meta", "payload": {"session_id": "thread-9"}}),
                 json.dumps({"timestamp": "2026-09-19T00:00:00Z", "type": "response_item",
                             "payload": {"type": "message", "id": "u1", "role": "user",
                                         "content": [{"type": "input_text", "text": "  hello 🧭  "}]}}),
@@ -99,6 +100,30 @@ class ConversationLedgerTests(unittest.TestCase):
                 "role": "HUMAN", "text": "changed", "content_digest": "wrong"}) + "\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "digest mismatch"):
                 verify_ledger(ledger)
+
+    def test_invalid_batch_does_not_append_partial_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.jsonl"
+            source.write_text("\n".join([
+                json.dumps({"type": "session_meta", "payload": {"session_id": "thread-9"}}),
+                json.dumps({"type": "response_item", "payload": {"id": "u1", "role": "user",
+                            "content": [{"type": "input_text", "text": "good"}]}}),
+                json.dumps({"type": "response_item", "payload": {"id": "u2", "role": "user",
+                            "content": [{"type": "input_text", "text": "bad"}]}}),
+            ]) + "\n", encoding="utf-8")
+            ledger = root / "ledger.jsonl"
+            import_messages(source, ledger)
+            before = ledger.read_bytes()
+            source.write_text("\n".join([
+                json.dumps({"type": "response_item", "payload": {"id": "u1", "role": "user",
+                            "content": [{"type": "input_text", "text": "good"}]}}),
+                json.dumps({"type": "response_item", "payload": {"id": "u3", "role": "user",
+                            "content": []}}),
+            ]) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "source message"):
+                import_messages(source, ledger)
+            self.assertEqual(ledger.read_bytes(), before)
 
 
 if __name__ == "__main__":

@@ -57,19 +57,26 @@ def import_messages(source, ledger):
                 if key in existing and existing[key] != row:
                     raise ValueError("conflicting ledger duplicate: " + row["source_id"])
                 existing[key] = row
+    pending = []
+    pending_keys = set()
+    for row in _messages(source):
+        if not row.get("conversation_id"):
+            raise ValueError("source message has no conversation ID: " + row["source_id"])
+        row["content_digest"] = hashlib.sha256(row["text"].encode("utf-8")).hexdigest()
+        key = (row["source"], row["source_id"])
+        if key in existing:
+            if existing[key] != row:
+                raise ValueError("source message changed: " + row["source_id"])
+            continue
+        if key in pending_keys:
+            raise ValueError("duplicate source message: " + row["source_id"])
+        pending_keys.add(key)
+        pending.append(row)
     added = 0
     with path.open("a", encoding="utf-8") as stream:
-        for row in _messages(source):
-            if "content_digest" not in row:
-                row["content_digest"] = hashlib.sha256(row["text"].encode("utf-8")).hexdigest()
-            key = (row["source"], row["source_id"])
-            if key in existing:
-                if existing[key] != row:
-                    raise ValueError("source message changed: " + row["source_id"])
-                continue
-            row["content_digest"] = hashlib.sha256(row["text"].encode("utf-8")).hexdigest()
+        for row in pending:
             stream.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
-            existing[key] = row
+            existing[(row["source"], row["source_id"])] = row
             added += 1
     return {"added": added, "total": len(existing)}
 
