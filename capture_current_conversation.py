@@ -9,6 +9,9 @@ from pathlib import Path
 
 from conversation_ledger import import_messages, read_ledger, verify_ledger
 
+RUNTIME_ROOT = Path(__file__).resolve().parent
+DEFAULT_LEDGER = RUNTIME_ROOT / "var" / "current-conversation.jsonl"
+
 
 def resolve_source(session_id, sessions_root=None):
     root = Path(sessions_root or Path.home() / ".codex" / "sessions")
@@ -18,7 +21,8 @@ def resolve_source(session_id, sessions_root=None):
     return matches[-1]
 
 
-def capture_current(ledger=Path("var/current-conversation.jsonl"), source=None):
+def capture_current(ledger=None, source=None):
+    ledger = Path(ledger or DEFAULT_LEDGER)
     session_id = os.environ.get("CODEX_SESSION_ID")
     if source is None and not session_id:
         raise RuntimeError("CODEX_SESSION_ID is required for /capture")
@@ -46,7 +50,8 @@ def capture_current(ledger=Path("var/current-conversation.jsonl"), source=None):
     return result
 
 
-def capture_status(ledger=Path("var/current-conversation.jsonl")):
+def capture_status(ledger=None):
+    ledger = Path(ledger or DEFAULT_LEDGER)
     receipt_path = ledger.parent / "capture-receipts.jsonl"
     if not receipt_path.exists() or not ledger.exists():
         return {"status": "PENDING", "reason": "no capture receipt or ledger"}
@@ -64,7 +69,7 @@ def capture_status(ledger=Path("var/current-conversation.jsonl")):
 def main():
     parser = argparse.ArgumentParser(description="Capture the current Codex conversation into the local ledger")
     parser.add_argument("--source", type=Path, help="explicit observed rollout JSONL")
-    parser.add_argument("--ledger", type=Path, default=Path("var/current-conversation.jsonl"))
+    parser.add_argument("--ledger", type=Path, default=None)
     parser.add_argument("--status", action="store_true")
     args = parser.parse_args()
     try:
