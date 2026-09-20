@@ -61,5 +61,8 @@ def seed(engine):
     # Preserve known continuation points without fabricating mastery scores.
     engine.skills["dfir.evidence"].stage = "demonstrated"
     engine.skills["windows.telemetry"].stage = "practiced"
+    # Tabletop / first-response work supports an IR practice continuation point;
+    # TTX-001 itself remains open and does not receive a fabricated final grade.
+    engine.skills["ir"].stage = "practiced"
     engine.skills["ai.transformers"].stage = "introduced"
     return engine
