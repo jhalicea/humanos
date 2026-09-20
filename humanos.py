@@ -43,7 +43,9 @@ def main(argv=None):
                       "capture": capture_status(ledger),
                       "reason": "local ledger has not been created yet"}
         else:
-            result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger)}
+            runtime_receipt = ledger.parent / "runtime-capture-receipts.jsonl"
+        runtime_status = "CHECKPOINTED" if runtime_receipt.exists() else "PENDING"
+        result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger), "runtime_capture": runtime_status}
         if args.notebook is not None:
             result["notebook"] = project_all_pairs(ledger, args.notebook)
     elif args.command == "status":
