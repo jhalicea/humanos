@@ -7,6 +7,8 @@ from pathlib import Path
 from capture_current_conversation import capture_audit, capture_current, capture_status
 from local_kernel_capture import capture_turn
 
+DEFAULT_LEDGER = Path(__file__).resolve().parent / "var" / "current-conversation.jsonl"
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="humanos")
@@ -24,7 +26,7 @@ def main(argv=None):
         required = (args.conversation_id, args.turn_id, args.human, args.assistant)
         if any(value is None for value in required):
             parser.error("turn requires --conversation-id, --turn-id, --human, and --assistant")
-        result = capture_turn(args.ledger, args.conversation_id, args.turn_id,
+        result = capture_turn(args.ledger or DEFAULT_LEDGER, args.conversation_id, args.turn_id,
                               args.human, args.assistant)
     elif args.command == "status":
         result = capture_status(args.ledger)
