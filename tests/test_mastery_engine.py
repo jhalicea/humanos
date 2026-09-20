@@ -30,7 +30,7 @@ class MasteryEngineTests(unittest.TestCase):
         }
         course_skills = set(self.engine.courses["ai-systems"].skill_ids)
         self.assertTrue(required.issubset(course_skills))
-        self.assertIn("provider", self.engine.skills["cloud.azure_foundry"].name.lower() if hasattr(self.engine.skills["cloud.azure_foundry"], "name") else "")
+        self.assertIn("azure-dependent", self.engine.skills["cloud.azure_foundry"].title.lower())
 
     def test_evidence_updates_mastery(self):
         self.engine.record_evidence(Evidence("e1", "git", "BodyFix project", "resolved a branch problem", {
