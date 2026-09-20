@@ -30,7 +30,7 @@ def project_one_pair(ledger, notebook_root):
         book.close()
 
 
-def project_all_pairs(ledger, notebook_root):
+def project_all_pairs(ledger, notebook_root=None, book=None):
     rows = [row for row in read_ledger(ledger) if row.get("event_type") != "METADATA_CORRECTION"]
     verify_ledger(ledger)
     pairs = []
@@ -50,7 +50,8 @@ def project_all_pairs(ledger, notebook_root):
         pending += 1
     projected = 0
     skipped = 0
-    book = Notebook(Path(notebook_root))
+    owned = book is None
+    book = book or Notebook(Path(notebook_root))
     try:
         for human, assistant in pairs:
             tx = "CAPTURE-" + assistant["source_id"]
@@ -67,4 +68,5 @@ def project_all_pairs(ledger, notebook_root):
         return {"status": "CHECKPOINTED" if not pending else "PENDING",
                 "projected": projected, "skipped": skipped, "pending": pending}
     finally:
-        book.close()
+        if owned:
+            book.close()
