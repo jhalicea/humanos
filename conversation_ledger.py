@@ -17,10 +17,13 @@ def _text(payload):
 
 
 def _messages(source):
+    conversation_id = None
     with Path(source).open(encoding="utf-8") as stream:
         for line in stream:
             record = json.loads(line)
             payload = record.get("payload", {})
+            if record.get("type") == "session_meta":
+                conversation_id = payload.get("session_id") or payload.get("id")
             if record.get("type") != "response_item" or payload.get("role") not in ROLES:
                 continue
             text = _text(payload)
@@ -29,7 +32,7 @@ def _messages(source):
             yield {
                 "source": "codex-rollout",
                 "source_id": payload["id"],
-                "conversation_id": payload.get("thread_id"),
+                "conversation_id": payload.get("thread_id") or conversation_id,
                 "role": ROLES[payload["role"]],
                 "text": text,
                 "timestamp": record.get("timestamp"),
@@ -68,6 +71,26 @@ def import_messages(source, ledger):
             existing[key] = row
             added += 1
     return {"added": added, "total": len(existing)}
+
+
+def repair_conversation_ids(ledger, conversation_id):
+    """One-time repair for rows imported before session metadata was read.
+
+    Message text, source IDs, timestamps, and digests are preserved byte-for-byte
+    as values; only the missing association field is filled.
+    """
+    path = Path(ledger)
+    rows = read_ledger(path)
+    repaired = 0
+    for row in rows:
+        if not row.get("conversation_id"):
+            row["conversation_id"] = conversation_id
+            repaired += 1
+    if repaired:
+        temporary = path.with_suffix(path.suffix + ".repair")
+        temporary.write_text("".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rows), encoding="utf-8")
+        temporary.replace(path)
+    return repaired
 
 
 def read_ledger(ledger):
