@@ -38,7 +38,12 @@ def main(argv=None):
         result = project_all_pairs(args.ledger or DEFAULT_LEDGER, args.notebook)
     elif args.command == "verify":
         ledger = args.ledger or DEFAULT_LEDGER
-        result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger)}
+        if not ledger.exists():
+            result = {"ledger": {"status": "PENDING", "rows": 0},
+                      "capture": capture_status(ledger),
+                      "reason": "local ledger has not been created yet"}
+        else:
+            result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger)}
         if args.notebook is not None:
             result["notebook"] = project_all_pairs(ledger, args.notebook)
     elif args.command == "status":
