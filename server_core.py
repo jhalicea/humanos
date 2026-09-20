@@ -89,14 +89,21 @@ class HumanOSRuntime:
         self.core_path = Path(core_path or config.get('core', BASE / 'core'))
         self.model = model or os.environ.get('HUMANOS_MODEL', config.get('model', 'llama3:latest'))
         self.ollama_url = os.environ.get('HUMANOS_ENDPOINT', config.get('endpoint', 'http://127.0.0.1:11434'))
+        browser_config = config.get('browser')
+        if browser_config is None:
+            from browser_setup import load_local_browser_config
+            browser_config = load_local_browser_config()
+        browser = None
+        browser_search_url = None
+        if browser_config:
+            from browser_bridge import BrowserBroker, bridge_sender
+            b = browser_config
+            browser = BrowserBroker(b['envelope'], b['state'], bridge_sender(b['socket'], b['secret']))
+            browser_search_url = b.get('search_url')
         self.book = Notebook(self.vault_base)
         self.pending = self.book.recover()
-        browser = None
-        if config.get('browser'):
-            from browser_bridge import BrowserBroker, bridge_sender
-            b = config['browser']
-            browser = BrowserBroker(b['envelope'], b['state'], bridge_sender(b['socket'], b['secret']))
-        self.tools = Tools(config.get('workspace', BASE / 'workspace'), browser=browser)
+        self.tools = Tools(config.get('workspace', BASE / 'workspace'), browser=browser,
+                           browser_search_url=browser_search_url)
         self.adapter = OllamaModel(self.model, self.ollama_url)
         self.agent = Agent(self.book, self.adapter, self.tools, self.core_path,
                            max_steps=config.get('max_steps', 6), max_seconds=config.get('max_seconds', 180),
@@ -130,7 +137,7 @@ class HumanOSRuntime:
         return response
 
     def authorize(self, tx, request):
-        if request.get('name') not in ('create_file', 'apply_plan', 'undo_plan', 'browser_navigate', 'browser_click', 'browser_type'):
+        if request.get('name') not in ('create_file', 'apply_plan', 'undo_plan', 'browser_search', 'browser_navigate', 'browser_click', 'browser_type'):
             return True  # Engine applies the persisted read scope first.
         if not sys.stdin.isatty():
             return False
@@ -383,9 +390,34 @@ def main():
     parser.add_argument('--workspace', help='Explicit folder to read and organize (not the whole home directory)')
     parser.add_argument('--context', action='append', default=[], help='Relevant filename in core, e.g. runtime.md')
     parser.add_argument('--status', action='store_true')
+    parser.add_argument('--browser-setup', action='store_true',
+                        help='Create/refresh owner-only local Browser Bridge pairing without opening the Notebook')
+    parser.add_argument('--browser-status', action='store_true',
+                        help='Report Browser Bridge pairing/readiness without opening the Notebook')
+    parser.add_argument('--browser-uninstall', action='store_true',
+                        help='Remove only HumanOS-owned local Browser Bridge pairing artifacts')
+    parser.add_argument('--browser-target', choices=('auto', 'brave', 'chrome', 'chromium'), default='auto')
+    parser.add_argument('--browser-host', action='append', default=[],
+                        help='Additional HTTPS hostname allowed for browser navigation; repeat as needed')
+    parser.add_argument('--browser-search-provider', choices=('duckduckgo', 'google'), default='duckduckgo')
     args = parser.parse_args()
     runtime = None
     try:
+        browser_controls = int(args.browser_setup) + int(args.browser_status) + int(args.browser_uninstall)
+        if browser_controls > 1:
+            raise ValueError('Choose only one of --browser-setup, --browser-status, or --browser-uninstall')
+        if browser_controls:
+            from browser_setup import browser_status, remove_browser_setup, setup_browser
+            if args.browser_setup:
+                report = setup_browser(
+                    BASE, target=args.browser_target, hosts=args.browser_host,
+                    search_provider=args.browser_search_provider)
+            elif args.browser_uninstall:
+                report = remove_browser_setup(BASE)
+            else:
+                report = browser_status(BASE)
+            print(json.dumps(report, indent=2, sort_keys=True))
+            return 0
         config = json.loads(Path(args.config).read_text()) if Path(args.config).exists() else {}
         if config.get('profile') == 'AUTHORIZED_RED_TEAM_SWARM':
             from swarm import serve
