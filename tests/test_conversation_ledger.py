@@ -92,6 +92,8 @@ class ConversationLedgerTests(unittest.TestCase):
             result = capture_current(ledger, source)
             self.assertEqual(result["added"], 0)
             self.assertEqual(result["status"], "CHECKPOINTED")
+            receipts = root / "capture-receipts.jsonl"
+            self.assertEqual(len(receipts.read_text(encoding="utf-8").splitlines()), 2)
 
     def test_verify_ledger_fails_on_digest_change(self):
         with tempfile.TemporaryDirectory() as tmp:
