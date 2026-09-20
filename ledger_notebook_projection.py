@@ -13,7 +13,8 @@ def project_one_pair(ledger, notebook_root):
         raise ValueError("ledger must begin with one HUMAN/ASSISTANT pair")
     human, assistant = rows[0], rows[1]
     tx = "CAPTURE-" + assistant["source_id"]
-    book = Notebook(Path(notebook_root))
+    owned = book is None
+    book = book or Notebook(Path(notebook_root))
     try:
         if book.get_transaction(tx) is not None:
             return {"status": "ALREADY_PROJECTED", "tx": tx}
@@ -27,10 +28,11 @@ def project_one_pair(ledger, notebook_root):
         book.checkpoint(tx)
         return {"status": "CHECKPOINTED", "tx": tx, "page": identity["page"]}
     finally:
-        book.close()
+        if owned:
+            book.close()
 
 
-def project_all_pairs(ledger, notebook_root):
+def project_all_pairs(ledger, notebook_root=None, book=None):
     rows = [row for row in read_ledger(ledger) if row.get("event_type") != "METADATA_CORRECTION"]
     verify_ledger(ledger)
     pairs = []
