@@ -23,11 +23,17 @@ def capture_current(ledger=Path("var/current-conversation.jsonl"), source=None):
     if source is None and not session_id:
         raise RuntimeError("CODEX_SESSION_ID is required for /capture")
     source = source or resolve_source(session_id)
-    result = import_messages(source, ledger)
-    result["verification"] = verify_ledger(ledger)
-    result["status"] = "CHECKPOINTED"
     receipt = ledger.parent / "capture-receipts.jsonl"
     receipt.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        result = import_messages(source, ledger)
+        result["verification"] = verify_ledger(ledger)
+        result["status"] = "CHECKPOINTED"
+    except Exception as error:
+        with receipt.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps({"captured_at": datetime.now(timezone.utc).isoformat(),
+                "source": str(source), "status": "RECOVERY REQUIRED", "reason": str(error)}, sort_keys=True) + "\n")
+        raise
     with receipt.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps({
             "captured_at": datetime.now(timezone.utc).isoformat(),

@@ -106,6 +106,19 @@ class ConversationLedgerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "digest mismatch"):
                 verify_ledger(ledger)
 
+    def test_failed_capture_writes_recovery_receipt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.jsonl"
+            source.write_text(json.dumps({"type": "response_item", "payload": {"id": "u1", "role": "user",
+                "content": [{"type": "input_text", "text": "no metadata"}]}}) + "\n", encoding="utf-8")
+            ledger = root / "ledger.jsonl"
+            with self.assertRaisesRegex(ValueError, "conversation ID"):
+                capture_current(ledger, source)
+            receipt = (root / "capture-receipts.jsonl").read_text(encoding="utf-8")
+            self.assertIn("RECOVERY REQUIRED", receipt)
+            self.assertFalse(ledger.exists())
+
     def test_invalid_batch_does_not_append_partial_rows(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
