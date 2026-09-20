@@ -42,3 +42,24 @@ class LedgerNotebookProjectionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_round_trip_reopens_with_exact_transcript(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ledger = root / "ledger.jsonl"
+            rows = []
+            for source_id, role, text in (("u1", "HUMAN", "exact human"), ("a1", "ASSISTANT", "exact assistant")):
+                rows.append({"source": "codex-rollout", "source_id": source_id, "conversation_id": "c1",
+                             "role": role, "text": text,
+                             "content_digest": hashlib.sha256(text.encode()).hexdigest()})
+            ledger.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+            notebook = root / "notebook"
+            result = project_one_pair(ledger, notebook)
+            from notebook import Notebook
+            book = Notebook(notebook)
+            try:
+                self.assertEqual(book.message_count(result["tx"]), 2)
+                transcript = book.db.execute("SELECT role, text FROM transcript WHERE tx=? ORDER BY ordinal", (result["tx"],)).fetchall()
+                self.assertEqual([(row["role"], row["text"]) for row in transcript], [("HUMAN", "exact human"), ("ASSISTANT", "exact assistant")])
+            finally:
+                book.close()
