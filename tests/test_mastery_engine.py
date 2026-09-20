@@ -17,6 +17,21 @@ class MasteryEngineTests(unittest.TestCase):
         self.assertIn("git", self.engine.courses["cybersecurity-dfir"].skill_ids)
         self.assertIn("git", self.engine.courses["ai-systems"].skill_ids)
 
+    def test_enterprise_ai_competency_cluster_is_preserved(self):
+        required = {
+            "ai.rag",
+            "ai.observability",
+            "ai.platform_architecture",
+            "ai.governance",
+            "ai.cost_performance",
+            "architecture.documentation",
+            "deployment.portability",
+            "cloud.azure_foundry",
+        }
+        course_skills = set(self.engine.courses["ai-systems"].skill_ids)
+        self.assertTrue(required.issubset(course_skills))
+        self.assertIn("provider", self.engine.skills["cloud.azure_foundry"].name.lower() if hasattr(self.engine.skills["cloud.azure_foundry"], "name") else "")
+
     def test_evidence_updates_mastery(self):
         self.engine.record_evidence(Evidence("e1", "git", "BodyFix project", "resolved a branch problem", {
             "knowledge": 3, "practical": 4, "diagnostic": 3, "communication": 2
