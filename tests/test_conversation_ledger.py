@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from capture_current_conversation import resolve_source
+from capture_current_conversation import capture_current, resolve_source
 from conversation_ledger import append_conversation_id_correction, import_messages, read_ledger
 
 
@@ -76,6 +76,17 @@ class ConversationLedgerTests(unittest.TestCase):
             rollout.parent.mkdir(parents=True)
             rollout.write_text("", encoding="utf-8")
             self.assertEqual(resolve_source("thread-9", root), rollout)
+
+    def test_capture_current_uses_explicit_source_and_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.jsonl"
+            source.write_text(json.dumps({"type": "session_meta", "payload": {"session_id": "thread-9"}}) + "\n" +
+                              json.dumps({"type": "response_item", "payload": {"id": "u1", "role": "user",
+                              "content": [{"type": "input_text", "text": "capture"}]}}) + "\n", encoding="utf-8")
+            ledger = root / "ledger.jsonl"
+            self.assertEqual(capture_current(ledger, source), {"added": 1, "total": 1})
+            self.assertEqual(capture_current(ledger, source), {"added": 0, "total": 1})
 
 
 if __name__ == "__main__":
