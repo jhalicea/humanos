@@ -10,6 +10,7 @@ import server_core as _core
 from context_runtime import RuntimeContextRouter
 from permissions import task_scope
 from runtime_info import host_runtime_request
+from runtime_ledger_bridge import record_completed_transaction
 
 BASE = _core.BASE
 PASTE_COMMAND = _core.PASTE_COMMAND
@@ -82,6 +83,7 @@ class _ContextAwareAgent:
         book.event(tx, 'HOST_FINAL_CAPTURED', {
             'kind': 'CONTEXT_ROUTER', 'final_digest': book.content_digest(response)})
         book.checkpoint(tx)
+        record_completed_transaction(book, tx, hcid, text, response)
         return response
 
     def run(self, tx, hcid=None, user_input=None, context=(), reference_binding=None, work_binding=None):

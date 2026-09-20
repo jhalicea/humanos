@@ -22,6 +22,7 @@ def main(argv=None):
     parser.add_argument("--human")
     parser.add_argument("--assistant")
     parser.add_argument("--notebook", type=Path)
+    parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "capture":
         result = capture_current(args.ledger, args.source)
@@ -37,14 +38,28 @@ def main(argv=None):
         result = project_all_pairs(args.ledger or DEFAULT_LEDGER, args.notebook)
     elif args.command == "verify":
         ledger = args.ledger or DEFAULT_LEDGER
-        result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger)}
+        if not ledger.exists():
+            result = {"ledger": {"status": "PENDING", "rows": 0},
+                      "capture": capture_status(ledger),
+                      "reason": "local ledger has not been created yet"}
+        else:
+            result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger)}
         if args.notebook is not None:
             result["notebook"] = project_all_pairs(ledger, args.notebook)
     elif args.command == "status":
         result = capture_status(args.ledger)
     else:
         result = capture_audit(args.ledger)
-    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    if args.pretty and args.command == "verify":
+        print("HumanOS verification")
+        print("  Ledger:  " + result["ledger"]["status"] + f" ({result['ledger'].get('rows', 0)} rows)")
+        print("  Capture: " + result["capture"]["status"])
+        if "notebook" in result:
+            notebook = result["notebook"]
+            print("  Notebook: " + notebook["status"] +
+                  f" (projected={notebook.get('projected', 0)}, skipped={notebook.get('skipped', 0)})")
+    else:
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
 
 
 if __name__ == "__main__":
