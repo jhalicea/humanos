@@ -12,3 +12,7 @@ evidence/
 config/context_registry.private.json
 context_registry.private.json
 *.context-registry.private.json
+
+# Local conversation evidence stays outside Git.
+var/*.jsonl
+var/*.repair
