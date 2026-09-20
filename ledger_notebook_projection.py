@@ -28,8 +28,7 @@ def project_one_pair(ledger, notebook_root):
         book.checkpoint(tx)
         return {"status": "CHECKPOINTED", "tx": tx, "page": identity["page"]}
     finally:
-        if owned:
-            book.close()
+        book.close()
 
 
 def project_all_pairs(ledger, notebook_root=None, book=None):
@@ -52,7 +51,8 @@ def project_all_pairs(ledger, notebook_root=None, book=None):
         pending += 1
     projected = 0
     skipped = 0
-    book = Notebook(Path(notebook_root))
+    owned = book is None
+    book = book or Notebook(Path(notebook_root))
     try:
         for human, assistant in pairs:
             tx = "CAPTURE-" + assistant["source_id"]
@@ -69,4 +69,5 @@ def project_all_pairs(ledger, notebook_root=None, book=None):
         return {"status": "CHECKPOINTED" if not pending else "PENDING",
                 "projected": projected, "skipped": skipped, "pending": pending}
     finally:
-        book.close()
+        if owned:
+            book.close()
