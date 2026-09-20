@@ -56,6 +56,8 @@ def import_messages(source, ledger):
     added = 0
     with path.open("a", encoding="utf-8") as stream:
         for row in _messages(source):
+            if "content_digest" not in row:
+                row["content_digest"] = hashlib.sha256(row["text"].encode("utf-8")).hexdigest()
             key = (row["source"], row["source_id"])
             if key in existing:
                 if existing[key] != row:
