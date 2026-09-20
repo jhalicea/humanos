@@ -66,14 +66,26 @@ def capture_status(ledger=None):
             "conversation_id": receipt.get("conversation_id")}
 
 
+def capture_audit(ledger=None):
+    ledger = Path(ledger or DEFAULT_LEDGER)
+    receipt_path = ledger.parent / "capture-receipts.jsonl"
+    if not receipt_path.exists():
+        return {"status": "PENDING", "receipts": 0, "reason": "no capture receipt"}
+    receipts = [json.loads(line) for line in receipt_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    status = capture_status(ledger)
+    return {"status": status["status"], "rows": status.get("rows", 0),
+            "receipts": len(receipts), "last": receipts[-1]}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Capture the current Codex conversation into the local ledger")
     parser.add_argument("--source", type=Path, help="explicit observed rollout JSONL")
     parser.add_argument("--ledger", type=Path, default=None)
     parser.add_argument("--status", action="store_true")
+    parser.add_argument("--audit", action="store_true")
     args = parser.parse_args()
     try:
-        print(capture_status(args.ledger) if args.status else capture_current(args.ledger, args.source))
+        print(capture_audit(args.ledger) if args.audit else (capture_status(args.ledger) if args.status else capture_current(args.ledger, args.source)))
     except (FileNotFoundError, RuntimeError) as error:
         parser.error(str(error))
 
