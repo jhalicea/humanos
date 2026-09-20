@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from capture_current_conversation import capture_current, capture_status, resolve_source
+from capture_current_conversation import DEFAULT_LEDGER, capture_current, capture_status, resolve_source
 from conversation_ledger import append_conversation_id_correction, import_messages, read_ledger, verify_ledger
 
 
@@ -77,6 +77,9 @@ class ConversationLedgerTests(unittest.TestCase):
             rollout.parent.mkdir(parents=True)
             rollout.write_text("", encoding="utf-8")
             self.assertEqual(resolve_source("thread-9", root), rollout)
+
+    def test_default_ledger_is_runtime_owned(self):
+        self.assertTrue(str(DEFAULT_LEDGER).endswith("/var/current-conversation.jsonl"))
 
     def test_capture_current_uses_explicit_source_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as tmp:
