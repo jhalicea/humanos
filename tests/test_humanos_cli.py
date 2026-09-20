@@ -35,3 +35,13 @@ def test_project_command_is_idempotent(tmp_path, capsys):
     second = json.loads(capsys.readouterr().out)
     assert first["projected"] == 1
     assert second["skipped"] == 1
+
+
+def test_verify_command_reports_ledger_and_capture(tmp_path, capsys):
+    ledger = tmp_path / "ledger.jsonl"
+    main(["turn", "--ledger", str(ledger), "--conversation-id", "c",
+          "--turn-id", "t", "--human", "hello", "--assistant", "hi"])
+    capsys.readouterr()
+    main(["verify", "--ledger", str(ledger)])
+    result = json.loads(capsys.readouterr().out)
+    assert result["ledger"]["status"] == "CHECKPOINTED"
