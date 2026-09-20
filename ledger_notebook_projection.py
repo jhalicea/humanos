@@ -13,8 +13,7 @@ def project_one_pair(ledger, notebook_root):
         raise ValueError("ledger must begin with one HUMAN/ASSISTANT pair")
     human, assistant = rows[0], rows[1]
     tx = "CAPTURE-" + assistant["source_id"]
-    owned = book is None
-    book = book or Notebook(Path(notebook_root))
+    book = Notebook(Path(notebook_root))
     try:
         if book.get_transaction(tx) is not None:
             return {"status": "ALREADY_PROJECTED", "tx": tx}
