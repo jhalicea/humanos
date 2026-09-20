@@ -47,6 +47,27 @@ class ConversationLedgerTests(unittest.TestCase):
             self.assertTrue(ledger.read_bytes().startswith(before))
             self.assertEqual(read_ledger(ledger)[0], original)
 
+    def test_incremental_import_appends_only_new_observed_turn(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.jsonl"
+            meta = {"type": "session_meta", "payload": {"session_id": "thread-9"}}
+            first = {"type": "response_item", "payload": {"id": "u1", "role": "user",
+                    "content": [{"type": "input_text", "text": "first"}]}}
+            second = {"type": "response_item", "payload": {"id": "a1", "role": "assistant",
+                    "content": [{"type": "output_text", "text": "second"}]}}
+            source.write_text("\n".join(json.dumps(row) for row in (meta, first, second)) + "\n", encoding="utf-8")
+            ledger = root / "ledger.jsonl"
+            self.assertEqual(import_messages(source, ledger), {"added": 2, "total": 2})
+            before = ledger.read_bytes()
+            third = {"type": "response_item", "payload": {"id": "u2", "role": "user",
+                    "content": [{"type": "input_text", "text": "new turn"}]}}
+            with source.open("a", encoding="utf-8") as stream:
+                stream.write(json.dumps(third) + "\n")
+            self.assertEqual(import_messages(source, ledger), {"added": 1, "total": 3})
+            self.assertTrue(ledger.read_bytes().startswith(before))
+            self.assertEqual(import_messages(source, ledger), {"added": 0, "total": 3})
+
 
 if __name__ == "__main__":
     unittest.main()
