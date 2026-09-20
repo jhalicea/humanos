@@ -12,7 +12,7 @@ from permissions import task_scope
 from references import bind_choice, resolve_reference
 from terminal_ui import choose_reference
 from work_mode import WorkBoard, WorkContextModel, parse_work_command
-from capture_current_conversation import capture_current
+from capture_current_conversation import capture_current, capture_status
 
 BASE = Path(__file__).resolve().parent
 PASTE_COMMAND = ':paste'
@@ -258,6 +258,11 @@ class HumanOSRuntime:
                 if text == '/capture':
                     result = capture_current()
                     print('Conversation capture: ' + json.dumps(result, sort_keys=True), file=sys.stderr)
+                    if args.message is not None:
+                        return
+                    continue
+                if text == '/capture-status':
+                    print('Conversation capture status: ' + json.dumps(capture_status(), sort_keys=True), file=sys.stderr)
                     if args.message is not None:
                         return
                     continue

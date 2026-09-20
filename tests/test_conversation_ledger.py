@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from capture_current_conversation import capture_current, resolve_source
+from capture_current_conversation import capture_current, capture_status, resolve_source
 from conversation_ledger import append_conversation_id_correction, import_messages, read_ledger, verify_ledger
 
 
@@ -94,6 +94,9 @@ class ConversationLedgerTests(unittest.TestCase):
             self.assertEqual(result["status"], "CHECKPOINTED")
             receipts = root / "capture-receipts.jsonl"
             self.assertEqual(len(receipts.read_text(encoding="utf-8").splitlines()), 2)
+            self.assertEqual(capture_status(ledger)["status"], "CHECKPOINTED")
+            ledger.write_text(ledger.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+            self.assertEqual(capture_status(ledger)["status"], "RECOVERY REQUIRED")
 
     def test_verify_ledger_fails_on_digest_change(self):
         with tempfile.TemporaryDirectory() as tmp:

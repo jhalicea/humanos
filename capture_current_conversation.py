@@ -40,13 +40,29 @@ def capture_current(ledger=Path("var/current-conversation.jsonl"), source=None):
     return result
 
 
+def capture_status(ledger=Path("var/current-conversation.jsonl")):
+    receipt_path = ledger.parent / "capture-receipts.jsonl"
+    if not receipt_path.exists() or not ledger.exists():
+        return {"status": "PENDING", "reason": "no capture receipt or ledger"}
+    lines = [line for line in receipt_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not lines:
+        return {"status": "PENDING", "reason": "no capture receipt"}
+    receipt = json.loads(lines[-1])
+    digest = hashlib.sha256(ledger.read_bytes()).hexdigest()
+    if digest != receipt.get("ledger_digest"):
+        return {"status": "RECOVERY REQUIRED", "reason": "ledger digest differs from latest receipt"}
+    return {"status": receipt.get("status", "PENDING"), "rows": receipt.get("total", 0),
+            "conversation_id": receipt.get("conversation_id")}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Capture the current Codex conversation into the local ledger")
     parser.add_argument("--source", type=Path, help="explicit observed rollout JSONL")
     parser.add_argument("--ledger", type=Path, default=Path("var/current-conversation.jsonl"))
+    parser.add_argument("--status", action="store_true")
     args = parser.parse_args()
     try:
-        print(capture_current(args.ledger, args.source))
+        print(capture_status(args.ledger) if args.status else capture_current(args.ledger, args.source))
     except (FileNotFoundError, RuntimeError) as error:
         parser.error(str(error))
 
