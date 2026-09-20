@@ -81,6 +81,34 @@ def import_messages(source, ledger):
     return {"added": added, "total": len(existing)}
 
 
+def append_observed_turn(ledger, source, conversation_id, turn_id, human_text, assistant_text,
+                         human_source_id=None, assistant_source_id=None):
+    """Append one already-observed provider turn as two ledger evidence rows."""
+    values = ((human_source_id or turn_id + ":HUMAN", "HUMAN", human_text),
+              (assistant_source_id or turn_id + ":ASSISTANT", "ASSISTANT", assistant_text))
+    for source_id, role, text in values:
+        if not isinstance(source_id, str) or not source_id or not isinstance(text, str) or not text:
+            raise ValueError("observed turn fields must be nonempty")
+    path = Path(ledger)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = {(row["source"], row["source_id"]): row for row in read_ledger(path)} if path.exists() else {}
+    pending = []
+    for source_id, role, text in values:
+        row = {"source": source, "source_id": source_id, "conversation_id": conversation_id,
+               "role": role, "text": text, "timestamp": None,
+               "content_digest": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+        key = (source, source_id)
+        if key in existing:
+            if existing[key] != row:
+                raise ValueError("observed source message changed: " + source_id)
+            continue
+        pending.append(row)
+    with path.open("a", encoding="utf-8") as stream:
+        for row in pending:
+            stream.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+    return {"added": len(pending), "total": len(existing) + len(pending)}
+
+
 def append_conversation_id_correction(ledger, source_id, conversation_id):
     """Append a metadata correction without mutating an earlier evidence row."""
     path = Path(ledger)
