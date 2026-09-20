@@ -33,15 +33,26 @@ def project_one_pair(ledger, notebook_root):
 def project_all_pairs(ledger, notebook_root):
     rows = [row for row in read_ledger(ledger) if row.get("event_type") != "METADATA_CORRECTION"]
     verify_ledger(ledger)
-    pending = len(rows) % 2
+    pairs = []
+    pending = 0
+    human = None
+    for row in rows:
+        if row["role"] == "HUMAN":
+            if human is not None:
+                pending += 1
+            human = row
+        elif row["role"] == "ASSISTANT" and human is not None:
+            pairs.append((human, row))
+            human = None
+        else:
+            raise ValueError("ledger contains an assistant without a preceding human")
+    if human is not None:
+        pending += 1
     projected = 0
     skipped = 0
     book = Notebook(Path(notebook_root))
     try:
-        for index in range(0, len(rows), 2):
-            human, assistant = rows[index:index + 2]
-            if human["role"] != "HUMAN" or assistant["role"] != "ASSISTANT":
-                raise ValueError("ledger pair has invalid role order at row " + str(index))
+        for human, assistant in pairs:
             tx = "CAPTURE-" + assistant["source_id"]
             if book.get_transaction(tx) is not None:
                 skipped += 1
