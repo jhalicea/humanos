@@ -12,6 +12,7 @@ class MasteryEngineTests(unittest.TestCase):
         self.assertIn("ai-systems", self.engine.courses)
         self.assertEqual(self.engine.courses["cybersecurity-dfir"].career_readiness_percent, 47.0)
         self.assertEqual(self.engine.skills["ai.transformers"].stage, "introduced")
+        self.assertEqual(self.engine.skills["ir"].stage, "practiced")
 
     def test_overlap_is_supported(self):
         self.assertIn("git", self.engine.courses["cybersecurity-dfir"].skill_ids)
