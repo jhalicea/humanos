@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ledger_notebook_projection import project_one_pair
+from ledger_notebook_projection import project_all_pairs, project_one_pair
 
 
 class LedgerNotebookProjectionTests(unittest.TestCase):
@@ -23,6 +23,21 @@ class LedgerNotebookProjectionTests(unittest.TestCase):
             second = project_one_pair(ledger, notebook)
             self.assertEqual(first["status"], "CHECKPOINTED")
             self.assertEqual(second["status"], "ALREADY_PROJECTED")
+
+    def test_projects_all_pairs_and_skips_them_on_rerun(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ledger = root / "ledger.jsonl"
+            rows = []
+            for i, (role, text) in enumerate((("HUMAN", "one"), ("ASSISTANT", "uno"),
+                                               ("HUMAN", "two"), ("ASSISTANT", "dos"))):
+                rows.append({"source": "codex-rollout", "source_id": role[0].lower() + str(i),
+                             "conversation_id": "c1", "role": role, "text": text,
+                             "content_digest": hashlib.sha256(text.encode()).hexdigest()})
+            ledger.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+            notebook = root / "notebook"
+            self.assertEqual(project_all_pairs(ledger, notebook), {"status": "CHECKPOINTED", "projected": 2, "skipped": 0})
+            self.assertEqual(project_all_pairs(ledger, notebook), {"status": "CHECKPOINTED", "projected": 0, "skipped": 2})
 
 
 if __name__ == "__main__":
