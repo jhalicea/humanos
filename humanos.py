@@ -7,13 +7,14 @@ from pathlib import Path
 from capture_current_conversation import capture_audit, capture_current, capture_status
 from local_kernel_capture import capture_turn
 from ledger_notebook_projection import project_all_pairs
+from conversation_ledger import verify_ledger
 
 DEFAULT_LEDGER = Path(__file__).resolve().parent / "var" / "current-conversation.jsonl"
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="humanos")
-    parser.add_argument("command", choices=("capture", "turn", "project", "status", "audit"))
+    parser.add_argument("command", choices=("capture", "turn", "project", "verify", "status", "audit"))
     parser.add_argument("--ledger", type=Path)
     parser.add_argument("--source", type=Path)
     parser.add_argument("--conversation-id")
@@ -34,6 +35,11 @@ def main(argv=None):
         if args.notebook is None:
             parser.error("project requires --notebook")
         result = project_all_pairs(args.ledger or DEFAULT_LEDGER, args.notebook)
+    elif args.command == "verify":
+        ledger = args.ledger or DEFAULT_LEDGER
+        result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger)}
+        if args.notebook is not None:
+            result["notebook"] = project_all_pairs(ledger, args.notebook)
     elif args.command == "status":
         result = capture_status(args.ledger)
     else:
