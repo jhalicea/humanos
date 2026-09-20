@@ -1,6 +1,7 @@
 """Append-only import of already-observed conversation messages."""
 
 import hashlib
+import argparse
 import json
 from pathlib import Path
 
@@ -88,3 +89,15 @@ def read_ledger(ledger):
     path = Path(ledger)
     with path.open(encoding="utf-8") as stream:
         return [json.loads(line) for line in stream]
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Import newly observed Codex turns into a local JSONL ledger")
+    parser.add_argument("source", type=Path)
+    parser.add_argument("ledger", type=Path)
+    args = parser.parse_args()
+    print(json.dumps(import_messages(args.source, args.ledger), sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
