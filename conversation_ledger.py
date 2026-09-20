@@ -73,24 +73,15 @@ def import_messages(source, ledger):
     return {"added": added, "total": len(existing)}
 
 
-def repair_conversation_ids(ledger, conversation_id):
-    """One-time repair for rows imported before session metadata was read.
-
-    Message text, source IDs, timestamps, and digests are preserved byte-for-byte
-    as values; only the missing association field is filled.
-    """
+def append_conversation_id_correction(ledger, source_id, conversation_id):
+    """Append a metadata correction without mutating an earlier evidence row."""
     path = Path(ledger)
-    rows = read_ledger(path)
-    repaired = 0
-    for row in rows:
-        if not row.get("conversation_id"):
-            row["conversation_id"] = conversation_id
-            repaired += 1
-    if repaired:
-        temporary = path.with_suffix(path.suffix + ".repair")
-        temporary.write_text("".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rows), encoding="utf-8")
-        temporary.replace(path)
-    return repaired
+    correction = {"source": "codex-rollout", "source_id": source_id,
+                  "event_type": "METADATA_CORRECTION",
+                  "field": "conversation_id", "value": conversation_id}
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(correction, ensure_ascii=False, sort_keys=True) + "\n")
+    return correction
 
 
 def read_ledger(ledger):
