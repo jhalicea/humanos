@@ -33,8 +33,7 @@ def project_one_pair(ledger, notebook_root):
 def project_all_pairs(ledger, notebook_root):
     rows = [row for row in read_ledger(ledger) if row.get("event_type") != "METADATA_CORRECTION"]
     verify_ledger(ledger)
-    if len(rows) % 2:
-        raise ValueError("ledger ends with an incomplete HUMAN/ASSISTANT pair")
+    pending = len(rows) % 2
     projected = 0
     skipped = 0
     book = Notebook(Path(notebook_root))
@@ -54,6 +53,7 @@ def project_all_pairs(ledger, notebook_root):
                                 "final_ordinal": 1, "model": "codex-rollout"})
             book.checkpoint(tx)
             projected += 1
-        return {"status": "CHECKPOINTED", "projected": projected, "skipped": skipped}
+        return {"status": "CHECKPOINTED" if not pending else "PENDING",
+                "projected": projected, "skipped": skipped, "pending": pending}
     finally:
         book.close()
