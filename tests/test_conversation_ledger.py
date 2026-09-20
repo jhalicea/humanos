@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from capture_current_conversation import resolve_source
 from conversation_ledger import append_conversation_id_correction, import_messages, read_ledger
 
 
@@ -67,6 +68,14 @@ class ConversationLedgerTests(unittest.TestCase):
             self.assertEqual(import_messages(source, ledger), {"added": 1, "total": 3})
             self.assertTrue(ledger.read_bytes().startswith(before))
             self.assertEqual(import_messages(source, ledger), {"added": 0, "total": 3})
+
+    def test_current_capture_resolves_session_rollout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rollout = root / "2026" / "09" / "19" / "rollout-2026-09-19-thread-9.jsonl"
+            rollout.parent.mkdir(parents=True)
+            rollout.write_text("", encoding="utf-8")
+            self.assertEqual(resolve_source("thread-9", root), rollout)
 
 
 if __name__ == "__main__":
