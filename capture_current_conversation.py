@@ -4,7 +4,7 @@ import argparse
 import os
 from pathlib import Path
 
-from conversation_ledger import import_messages
+from conversation_ledger import import_messages, verify_ledger
 
 
 def resolve_source(session_id, sessions_root=None):
@@ -19,7 +19,10 @@ def capture_current(ledger=Path("var/current-conversation.jsonl"), source=None):
     session_id = os.environ.get("CODEX_SESSION_ID")
     if source is None and not session_id:
         raise RuntimeError("CODEX_SESSION_ID is required for /capture")
-    return import_messages(source or resolve_source(session_id), ledger)
+    result = import_messages(source or resolve_source(session_id), ledger)
+    result["verification"] = verify_ledger(ledger)
+    result["status"] = "CHECKPOINTED"
+    return result
 
 
 def main():

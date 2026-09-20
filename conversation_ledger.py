@@ -91,6 +91,25 @@ def read_ledger(ledger):
         return [json.loads(line) for line in stream]
 
 
+def verify_ledger(ledger):
+    """Read back evidence and fail closed on malformed or unverifiable rows."""
+    rows = read_ledger(ledger)
+    evidence = [row for row in rows if row.get("event_type") != "METADATA_CORRECTION"]
+    seen = set()
+    for row in evidence:
+        key = (row.get("source"), row.get("source_id"))
+        if not all(isinstance(value, str) and value for value in key):
+            raise ValueError("ledger row has no source identity")
+        if key in seen:
+            raise ValueError("duplicate ledger identity: " + row["source_id"])
+        seen.add(key)
+        if row.get("role") not in ("HUMAN", "ASSISTANT") or not row.get("conversation_id"):
+            raise ValueError("ledger row has incomplete conversation metadata: " + row["source_id"])
+        if hashlib.sha256(row["text"].encode("utf-8")).hexdigest() != row.get("content_digest"):
+            raise ValueError("ledger digest mismatch: " + row["source_id"])
+    return {"rows": len(evidence), "status": "CHECKPOINTED"}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Import newly observed Codex turns into a local JSONL ledger")
     parser.add_argument("source", type=Path)
