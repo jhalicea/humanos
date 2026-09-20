@@ -109,6 +109,31 @@ def append_observed_turn(ledger, source, conversation_id, turn_id, human_text, a
     return {"added": len(pending), "total": len(existing) + len(pending)}
 
 
+def append_observed_message(ledger, source, conversation_id, turn_id, role, text,
+                            source_id=None, timestamp=None):
+    """Append one exact message delivered by the local browser observer."""
+    if role not in ("HUMAN", "ASSISTANT") or not isinstance(text, str) or not text:
+        raise ValueError("observed message role/text is invalid")
+    if not isinstance(conversation_id, str) or not conversation_id:
+        raise ValueError("observed message has no conversation ID")
+    source_id = source_id or f"{turn_id}:{role}"
+    row = {"source": source, "source_id": source_id,
+           "conversation_id": conversation_id, "role": role, "text": text,
+           "timestamp": timestamp,
+           "content_digest": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+    path = Path(ledger)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = {(item["source"], item["source_id"]): item for item in read_ledger(path)} if path.exists() else {}
+    key = (source, source_id)
+    if key in existing:
+        if existing[key] != row:
+            raise ValueError("observed source message changed: " + source_id)
+        return {"added": 0, "row": existing[key]}
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+    return {"added": 1, "row": row}
+
+
 def append_conversation_id_correction(ledger, source_id, conversation_id):
     """Append a metadata correction without mutating an earlier evidence row."""
     path = Path(ledger)
