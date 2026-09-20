@@ -15,16 +15,22 @@ def resolve_source(session_id, sessions_root=None):
     return matches[-1]
 
 
+def capture_current(ledger=Path("var/current-conversation.jsonl"), source=None):
+    session_id = os.environ.get("CODEX_SESSION_ID")
+    if source is None and not session_id:
+        raise RuntimeError("CODEX_SESSION_ID is required for /capture")
+    return import_messages(source or resolve_source(session_id), ledger)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Capture the current Codex conversation into the local ledger")
     parser.add_argument("--source", type=Path, help="explicit observed rollout JSONL")
     parser.add_argument("--ledger", type=Path, default=Path("var/current-conversation.jsonl"))
     args = parser.parse_args()
-    session_id = os.environ.get("CODEX_SESSION_ID")
-    if args.source is None and not session_id:
-        parser.error("CODEX_SESSION_ID is required when --source is omitted")
-    source = args.source or resolve_source(session_id)
-    print(import_messages(source, args.ledger))
+    try:
+        print(capture_current(args.ledger, args.source))
+    except (FileNotFoundError, RuntimeError) as error:
+        parser.error(str(error))
 
 
 if __name__ == "__main__":
