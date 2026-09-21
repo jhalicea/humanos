@@ -8,15 +8,18 @@ from capture_current_conversation import capture_audit, capture_current, capture
 from local_kernel_capture import capture_turn
 from ledger_notebook_projection import project_all_pairs
 from conversation_ledger import verify_ledger
+from notebook import Notebook
+from host_turn_capture import capture_host_turn
 
 DEFAULT_LEDGER = Path(__file__).resolve().parent / "var" / "current-conversation.jsonl"
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="humanos")
-    parser.add_argument("command", choices=("capture", "turn", "project", "verify", "status", "audit"))
+    parser.add_argument("command", choices=("capture", "turn", "host-turn", "project", "verify", "status", "audit"))
     parser.add_argument("--ledger", type=Path)
     parser.add_argument("--source", type=Path)
+    parser.add_argument("--host", default="chatgpt")
     parser.add_argument("--conversation-id")
     parser.add_argument("--turn-id")
     parser.add_argument("--human")
@@ -32,6 +35,18 @@ def main(argv=None):
             parser.error("turn requires --conversation-id, --turn-id, --human, and --assistant")
         result = capture_turn(args.ledger or DEFAULT_LEDGER, args.conversation_id, args.turn_id,
                               args.human, args.assistant)
+    elif args.command == "host-turn":
+        required = (args.notebook, args.conversation_id, args.turn_id, args.human, args.assistant)
+        if any(value is None for value in required):
+            parser.error("host-turn requires --notebook, --conversation-id, --turn-id, --human, and --assistant")
+        book = Notebook(args.notebook)
+        try:
+            binding = book.bind("owner", "host-turn")
+            result = capture_host_turn(book, args.ledger or DEFAULT_LEDGER, binding["hcid"],
+                                       args.host, args.conversation_id, args.turn_id,
+                                       args.human, args.assistant)
+        finally:
+            book.close()
     elif args.command == "project":
         if args.notebook is None:
             parser.error("project requires --notebook")
