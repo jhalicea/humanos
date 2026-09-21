@@ -40,9 +40,6 @@ class LedgerNotebookProjectionTests(unittest.TestCase):
             self.assertEqual(project_all_pairs(ledger, notebook), {"status": "CHECKPOINTED", "projected": 0, "skipped": 2, "pending": 0})
 
 
-if __name__ == "__main__":
-    unittest.main()
-
     def test_round_trip_reopens_with_exact_transcript(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -59,7 +56,17 @@ if __name__ == "__main__":
             book = Notebook(notebook)
             try:
                 self.assertEqual(book.message_count(result["tx"]), 2)
-                transcript = book.db.execute("SELECT role, text FROM transcript WHERE tx=? ORDER BY ordinal", (result["tx"],)).fetchall()
-                self.assertEqual([(row["role"], row["text"]) for row in transcript], [("HUMAN", "exact human"), ("ASSISTANT", "exact assistant")])
+                transcript = book.db.execute(
+                    "SELECT role, text FROM transcript WHERE tx=? ORDER BY ordinal",
+                    (result["tx"],),
+                ).fetchall()
+                self.assertEqual(
+                    [(row["role"], row["text"]) for row in transcript],
+                    [("HUMAN", "exact human"), ("ASSISTANT", "exact assistant")],
+                )
             finally:
                 book.close()
+
+
+if __name__ == "__main__":
+    unittest.main()
