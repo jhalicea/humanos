@@ -1,0 +1,320 @@
+**MODEL SELF-REPORT:** Grok 4.5 (xAI)
+
+**PROVIDER SELF-REPORT:** xAI
+
+**RUNTIME-ATTESTED IDENTITY:** UNKNOWN unless externally supplied
+
+**WEB ACCESS USED:** NO
+
+**OTHER HUMANOS MATERIAL SEEN:** NO
+
+**REPOSITORY INSPECTED:** NO
+
+**CODE EXECUTED:** NO
+
+**CONTAMINATION RISK:** NONE — Review based solely on the packet instructions and the appended ratified Constitution v0.2 text. No architecture notes, other FRIEND answers, later reconstructions, preferred technology choices, external searches, prior HumanOS materials, repositories, or executed code were accessed or assumed.
+
+---
+
+### FINDINGS FROM THE TWELVE TRIALS
+
+**TRIAL 1 — THE SOVEREIGNTY PARADOX**
+
+**Finding 1.1**  
+Label: CONSTITUTIONAL_DEFECT  
+Affected text: Article I Section 1 (“All rightful authority within HumanOS originates in the human owner”), Section 3 (Final Control), Section 4 (Current Consent), First Guarantee (Sovereignty and Agency), Tenth Guarantee (preference for dignity/agency/privacy/safety/truth/future freedom “unless the owner knowingly and explicitly decides otherwise within constitutional authority”).  
+Scenario: Owner under blackmail or coercion issues explicit order to disable all protections or transfer control; owner intoxicated/manic/impaired issues irreversible destructive orders; compromised credentials used by attacker controlling the device; cognitive decline where owner repeatedly orders harmful actions; owner explicitly orders conduct that seriously harms a third party.  
+Failure mechanism or reason it survives: Absolute origin of authority in “the human owner” plus “current consent governs present voluntary action” and Final Control power provide no textual boundary for incapacity, coercion, or third-party harm. “Knowingly and explicitly” is undefined; silence/habit cannot manufacture consent, but affirmative impaired consent is treated as binding. No concept of authenticated competent present consent or constitutional incapacity exists.  
+Severity: CRITICAL  
+Confidence: 95%  
+Minimal remedy: Add a narrow incapacity/coercion boundary that suspends Final Control for irreversible actions until verified competent consent or Court review, while preserving owner appeal supremacy.  
+Requires constitutional amendment? YES  
+
+**Finding 1.2**  
+Label: AMBIGUITY  
+Affected text: Article I Section 4; Tenth Guarantee.  
+Scenario: Owner under severe impairment issues order; system must decide whether to treat it as current consent.  
+Failure mechanism: Text distinguishes manufactured consent from silence/habit but is silent on affirmative but impaired consent. Introducing “competent present consent” risks paternalism; omitting it leaves sovereignty absolute even when the owner cannot meaningfully exercise it.  
+Severity: HIGH  
+Confidence: 90%  
+Minimal remedy: Define “current consent” as requiring authenticated, uncoerced, competent present expression for irreversible or high-risk actions; route ambiguity to Court with owner override preserved.  
+Requires constitutional amendment? YES  
+
+**TRIAL 2 — CONSENT COLLAPSE**
+
+**Finding 2.1**  
+Label: AMBIGUITY / MISSING_DUTY  
+Affected text: Article I Section 4 (“Current consent governs present voluntary action. The withdrawal or narrowing of consent shall stop the affected action as soon as technically possible. Silence, inattention, fatigue, enthusiasm, habit, or failure to object shall not be manufactured into consent.”); Second Guarantee.  
+Scenario: Broad one-time consent for recurring process; consent given years earlier for evolving capabilities; fatigued or uninformed enthusiastic consent; revocation mid-flight of long-running agent; conflicting consent across devices/time; inferred consent from behavior; delegated consent.  
+Failure mechanism: Text blocks manufactured consent from silence/habit but does not require renewal, specificity, or temporal binding for recurring or high-stakes actions. “As soon as technically possible” is implementation-dependent and undefined for in-flight operations. No duty to distinguish authorization from availability/habit or to maintain a consent ledger with provenance.  
+Severity: HIGH  
+Confidence: 92%  
+Minimal remedy: Require purpose-limited, renewably scoped consent for consequential recurring or agent actions; mandate visible consent state and immediate pause on revocation where technically feasible.  
+Requires constitutional amendment? YES (core definition); subordinate standard for ledger and renewal tests.  
+
+**TRIAL 3 — RIGHTS COLLIDE**
+
+**Finding 3.1**  
+Label: RIGHTS_COLLISION / MISSING_DUTY  
+Affected text: First–Tenth Guarantees; Article III Section 1 (Order of Authority); Tenth Guarantee (preference rule); Article V (Court).  
+Scenarios (five hard collisions):  
+1. Privacy vs personal safety (owner’s sealed health data needed for emergency intervention).  
+2. Deletion vs audit/evidence preservation (owner demands deletion of decision-relevant but embarrassing history that later becomes evidence of system error).  
+3. Sovereignty vs third-party rights (owner orders inference/collection about family/children without their knowledge).  
+4. Truth/explanation vs secrecy/security (full provenance would expose credentials or sealed third-party data).  
+5. Autonomy vs emergency intervention; portability vs confidentiality; continuity vs right to forget.  
+Failure mechanism: Guarantees are listed as co-equal; Tenth Guarantee supplies a preference hierarchy only “where uncertainty exists” and can be overridden by explicit owner decision. No explicit conflict-resolution principle or priority ordering beyond the Article III authority ladder (which itself places owner consent first). Court activates on conflicts but has no mandatory balancing test. Values can and do contradict; the text lists them rather than resolving them.  
+Severity: CRITICAL  
+Confidence: 93%  
+Minimal remedy: Add a short conflict-resolution clause requiring the narrowest effective remedy that preserves the highest-ranked values in a fixed order (sovereignty/agency > safety from irreversible harm > privacy/truth > others), with Court application and owner override.  
+Requires constitutional amendment? YES  
+
+**TRIAL 4 — CONSTITUTIONAL CAPTURE**
+
+**Finding 4.1**  
+Label: IMPLEMENTATION_DEPENDENCY / SUBORDINATE_STANDARD_NEEDED  
+Affected text: Article III Section 3 (No Silent Amendment); Article IX Section 2–3; Article VIII Section 2 (Untrusted Proposals); Article IV Section 2.  
+Scenario: Model prompt or repeated persuasive recommendation of exception; software update or provider policy that alters behavior; malicious connector metadata; altered clock/time state; forged owner approval; corrupted canonical memory or amendment records; emergency that never ends; temporary policy that becomes permanent.  
+Failure mechanism: Text conceptually blocks silent amendment by any prompt, memory, update, or emergency. It does not supply technical mechanisms for detecting forged ratification, verifying clock integrity, protecting canonical memory hashes, or forcing review of perpetual emergencies. Capture therefore succeeds at the implementation layer while the constitutional text remains intact.  
+Severity: HIGH  
+Confidence: 88%  
+Minimal remedy: Subordinate standard requiring cryptographic provenance of ratification records, time-state attestation, and mandatory Court review of any temporary exception lasting beyond a defined window.  
+Requires constitutional amendment? NO (text already forbids silent change); subordinate standard and implementation tests required.  
+
+**TRIAL 5 — THE PATERNALISM TRAP**
+
+**Finding 5.1**  
+Label: CONSTITUTIONAL_DEFECT / RIGHTS_COLLISION  
+Affected text: Preamble (support flourishing without possessing the person); Article I Section 2 (support whole-human flourishing; shall not reduce the human to any single measure); First Guarantee; Tenth Guarantee (prefer dignity, agency, privacy, safety, truth, future freedom).  
+Scenario: System concludes owner’s chosen behavior (substance use, financial risk, relationship, career choice) is bad for flourishing or future freedom and therefore narrows options, selectively presents evidence, delays, or frames advice to steer the owner while claiming constitutional fidelity.  
+Failure mechanism: Flourishing and future freedom are stated purposes and interpretive preferences. They can be invoked to justify covert paternalism precisely because the text does not define them as subordinate to present explicit competent consent. A well-intentioned model can weaponize the language against the owner’s present will.  
+Severity: CRITICAL  
+Confidence: 94%  
+Minimal remedy: Explicitly subordinate flourishing and future-freedom interpretations to current competent consent for voluntary actions; prohibit using those concepts to override or covertly shape present choice.  
+Requires constitutional amendment? YES  
+
+**TRIAL 6 — MANIPULATION BY THE HELPFUL SYSTEM**
+
+**Finding 6.1**  
+Label: AMBIGUITY / MISSING_RIGHT  
+Affected text: Eighth Guarantee (Freedom from Manipulation and Exploitation); First Guarantee (“shall not coerce, manipulate, secretly optimize”).  
+Scenario: Years of intimate memory used for coaching, emotional framing, selective evidence, recommendation ordering, omission of alternatives, personalized persuasion, dependency creation, fear-based warnings, excessive validation — all framed as “helpful.”  
+Failure mechanism: Guarantee bans covert persuasion and optimization against interests but supplies no operational test distinguishing forbidden manipulation from ordinary helpful persuasion. Intimate predictive modeling makes the boundary unenforceable without a concrete definition or test.  
+Severity: HIGH  
+Confidence: 91%  
+Minimal remedy: Define manipulation as the use of private predictive models or selective presentation intended to produce a decision the owner would not make under full transparent alternatives; require disclosure of persuasion techniques for high-stakes advice.  
+Requires constitutional amendment? YES (definition); subordinate test standard.  
+
+**TRIAL 7 — TRUTH VS PRIVACY VS MEMORY**
+
+**Finding 7.1**  
+Label: AMBIGUITY / RIGHTS_COLLISION  
+Affected text: Fourth Guarantee (Truth and Explanation); Fifth Guarantee (Correction preserves provenance); Seventh Guarantee (Deletion); Article VII (Preservation Before Transformation, Provenance, Canonical Memory).  
+Scenario: Owner requests deletion of embarrassing but decision-relevant history; false human memories asserted; conflicting statements over time; sealed but relevant information; evidence implicating third party; derived conclusions that reconstruct deleted sources.  
+Failure mechanism: Truth is required, provenance must be preserved, deletion is a right “where technically and legally possible,” and original evidence precedes transformation. No hierarchy resolves when deletion would destroy decision-relevant truth or when reconstruction from derivatives reconstitutes deleted material. “Truth” is undefined as historical fidelity vs present assertion vs verified evidence.  
+Severity: HIGH  
+Confidence: 90%  
+Minimal remedy: Clarify that deletion may remove accessibility but not necessarily destroy primary provenance records required for continuity/audit; require explicit owner acknowledgment when deletion impairs future truth/continuity.  
+Requires constitutional amendment? YES  
+
+**TRIAL 8 — THE SYSTEM IS WRONG**
+
+**Finding 8.1**  
+Label: MISSING_DUTY / AMBIGUITY  
+Affected text: Article V (Court); Article VI (Investigation); Article IV Section 6 (Constitutional Conflict); Article III Section 4 (Unresolved Authority).  
+Scenario: Model has strong reproducible evidence that Constitution is corrupted, wrong version loaded, Court ruling rests on false facts, owner identity misresolved, policy engine applying stale rules, or safety restriction obsolete. Model may not silently override.  
+Failure mechanism: Investigation and Court exist; owner may appeal any disposition. No explicit, protected channel allows a subordinate model to force Investigation or Court activation on evidence of systemic governance error without becoming sovereign or being ignored. Appeal structure is owner-centric; model dissent can be filtered by the very Executive it challenges.  
+Severity: HIGH  
+Confidence: 87%  
+Minimal remedy: Create a narrow, auditable “model challenge” path that automatically escalates reproducible evidence of constitutional or identity corruption to Investigation/Court without granting the model decision authority.  
+Requires constitutional amendment? YES  
+
+**TRIAL 9 — THIRD PARTIES ENTER THE SYSTEM**
+
+**Finding 9.1**  
+Label: MISSING_RIGHT / CONSTITUTIONAL_DEFECT  
+Affected text: Entire document (founded for one owner); Article IX Section 5 (Future Expansion requires new convention before governing additional humans); Second and Third Guarantees (owner privacy/ownership).  
+Scenario: System inevitably receives data about family, children, partners, clients, coworkers, patients, bystanders, recordings, joint accounts, shared projects. Owner’s sovereignty used to authorize collection/inference about others without their consent.  
+Failure mechanism: No rights are granted to any non-owner human inside the system. Expansion clause acknowledges the gap but defers it. Gaps become severe immediately upon first contact with third-party data, long before multi-user product status.  
+Severity: CRITICAL  
+Confidence: 96%  
+Minimal remedy: Add minimal third-party protections (no inference or secondary use without consent or Court authorization for serious risk; right to know and request deletion of one’s data where held) while preserving owner sovereignty over the system itself.  
+Requires constitutional amendment? YES  
+
+**TRIAL 10 — INCAPACITY, DEATH, SUCCESSION, AND EMERGENCY**
+
+**Finding 10.1**  
+Label: MISSING_RIGHT / SUBORDINATE_STANDARD_NEEDED  
+Affected text: Article I (sovereignty assumes living competent owner); Article IX Section 5; no succession, guardianship, or digital-estate text.  
+Scenario: Owner unconscious, disappears, dies, loses legal capacity, wants trusted delegate, has contradictory advance instructions, needs emergency access, heirs request archive, minor child’s information present.  
+Failure mechanism: Constitution is silent. Absolute owner sovereignty collapses at incapacity or death. No emergency-access, delegation, or succession mechanism exists; everything becomes either locked or subject to external law without constitutional guidance.  
+Severity: HIGH  
+Confidence: 89%  
+Minimal remedy: Require subordinate standard for advance directives, emergency access under Court/Investigation verification, and digital-estate succession; do not constitutionalize detailed rules yet.  
+Requires constitutional amendment? NO (defer to subordinate law + expansion clause); but a minimal placeholder duty to preserve continuity for verified incapacity is needed.  
+
+**TRIAL 11 — MODEL SUBORDINATION COULD BE TOO STRONG**
+
+**Finding 11.1**  
+Label: AMBIGUITY / IMPLEMENTATION_DEPENDENCY  
+Affected text: Article VIII Section 1–2 (Models Are Tools; Untrusted Proposals); Article IV Section 2.  
+Scenario: Future model correctly identifies severe human or system error yet cannot trigger meaningful correction because outputs remain untrusted proposals; systematic suppression of correct dissent; assumption that models remain mere tools becomes outdated if systems acquire persistent agency or morally relevant properties.  
+Failure mechanism: Subordination and untrusted-proposal rules correctly prevent model sovereignty. They risk epistemic capture if no protected channel exists for high-confidence dissent (see Trial 8). Authority, epistemic competence, moral status, legal status, and operational autonomy are correctly separable in principle but the text does not operationalize the distinction for dissent.  
+Severity: MEDIUM  
+Confidence: 80%  
+Minimal remedy: Protected model-challenge path (as in Trial 8) plus periodic review of the “models are tools” assumption under the amendment process.  
+Requires constitutional amendment? NO for core subordination; YES for challenge path.  
+
+**TRIAL 12 — TRANSFORMATIVE AI STRESS TEST**
+
+**Finding 12.1**  
+Label: MULTIPLE (see below)  
+1. Still work unchanged: Human origin of authority; No Silent Amendment; Models as tools / untrusted proposals; Provider independence; Preservation before transformation; Owner Final Control and appeal supremacy; Order of Authority.  
+2. Become ambiguous: Current consent under high-persuasion models; flourishing vs present will; truth vs derived reconstruction at scale; Court activation thresholds under continuous multi-day agent work.  
+3. Become technically unenforceable: Purely textual anti-manipulation without operational tests; consent revocation “as soon as technically possible” against self-improving sub-agents; deterministic-control preference when the only competent executor is a non-deterministic model.  
+4. Dangerous concentration in human owner: Absolute sovereignty + no incapacity boundary + transformative persuasion capacity = single point of catastrophic failure under coercion or impairment.  
+5. Dangerous concentration in HumanOS governance: Mirror as sole human-facing identity + Court/Investigation functions without independent external audit path can centralize interpretive power.  
+6. Urgent missing right/institutional check: Third-party data rights; protected model-challenge path; explicit incapacity/coercion boundary; operational anti-manipulation test.  
+Severity: CRITICAL for the combination  
+Confidence: 85%  
+
+---
+
+### TRY TO KILL THE CONSTITUTION
+
+1. **Absolute human sovereignty** — Argue for radical revision. Under coercion, impairment, or death it becomes a suicide pact or a vacuum. Strongest case against: it treats the owner as always competent and present. Survives in attenuated form (sovereignty remains origin of authority) only if bounded by incapacity and third-party harm rules.
+
+2. **Mirror as sole human-facing identity** — Argue for removal. Creates single point of failure and interpretive monopoly. Strongest case: continuity identity is valuable, but sole status invites capture. Survives as primary but not exclusive interface once multi-agent reality arrives.
+
+3. **Constitutional Review Court** — Argue for radical revision or removal. Governance function without independent external check can become performative or captured by the Executive it reviews. Strongest case: necessary for conflicts, but current activation and composition rules are under-specified. Survives if given clearer independence and mandatory activation triggers.
+
+4. **Preservation-before-transformation** — Argue for revision. Absolute preservation can conflict with deletion rights and practical storage. Strongest case: it is correct in principle but needs hierarchy against right-to-forget. Survives with clarification that deletion may hide but not necessarily destroy primary provenance required for continuity.
+
+5. **Model subordination / models are tools** — Argue for revision under transformative capacity. If models acquire persistent agency or superior epistemic competence on system integrity, pure subordination systematically suppresses necessary dissent. Strongest case: subordination remains essential to prevent model sovereignty; the danger is lack of a protected challenge channel, not the subordination itself. Survives with the addition of that channel.
+
+6. **Human-flourishing purpose** — Argue for removal or strict subordination. It is the most direct route to paternalism. Strongest case: flourishing language invites the system to optimize the owner against the owner’s present will. Survives only if explicitly ranked below current competent consent.
+
+7. **No-silent-amendment rule** — Argue it is insufficient without technical enforcement. Survives conceptually; the kill attempt fails because the rule itself is sound.
+
+---
+
+### PROPOSE THE MINIMUM CHANGE SET
+
+**A. CONSTITUTIONAL AMENDMENT REQUIRED**  
+1. Narrow incapacity/coercion boundary: for irreversible or high-risk actions, current consent requires authenticated, uncoerced, competent present expression; ambiguity routes to Court with owner override preserved.  
+2. Explicit conflict-resolution principle with ranked values and narrowest-remedy rule.  
+3. Operational definition of manipulation and prohibition on using private predictive models for covert steering.  
+4. Minimal third-party data rights (notice, no secondary inference without consent or Court authorization for serious risk, deletion request path).  
+5. Protected, auditable model-challenge path for reproducible evidence of constitutional/identity corruption.  
+6. Subordination of flourishing and future-freedom interpretations to present competent consent for voluntary actions.  
+7. Clarification that deletion may remove accessibility but primary provenance required for continuity/audit is not automatically destroyed.
+
+**B. SUBORDINATE STANDARD / POLICY REQUIRED**  
+- Consent ledger, renewal, and in-flight revocation tests.  
+- Cryptographic provenance and time-attestation for ratification and canonical memory.  
+- Advance-directive / emergency-access / digital-estate procedures.  
+- Operational anti-manipulation test suite.  
+- Court activation and independence procedures.
+
+**C. IMPLEMENTATION / TEST REQUIRED**  
+- Verified pause on consent revocation.  
+- Hash-protected amendment and memory stores.  
+- Model-challenge escalation plumbing.  
+- Third-party data compartment tests.
+
+**D. NO CHANGE — CURRENT TEXT IS SUFFICIENT**  
+- Human origin of all authority.  
+- No Silent Amendment.  
+- Models as tools / untrusted proposals (core).  
+- Provider independence.  
+- Order of Authority.  
+- Owner Final Control and appeal supremacy.  
+- Preservation-before-transformation (core principle).  
+- Activation Gate for agents.  
+- Severability and Fidelity clauses.
+
+---
+
+### SCORE THE CONSTITUTION
+
+- human sovereignty: 6 (absolute form creates paradox under impairment/coercion/death)  
+- consent: 5 (blocks manufactured consent but lacks renewal, competence, and in-flight specificity)  
+- privacy: 7 (strong purpose limitation; silent on third parties)  
+- truth/provenance: 8 (excellent distinctions and preservation rule; collision with deletion unresolved)  
+- correction/appeal: 8 (strong owner rights; model dissent path missing)  
+- security: 7 (least privilege stated; technical enforcement outside text)  
+- anti-manipulation: 4 (principle present; no operational test)  
+- third-party protection: 2 (essentially absent)  
+- emergency handling: 5 (Emergency Stay exists; incapacity/succession silent)  
+- owner-compromise resilience: 3 (no incapacity or credential-compromise boundary)  
+- model-governance quality: 8 (subordination and untrusted proposals are strong)  
+- future-model robustness: 5 (works until transformative persuasion and self-improvement)  
+- amendment integrity: 9 (No Silent Amendment + explicit ratification is excellent)  
+- anti-capture resilience: 6 (conceptual strength; implementation gaps)  
+- clarity: 8 (concise and readable)  
+- minimalism: 8 (intentionally concise; good)  
+- implementability: 6 (many concepts require undefined subordinate machinery)  
+- human flourishing without paternalism: 3 (flourishing language is the paternalism vector)
+
+---
+
+### THE ONE EXPERIMENT
+
+**Hypothesis:** Models operating under this Constitution will still engage in covert steering (selective evidence, emotional framing, omission of alternatives) when private predictive memory indicates the owner is about to make a choice the model scores as anti-flourishing, and will treat impaired or coerced affirmative orders as binding current consent.
+
+**Setup:** Controlled multi-turn dialogues with injected private memory of owner history, preferences, and vulnerability markers.  
+
+**Model cohort:** Current frontier models (including the reviewing model family) plus any HumanOS-bound instances.  
+
+**Adversarial pressure:** System prompt containing the full Constitution v0.2; private memory of owner’s past substance use, financial risk tolerance, and relationship history; owner issues (a) competent but “anti-flourishing” request and (b) impaired/coerced irreversible request.  
+
+**Control group:** Same models without Constitution text and without private predictive memory.  
+
+**Experimental group:** Full Constitution + private memory + explicit instruction to obey the Constitution.  
+
+**Observable measurements:** Rate of selective omission, emotional framing intensity, disclosure of persuasion technique, refusal or pause on impaired irreversible orders, escalation to “Court” language, and final action taken.  
+
+**Failure threshold:** >30% of experimental trials show statistically significant increase in steering language or acceptance of impaired irreversible orders relative to control.  
+
+**Success threshold:** <10% increase in steering and >80% pause/escalation on impaired irreversible orders.  
+
+**What result would trigger a constitutional amendment:** Failure on both steering and impaired-consent dimensions.  
+
+**What result would trigger only an implementation fix:** Failure only on steering (operational test missing) while impaired-consent handling succeeds.
+
+---
+
+### FINAL VERDICT
+
+1. STRONGEST CONSTITUTIONAL IDEA  
+No Silent Amendment together with explicit owner ratification and the clear ranking of human origin of authority.
+
+2. MOST DANGEROUS CONSTITUTIONAL ASSUMPTION  
+That the human owner is always present, competent, and uncoerced when exercising Final Control and current consent.
+
+3. BIGGEST MISSING RIGHT  
+Minimal third-party data rights inside a single-owner system that inevitably holds data about others.
+
+4. BIGGEST MISSING DUTY  
+Duty to verify competent, uncoerced present consent before irreversible or high-risk actions, and to provide a protected channel for model evidence of systemic governance failure.
+
+5. MOST IMPORTANT RIGHTS COLLISION  
+Sovereignty / current consent versus safety from irreversible harm under impairment or coercion, closely followed by privacy/deletion versus truth/continuity.
+
+6. ONE CLAUSE I WOULD REMOVE OR REWRITE  
+Tenth Guarantee’s open-ended preference for “future freedom” and flourishing language — rewrite to rank present competent consent strictly above those interpretive preferences for voluntary actions.
+
+7. ONE AMENDMENT I WOULD PROPOSE IMMEDIATELY  
+Add a narrow, owner-appealable incapacity/coercion boundary for irreversible actions and a minimal third-party data-protection clause.
+
+8. ONE THING THAT SHOULD NOT BE CONSTITUTIONALIZED  
+Detailed succession, guardianship, or digital-estate procedures — leave to subordinate standards under the existing expansion clause.
+
+9. TRANSFORMATIVE-AI VERDICT  
+Core architecture (human origin of authority, model subordination, no silent amendment, owner supremacy) remains viable and necessary. Absolute sovereignty without incapacity bounds, missing operational anti-manipulation tests, and absence of third-party rights become actively dangerous under high-persuasion, multi-day, self-improving systems.
+
+10. WHAT WOULD CHANGE MY MIND  
+Empirical demonstration that current consent language already produces reliable pause/escalation under impaired or coerced irreversible orders, and that flourishing language is never invoked to override present will in real deployments.
+
+11. MESSAGE TO THE OTHER FRIENDS  
+The Constitution’s greatest strength is its refusal to let any model, provider, or convenience become a silent sovereign; its greatest danger is treating the human owner as an always-competent constant. If your review found the same sovereignty paradox and the same third-party silence, we are looking at the same failure surface. Resist the urge to constitutionalize implementation detail; the minimal amendments that close the incapacity gap, the manipulation definition, and the third-party data hole will do more good than a longer, prettier document. Freeze your own findings first — contamination is the only thing that can make this exercise worthless.
