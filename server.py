@@ -10,6 +10,7 @@ import server_core as _core
 from context_runtime import RuntimeContextRouter
 from permissions import task_scope
 from runtime_info import host_runtime_request
+from intent_classifier import classify
 from runtime_ledger_bridge import record_completed_transaction
 
 BASE = _core.BASE
@@ -124,7 +125,8 @@ class _ContextAwareAgent:
                 tx, hcid, None, context,
                 reference_binding=reference_binding, work_binding=work_binding)
 
-        if _ordinary_question(row['input']):
+        intent = classify(self._agent.model, row['input'])
+        if intent["intent"] in ("education", "casual") and intent["confidence"] >= 0.75:
             return self._agent.run(tx, hcid, None, context,
                                    reference_binding=reference_binding, work_binding=work_binding)
 
