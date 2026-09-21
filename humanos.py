@@ -56,6 +56,8 @@ def main(argv=None):
         print("HumanOS verification")
         print("  Ledger:  " + result["ledger"]["status"] + f" ({result['ledger'].get('rows', 0)} rows)")
         print("  Capture: " + result["capture"]["status"])
+        if "runtime_capture" in result:
+            print("  Runtime capture: " + result["runtime_capture"])
         if "notebook" in result:
             notebook = result["notebook"]
             print("  Notebook: " + notebook["status"] +
