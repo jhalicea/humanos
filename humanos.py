@@ -26,9 +26,10 @@ def main(argv=None):
     parser.add_argument("--assistant")
     parser.add_argument("--notebook", type=Path)
     parser.add_argument("--pretty", action="store_true")
+    parser.add_argument("--latest", action="store_true", help="capture newest local Codex rollout")
     args = parser.parse_args(argv)
     if args.command == "capture":
-        result = capture_current(args.ledger, args.source)
+        result = capture_current(args.ledger, args.source, args.latest)
     elif args.command == "turn":
         required = (args.conversation_id, args.turn_id, args.human, args.assistant)
         if any(value is None for value in required):
