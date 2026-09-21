@@ -125,10 +125,11 @@ class _ContextAwareAgent:
                 tx, hcid, None, context,
                 reference_binding=reference_binding, work_binding=work_binding)
 
-        intent = classify(self._agent.model, row['input'])
-        if intent["intent"] in ("education", "casual") and intent["confidence"] >= 0.75:
-            return self._agent.run(tx, hcid, None, context,
-                                   reference_binding=reference_binding, work_binding=work_binding)
+        if _ordinary_question(row['input']) or row['input'].strip().lower().startswith(('teach me ', 'tell me ')):
+            intent = classify(self._agent.model, row['input'])
+            if intent["intent"] in ("education", "casual") and intent["confidence"] >= 0.75:
+                return self._agent.run(tx, hcid, None, context,
+                                       reference_binding=reference_binding, work_binding=work_binding)
 
         pending = self._router.resolve_pending_ambiguity(
             book, row['hcid'], row['input'], current_tx=tx)
