@@ -21,6 +21,19 @@ read_human_input = _core.read_human_input
 _BaseHumanOSRuntime = _core.HumanOSRuntime
 
 
+def _ordinary_question(text):
+    """Keep low-risk educational questions out of workstream selection."""
+    if not isinstance(text, str):
+        return False
+    lower = text.strip().lower()
+    if not lower or any(word in lower for word in
+                        ('build ', 'create ', 'change ', 'edit ', 'implement ',
+                         'commit ', 'merge ', 'decide ', 'artifact', 'file ')):
+        return False
+    return lower.endswith('?') or lower.startswith(('what is ', 'what are ', 'how does ',
+                                                     'how do ', 'why is ', 'why are ', 'explain '))
+
+
 class _RoutedModel:
     """Inject host-verified routing metadata without changing the human transcript."""
 
@@ -109,6 +122,10 @@ class _ContextAwareAgent:
             return self._agent.run(
                 tx, hcid, None, context,
                 reference_binding=reference_binding, work_binding=work_binding)
+
+        if _ordinary_question(row['input']):
+            return self._agent.run(tx, hcid, None, context,
+                                   reference_binding=reference_binding, work_binding=work_binding)
 
         pending = self._router.resolve_pending_ambiguity(
             book, row['hcid'], row['input'], current_tx=tx)
