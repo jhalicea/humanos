@@ -10,6 +10,7 @@ import server_core as _core
 from context_runtime import RuntimeContextRouter
 from permissions import task_scope
 from runtime_info import host_runtime_request
+from intent_classifier import classify
 from runtime_ledger_bridge import record_completed_transaction
 
 BASE = _core.BASE
@@ -31,7 +32,8 @@ def _ordinary_question(text):
                          'commit ', 'merge ', 'decide ', 'artifact', 'file ')):
         return False
     return lower.endswith('?') or lower.startswith(('what is ', 'what are ', 'how does ',
-                                                     'how do ', 'why is ', 'why are ', 'explain '))
+                                                     'how do ', 'why is ', 'why are ',
+                                                     'explain ', 'teach me ', 'tell me '))
 
 
 class _RoutedModel:
@@ -123,16 +125,16 @@ class _ContextAwareAgent:
                 tx, hcid, None, context,
                 reference_binding=reference_binding, work_binding=work_binding)
 
-        if _ordinary_question(row['input']):
-            return self._agent.run(tx, hcid, None, context,
-                                   reference_binding=reference_binding, work_binding=work_binding)
-
         pending = self._router.resolve_pending_ambiguity(
             book, row['hcid'], row['input'], current_tx=tx)
 
         if pending is not None:
             route = pending
         else:
+            intent = classify(self._agent.model, row['input'])
+            if intent["intent"] in ("education", "casual") and intent["confidence"] >= 0.75:
+                return self._agent.run(tx, hcid, None, context,
+                                       reference_binding=reference_binding, work_binding=work_binding)
             # File/plan reference bindings and delegated-work bindings are more
             # specific authorities than generic conversational continuity. They may
             # still receive an explicit fresh route, but cannot cause a short phrase
