@@ -125,7 +125,7 @@ class _ContextAwareAgent:
                 tx, hcid, None, context,
                 reference_binding=reference_binding, work_binding=work_binding)
 
-        if _ordinary_question(row['input']) or row['input'].strip().lower().startswith(('teach me ',)):
+        if row['input'].strip().lower().startswith(('what is ', 'what are ', 'how does ', 'how do ', 'why is ', 'why are ', 'explain ', 'teach me ')):
             intent = classify(self._agent.model, row['input'])
             if intent["intent"] in ("education", "casual") and intent["confidence"] >= 0.75:
                 return self._agent.run(tx, hcid, None, context,
