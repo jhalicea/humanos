@@ -31,7 +31,8 @@ def _ordinary_question(text):
                          'commit ', 'merge ', 'decide ', 'artifact', 'file ')):
         return False
     return lower.endswith('?') or lower.startswith(('what is ', 'what are ', 'how does ',
-                                                     'how do ', 'why is ', 'why are ', 'explain '))
+                                                     'how do ', 'why is ', 'why are ',
+                                                     'explain ', 'teach me ', 'tell me '))
 
 
 class _RoutedModel:
