@@ -4,6 +4,7 @@ HumanOS_Vault/
 workspace/
 backups/
 evidence/
+var/model-routing/
 .env
 *.sqlite3*
 .DS_Store
