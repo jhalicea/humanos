@@ -4,7 +4,9 @@
 **Workspace:** `WS-HUMANOS`  
 **Branch:** `life-notebook-ln0`  
 **Baseline:** `runtime-0.1` @ `0cf78d9abe5dcfcc6114bb43167dcf7406478657`  
-**Architecture contract:** `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`
+**Architecture contract:** `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`  
+**Baseline map:** `docs/life-notebook/LN0_BASELINE_MAPPING.md`  
+**Verification plan:** `docs/life-notebook/LN0_VERIFICATION_PLAN.md`
 
 ## Outcome
 
@@ -104,13 +106,13 @@ HOS-LN-000 is complete when:
 - [x] current repository/runtime foundation has been inspected read-only;
 - [x] merge map (preserve/refine/defer) is documented;
 - [x] consolidated LN-0 architecture contract exists on this branch;
-- [ ] exact current Notebook schema/capture/recovery behavior is mapped to proposed `NotebookEventV1` / `PayloadObjectV1` without data loss;
-- [ ] Context Compiler/current Context Runtime integration point is mapped;
-- [ ] component capability matrix is translated into implementable process/module boundaries;
-- [ ] encryption/key-recovery spike plan is written;
+- [x] exact current Notebook schema/capture/recovery behavior is mapped to proposed `NotebookEventV1` / `PayloadObjectV1` without assuming destructive migration;
+- [x] Context Compiler/current Context Runtime integration point is mapped;
+- [x] component capability matrix is translated into implementable writer/model/worker boundaries at architecture level;
+- [x] encryption/key-recovery spike plan is written;
 - [ ] SQLCipher/SQLite WAL behavior is verified from primary technical evidence and a reproducible spike;
-- [ ] deletion fan-out dependency contract is turned into test cases;
-- [ ] source-authority/ingestion abuse cases are turned into test cases;
+- [x] deletion fan-out dependency contract is turned into test cases/spec packet;
+- [x] source-authority/ingestion abuse cases are turned into test cases/spec packet;
 - [ ] LN-1 work order is written with executable acceptance tests;
 - [ ] independent architecture/security review finds no unresolved schema-blocking defect;
 - [ ] one explicit owner decision promotes LN-0 from candidate to implementation-ready.
@@ -133,9 +135,9 @@ This workstream currently changes documentation only. `runtime-0.1` remains unto
 
 ## Next action
 
-Create the **LN-0 baseline mapping**:
+Execute the first evidence-producing LN-0 packets:
 
-1. map existing `notebook.py` tables/state transitions to the new kernel/state/projection model;
-2. identify which existing fields can migrate directly, which become projections, and which new fields require schema work;
-3. identify the smallest LN-1 migration that preserves all current evidence and tests;
-4. turn that mapping into the first verification/ADR packet.
+1. **V-01 Current-Schema Migration Fixture** — prove an exact, idempotent mapping from representative Runtime 0.1 evidence into the proposed kernel/payload model without touching owner data.
+2. **V-02 Encrypted SQLite / SQLCipher Spike** — verify exact encryption/WAL/crash/backup/key-recovery behavior on the target stack from primary technical sources plus isolated execution.
+
+Their results decide the LN-1 migration/storage ADR and unlock the LN-1 work order.
