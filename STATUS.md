@@ -1,60 +1,63 @@
 # HumanOS Status Snapshot
 
-Status: HOS-BROWSER-001 PROMOTED / LOCAL MAC READBACK PENDING
-Date: 2026-09-19
+Status: HOS-LN-000 ACTIVE / ARCHITECTURE CONSOLIDATION
+Date: 2026-09-25
 Workspace: `WS-HUMANOS`
-Workstream: `HOS-BROWSER-001 — Browser Broker and Tools`
-Canonical branch: `runtime-0.1`
-Canonical promotion: `7c21306aa3dac28cf274e39360d600a7ca7e8abf`
-Parent activation: PR #91 / `02869089cd336ffac17751a771bd61adcf21229d`
-R1 correction: PR #93 / `7c21306aa3dac28cf274e39360d600a7ca7e8abf`
-Work order: `docs/work-orders/HOS-BROWSER-001-R1.md`
+Workstream: `HOS-LN-000 — Life Notebook LN-0 Consolidation`
+Branch: `life-notebook-ln0`
+Baseline branch: `runtime-0.1`
+Baseline commit: `0cf78d9abe5dcfcc6114bb43167dcf7406478657`
+Work order: `docs/work-orders/HOS-LN-000.md`
+Architecture contract: `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`
 
-## Canonical outcome
+## Current outcome
 
-HumanOS now has the governed Browser Bridge activation path in the canonical runtime:
+The Life Notebook redesign is being merged into the existing HumanOS runtime rather
+than creating a competing system. The existing runtime foundation was inspected
+read-only and the first consolidation artifacts now preserve:
 
-- owner-local pairing/config outside Git;
-- stable unpacked extension identity and native messaging;
-- generated native-host launcher/manifest;
-- governed browser search/inspect/navigation/click/type;
-- selected-tab control;
-- truthful extension failure propagation;
-- exact task-scope and interactive approval gates;
-- permission-scope v7 only for browser-intent turns, preserving legacy v1-v6 semantics;
-- corrected Brave/macOS native-messaging lookup.
+- current exact transcript / recovery / single-writer behavior;
+- Universal Conversation Capture and external conversation-ledger lineage;
+- existing Context Registry / Context Runtime / Context Graph work;
+- model/provider abstraction and governed capability boundaries;
+- the new Notebook > Canonical State > Knowledge Graph authority model;
+- the Context Compiler / ContextPacket intelligence-sovereignty boundary;
+- sole Ingestor and State Applier writer authority;
+- source-authority ceilings, deletion fan-out, reversible entity identity,
+  projection checkpoints, and encrypted-storage/key-recovery direction.
 
-## SDLC / router evidence
+No runtime code or Notebook data has been changed by HOS-LN-000 yet.
 
-Route: `OWNER -> WS-HUMANOS -> HOS-BROWSER-001 -> HOS-BROWSER-001-R1 -> branch -> evidence`.
+## Inherited runtime truth
 
-- R1 candidate: `9b6050c3aaccca0032e843652743cb2caf3d470b`.
-- Regression workflow `35456032309`: SUCCESS across macOS/Ubuntu × Python 3.11/3.13.
-- Encrypted-backup workflow `35456032318`: SUCCESS across the same matrix.
-- Exact diff reviewed; no Notebook content, credentials, owner-local paths, secret bytes,
-  cross-workspace data, or model-authority widening were introduced.
-- Chrome native-messaging behavior was checked against current official Chrome docs;
-  Brave/macOS lookup was checked against current Brave source.
-- Promotion was performed only after the exact candidate was green.
+`runtime-0.1` remains the implementation baseline. It already contains a local
+Python HumanOS/Mirror runtime, SQLite Life Notebook, exact capture/readback,
+recovery state, local Ollama protocol, governed tools, Context work, browser work,
+and CI/review evidence. Its current security/storage limits remain real until a
+later verified slice changes them.
 
-## Remaining evidence gap
+The previous branch STATUS for HOS-BROWSER-001 is preserved in `runtime-0.1`
+history; this branch intentionally changes STATUS because it is a separate active
+workstream snapshot.
 
-Repository/CI proof cannot establish that Jon's local Brave extension/native host is
-paired and the selected-tab bridge is live. That requires local post-promotion readback.
+## Not in scope
 
-## Rollback
-
-Revert `7c21306aa3dac28cf274e39360d600a7ca7e8abf` for the R1 correction and, if needed,
-`02869089cd336ffac17751a771bd61adcf21229d` for the parent activation. No Life
-Notebook migration was performed.
+- Constitution/Foundation redesign or ratification work;
+- Rust rewrite;
+- LN-1 implementation;
+- Graph/embedding implementation;
+- hosted-provider integration;
+- multi-device Brain replication;
+- migration or deletion of existing Notebook evidence.
 
 ## Next action
 
-On Jon's Mac:
+Create the LN-0 baseline mapping from current `notebook.py` / capture / ledger /
+Context components to the proposed kernel, State, projection, and ContextPacket
+contracts. Use that mapping to define the smallest evidence-preserving LN-1 schema
+migration and the technical verification spikes required before implementation.
 
-1. pull canonical `runtime-0.1`;
-2. run `humanos --browser-setup`;
-3. load `browser-extension/` once as an unpacked extension in Brave/Chrome;
-4. click the HumanOS extension on the tab Jon wants Mirror to operate;
-5. run `humanos --browser-status`;
-6. run one bounded browser search/inspect through Mirror and verify the result.
+## Rollback
+
+This branch is documentation-only at this point. Abandoning/reverting
+`life-notebook-ln0` leaves `runtime-0.1` and all Notebook data unchanged.
