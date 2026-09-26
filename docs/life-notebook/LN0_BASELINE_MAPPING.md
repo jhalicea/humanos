@@ -286,8 +286,8 @@ No model-generated SQLCipher recipe is considered verified until this passes aga
 Prove:
 
 - one global sequence;
-- same `(source, ingestion_id)` + same payload -> same event;
-- same key + conflicting payload -> fail closed;
+- same HumanOS-resolved `effective_source_id` + `ingestion_id` + same semantic submission fingerprint -> same event;
+- same key + different semantic submission fingerprint -> fail closed;
 - concurrent clients cannot race `prev_event_hash`;
 - source cannot self-assign owner/canonical authority.
 

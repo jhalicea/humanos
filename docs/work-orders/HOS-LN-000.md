@@ -1,6 +1,6 @@
 # HOS-LN-000 — Life Notebook LN-0 Consolidation
 
-**Status:** ACTIVE  
+**Status:** V-03 PASS / PROMOTED
 **Workspace:** `WS-HUMANOS`  
 **Branch:** `life-notebook-ln0`  
 **Baseline:** `runtime-0.1` @ `0cf78d9abe5dcfcc6114bb43167dcf7406478657`  
@@ -133,9 +133,52 @@ Use:
 
 This workstream currently changes documentation only. `runtime-0.1` remains untouched. Delete/revert the `life-notebook-ln0` branch to abandon the candidate without affecting runtime behavior or Notebook data.
 
+## V-03 execution record — 2026-09-26
+
+Attempts 1–4 are preserved as **FAILED / rejected evidence**. Independent
+Review #2 rejected Attempt 2's caller-created trusted-principal boundary. Attempt
+3's isolated fixture added authenticated-session resolution, resolved-source
+idempotency, exact-byte canonical hashing, mutation verification, actual-path
+SIGKILL recovery, and projection-failure isolation. Attempt 4 was rejected for
+omitting persisted `ingested_at` from the commitment, lacking real concurrent
+distinct-event ancestry coverage, and recording stale/contradictory counts.
+The completed independent review of Attempt 5 returned **PASS WITH FINDINGS**,
+with no blocking findings. The promotion decision is **YES**. V-03 status:
+**PASS / PROMOTED**.
+
+### V-03 review lineage
+
+- Attempt 1 — FAIL — caller-controlled source label granted authority.
+- Attempt 2 — FAIL — trusted principal remained caller-created; crash/integrity proof inadequate.
+- Attempt 3 — FAIL — authentication remained forgeable; canonical commitment incomplete.
+- Attempt 4 — FAIL — `ingested_at` uncommitted; distinct concurrent ancestry not tested; evidence inconsistent.
+- Attempt 5 — PASS WITH FINDINGS / PROMOTED — no blocking findings; promotion decision YES.
+
+Attempt 5 replaces only the isolated fixture and tests. It uses a HumanOS-owned
+test authenticator with opaque signed tokens, resolved principal/policy, semantic
+submission fingerprints, and one complete authoritative envelope. It does not
+modify Runtime 0.1 production code or Notebook data. Focused execution:
+`python3 -m unittest tests.test_ln0_v03_ingestor -v` — **8/8 passed**.
+The fixture has no separately persisted payload store, so no separate-payload
+orphan claim is made. The actual event transaction SIGKILL proof left no
+committed event. The independent verdict is **PASS WITH FINDINGS** with no
+blocking findings; the promotion decision is **YES**.
+
+Required broader execution: `python3 -m unittest discover -s tests -v` — **592
+tests run, 11 skipped, and 1 sandbox loopback PermissionError** in
+`test_swarm.SwarmTests.test_live_loopback_and_attribution`. This is unrelated to
+V-03 and prevents claiming a completely green repository suite. Record it as a
+separate known environment/test issue for later investigation; do not alter
+`test_swarm.py` as part of V-03. No Runtime 0.1 production source or owner
+Notebook data was modified.
+
 ## Next action
 
-Execute the first evidence-producing LN-0 packets:
+Preserve the completed independent review and investigate the separate sandbox
+loopback environment/test issue later. V-03 implementation and tests remain
+unchanged by this promotion documentation update.
+
+After V-03 review, execute the first remaining evidence-producing LN-0 packets:
 
 1. **V-01 Current-Schema Migration Fixture** — prove an exact, idempotent mapping from representative Runtime 0.1 evidence into the proposed kernel/payload model without touching owner data.
 2. **V-02 Encrypted SQLite / SQLCipher Spike** — verify exact encryption/WAL/crash/backup/key-recovery behavior on the target stack from primary technical sources plus isolated execution.

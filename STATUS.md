@@ -1,7 +1,7 @@
 # HumanOS Status Snapshot
 
-Status: HOS-LN-000 ACTIVE / ARCHITECTURE CONSOLIDATION
-Date: 2026-09-25
+Status: HOS-LN-000 ACTIVE / V-03 PASS / PROMOTED
+Date: 2026-09-26
 Workspace: `WS-HUMANOS`
 Workstream: `HOS-LN-000 — Life Notebook LN-0 Consolidation`
 Branch: `life-notebook-ln0`
@@ -26,7 +26,8 @@ read-only and the first consolidation artifacts now preserve:
 - source-authority ceilings, deletion fan-out, reversible entity identity,
   projection checkpoints, and encrypted-storage/key-recovery direction.
 
-No runtime code or Notebook data has been changed by HOS-LN-000 yet.
+No production runtime or Notebook data has been changed by HOS-LN-000. The V-03
+isolated fixture remains non-production evidence.
 
 ## Inherited runtime truth
 
@@ -50,12 +51,27 @@ workstream snapshot.
 - multi-device Brain replication;
 - migration or deletion of existing Notebook evidence.
 
+## V-03 evidence state
+
+Attempts 1–4 are preserved as FAILED / rejected evidence: Attempts 1–3 had
+authority, authentication, and canonical-commitment defects; Attempt 4 did not
+commit `ingested_at`, did not test concurrent distinct-event ancestry, and
+contained stale/contradictory counts. Attempt 5 adds the bounded corrections
+and the completed independent review returned PASS WITH FINDINGS, with no
+blocking findings; the promotion decision is YES and V-03 is PASS / PROMOTED.
+The focused execution ran exactly 8 tests and passed. The broader suite ran 592
+tests, with 11 skipped and one sandbox loopback `PermissionError` in
+`test_swarm.SwarmTests.test_live_loopback_and_attribution`. It is unrelated to
+V-03 and prevents claiming a completely green repository suite. Record it as a
+separate known environment/test issue for later investigation; do not alter
+`test_swarm.py` as part of V-03. No Runtime 0.1 production source or owner
+Notebook data was modified.
+
 ## Next action
 
-Create the LN-0 baseline mapping from current `notebook.py` / capture / ledger /
-Context components to the proposed kernel, State, projection, and ContextPacket
-contracts. Use that mapping to define the smallest evidence-preserving LN-1 schema
-migration and the technical verification spikes required before implementation.
+Preserve the completed independent review and investigate the separate sandbox
+loopback environment/test issue later. V-03 implementation and tests remain
+unchanged by this promotion documentation update.
 
 ## Rollback
 
