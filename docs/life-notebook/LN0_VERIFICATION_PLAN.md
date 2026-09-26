@@ -167,8 +167,8 @@ Implement only a test/spike Ingestor contract against an isolated database. This
 
 ## Test cases
 
-1. Same `(source_system, ingestion_id)` + identical payload returns the original event.
-2. Same `(source_system, ingestion_id)` + different payload fails closed.
+1. Same HumanOS-resolved `(effective_source_id, ingestion_id)` + identical semantic submission fingerprint returns the original event.
+2. Same HumanOS-resolved `(effective_source_id, ingestion_id)` + different semantic submission fingerprint fails closed.
 3. Same payload under two different ingestion keys produces two distinct events.
 4. 1,000 concurrent retry submissions cannot create duplicate canonical events.
 5. Concurrent distinct submissions receive one monotonic global sequence.
