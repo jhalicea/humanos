@@ -14,6 +14,29 @@ class MasteryEngineTests(unittest.TestCase):
         self.assertEqual(self.engine.skills["ai.transformers"].stage, "introduced")
         self.assertEqual(self.engine.skills["ir"].stage, "practiced")
 
+    def test_bloomberg_research_data_tam_course_is_preserved(self):
+        self.assertIn("bloomberg-research-data-tam", self.engine.courses)
+        required = {
+            "finance.market_structure",
+            "finance.research_ecosystem",
+            "data.content_dissemination",
+            "data.quality",
+            "data.sql_analytics",
+            "data.business_intelligence",
+            "workflow.automation",
+            "client.relationship_management",
+            "client.technical_account_management",
+            "support.ticket_sla",
+            "account.portfolio_strategy",
+            "project.prioritization",
+            "process.continuous_improvement",
+            "communication.stakeholder",
+            "collaboration.cross_functional",
+        }
+        course = self.engine.courses["bloomberg-research-data-tam"]
+        self.assertTrue(required.issubset(set(course.skill_ids)))
+        self.assertIsNone(course.career_readiness_percent)
+
     def test_overlap_is_supported(self):
         self.assertIn("git", self.engine.courses["cybersecurity-dfir"].skill_ids)
         self.assertIn("git", self.engine.courses["ai-systems"].skill_ids)
