@@ -55,6 +55,14 @@ Any meaningful technology touched in real work may become a skill node: commands
 
 Overlap between curricula is intentional.
 
+## Active job-specific curricula
+Job-specific courses are allowed when a live application creates a just-in-time learning need. They do not automatically become the Core Technical Spine.
+
+Current active course:
+- **Bloomberg Technical Account Manager - Research Data** (`bloomberg-research-data-tam`) — added 2026-09-26 after the application was submitted. It concentrates financial-market/research-data context, provider data flows, data quality, SQL/Python/BI refresh, workflow automation, technical account management, ticket/SLA discipline, account strategy, prioritization, continuous improvement, stakeholder communication and cross-functional collaboration. See `docs/career/BLOOMBERG_RESEARCH_DATA_TAM_MINI_COURSE.md`.
+
+Employer-specific proprietary tooling remains scoped to application/onboarding preparation unless there is a public, verifiable learning path. Exact Bloomberg ADSK operation is therefore not treated as pre-hire mastery.
+
 ## Future domains
 The same engine supports electronics, microprocessors/computer architecture, programming, networking, OSINT/intelligence, PLC/industrial controls, electricity, pumps/mechanical systems, woodworking, automotive, languages/communication, business/finance, design, and domains selected by other humans.
 
