@@ -233,6 +233,75 @@ After tombstoning the source payload:
 
 No persistent derived representation can return the deleted source text/bytes except audit metadata explicitly permitted by the deletion contract.
 
+The audit contract is explicit: `ERASE.REQUESTED` -> authorization ->
+`PAYLOAD.TOMBSTONE` -> fan-out/recomputation -> verification -> `ERASE.COMPLETED`.
+Downstream failure must produce `ERASE.RECOVERY_REQUIRED`, never completion. A
+content-free append-only `DeletionReceiptV1` must survive payload removal and restore,
+prove authorization/completion and zero unresolved derivatives, and use an integrity
+hash over receipt metadata only. It must not retain plaintext, PII, summaries,
+embeddings, vectors, binary data, reversible encrypted content, or a normal hash of
+low-entropy deleted content.
+
+Attempt 4 additionally requires: explicit source/page/block/chronology and deletion
+lifecycle provenance; requester/authorizer/executor separation; stable operation-level
+idempotency; measured resolver counts; canonical receipt-chain recomputation with
+mutation/deletion/reordering/insertion detection; verification of imported receipts
+before tombstone replay and LIVE activation; a low-entropy dictionary-hash adversary;
+and scanner coverage of every synthetic persistent table. Verification metadata is an
+integrity-protected part of `DeletionReceiptV1`; no appearance-only store is added.
+Semantic descriptors are not automatically retained.
+
+Attempt 5 additionally requires bidirectional receipt/tombstone/lifecycle identity;
+union reconciliation keyed by `deletion_id`; fail-closed missing, mismatching, or
+duplicate evidence; truthful tombstone-without-receipt recovery before LIVE; a
+separate immutable fixture anchor for receipt count, head hash, and final sequence;
+detection of tail/whole-chain and anchor loss or mutation; and a HumanOS-owned
+authenticator/policy resolver whose resolved requester/authorizer identities plus an
+internal executor are the only authoritative receipt provenance. Required probes
+`MISSING_TOMBSTONE_ACTIVATED`, `TAIL_DELETION_CHAIN_ACCEPTED`,
+`EMPTY_CHAIN_ACCEPTED`, and `EMPTY_PRINCIPALS_ACCEPTED` must all fail closed.
+
+Attempt 6 additionally requires the captured pre-erasure bytes to be scanned across
+every synthetic persistent table before `ERASE.COMPLETED`, with an exception only for
+the payload cell of explicitly identified independent source events. Unrelated
+lineage cannot exempt a byte-identical cache or derivative. Every public content or
+raw-database access path must reject reads while RESTORING. Receipt count, head hash,
+and final sequence must match an independently supplied kernel/checkpoint expectation
+outside the SQLite fixture, so coordinated receipt, projected-anchor, and completion
+truncation fails receipt-chain verification. Attempts 1–5 remain rejected evidence.
+
+Attempt 7 additionally replaces volatile retained bytes with an authoritative
+secret-keyed ErasureTag held outside the restored Notebook database. The kernel/key
+boundary supplies the secret independently; ordinary plaintext SHA-256, plaintext,
+and the secret must not enter the receipt or restored DB. Before LIVE, restore must
+execute checkpoint verification -> deletion-ledger reconciliation -> tombstone replay
+-> fan-out -> all-store ErasureTag verification -> unresolved==0. Every public
+content-returning or scanning API must require LIVE; internal verification uses
+private helpers. Final all-store scan, receipt/checkpoint update, and
+`ERASE.COMPLETED` must be atomic against persistent writers. Required adversaries are
+an unlineaged old-backup copy after restart, exhaustive public RESTORING-path access,
+a pre-scan forbidden write, and a synchronized second writer between scan and
+completion. Attempts 1–6 remain rejected evidence.
+
+Attempt 8 preserves Attempt 7 except for its independently reproduced equality-only
+matching defect. Authoritative erasure metadata adds the canonical deleted-byte
+`match_length`; a deletion-specific key is derived from the kernel erasure secret and
+`deletion_id`, and the keyed tag is computed over the deleted canonical bytes. Every
+eligible persistent text/blob value must be scanned over all contiguous windows of
+that length. Exact equality, beginning, end, middle, repeated, and binary occurrences
+must match. The independent-source exemption applies only to the exact explicitly
+identified payload cell, never to a larger containing value. Normal deletion and
+old-backup restore regressions must fail closed on embedded bytes. Attempts 1–7 remain
+rejected evidence.
+
+Attempt 8 independent promotion review returned **PASS**, with no blocking findings
+and promotion decision **YES**. V-04 Attempt 8 is **PASS / PROMOTED** on the exact
+reviewed candidate: focused V-04 **26/26**, V-03 **8/8 twice**, and broad discovery
+**618 tests / 11 skipped / 1 known sandbox loopback `PermissionError`**. This remains
+a synthetic logical-erasure contract and does not claim physical SQLite remanence
+destruction. The non-blocking public-registry routing-hygiene finding is preserved for
+separate follow-up; this promotion does not modify the router. The next gate is V-05.
+
 ## Evidence artifact
 
 `evidence/ln0/V-04-deletion-fanout/` when executed.

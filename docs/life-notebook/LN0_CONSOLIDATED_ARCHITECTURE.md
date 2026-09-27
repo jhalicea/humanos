@@ -542,6 +542,78 @@ Rules:
 
 Backups require explicit retention/restoration semantics so a restore does not silently resurrect deleted live state.
 
+Deletion is also an auditable lifecycle: `ERASE.REQUESTED` -> authorization ->
+`PAYLOAD.TOMBSTONE` -> fan-out/recomputation -> verification -> `ERASE.COMPLETED`.
+Failure records `ERASE.RECOVERY_REQUIRED`; completion is forbidden while unresolved
+derivatives remain. The durable `DeletionReceiptV1` is append-only and content-free:
+it identifies the governed object, authorization, scope, fan-out counts, restore
+tombstone status, verification, and chained receipt integrity, but retains no
+plaintext, PII, summary, embedding, binary, reversible copy, or content-derived
+hash of the erased payload.
+
+V-04 Attempt 4 refines this as a privacy/integrity contract: permanent event and
+receipt integrity may bind opaque payload-object identity or an encrypted/non-plaintext
+representation, but must not retain a dictionary-testable plaintext fingerprint after
+erasure. Structural provenance (event/object/page/block identity, event type,
+chronology, deletion scope and lifecycle principals/times) survives so a page can
+truthfully render `13:43 — [CONTENT ERASED] — DEL-184` without retaining the original
+content. Production encrypted-payload integrity is intentionally deferred to the
+kernel/encryption ADR; this synthetic fixture does not select that production design.
+
+V-04 Attempt 5 binds every completed operation bidirectionally by `deletion_id`:
+exactly one tombstone, one receipt, one completion lifecycle event, and matching
+event/payload-object targets. Restore reconciles the union of all three evidence
+stores. An interrupted `ERASE.RECOVERY_REQUIRED` operation may truthfully have a
+tombstone and no receipt, but cannot become LIVE until replay, fan-out verification,
+single receipt completion, and reconciliation succeed.
+
+Receipt-chain verification compares the receipt projection to authoritative
+count/head/final-sequence anchor state. The isolated append-only anchor table models
+that contract only; production anchoring belongs in HumanOS kernel checkpoint and
+storage-integrity architecture. ERASE authority comes from a HumanOS-owned
+credential-to-policy resolver. Caller-provided names are not principals, and the
+executor is an internal identity distinct from requester and authorizer.
+
+V-04 Attempt 6 makes the kernel/checkpoint boundary explicit in the fixture. The
+SQLite anchor table is only a local projection; authoritative receipt count, head
+hash, and final sequence are supplied separately and must match on every verification,
+including idempotent retries and restore. Completion also requires a dynamic scan of
+all persistent fixture tables for the captured source bytes. Only the payload cell of
+an explicitly identified independent source event may be exempt. Restore quarantine
+covers the public raw-database accessor as well as typed reads and retrieval aliases.
+This remains a synthetic contract, not a production kernel implementation.
+
+V-04 Attempt 7 preserves that architecture and adds a synthetic production-contract
+ErasureTag: `HMAC(kernel_erasure_secret, deletion_id || canonical_deleted_bytes)`.
+The authoritative kernel checkpoint may retain the tag but never plaintext or an
+ordinary plaintext SHA-256. The independently supplied secret is not stored in the
+restored Notebook DB or receipt; production key storage belongs to the encrypted
+kernel/key architecture. Restore must verify checkpoint state, reconcile the deletion
+ledger, replay tombstones, run fan-out, scan every persistent store by recomputing the
+ErasureTag, verify zero unresolved derivatives, and only then transition to LIVE.
+All public content paths remain quarantined until LIVE. Final scan, receipt/anchor,
+kernel checkpoint, and `ERASE.COMPLETED` form one exclusive-writer completion boundary
+in the SQLite fixture. This is a logical-erasure contract and does not change the
+physical-remanence limitation.
+
+V-04 Attempt 8 preserves the Attempt 7 boundary and corrects its equality-only
+matching defect. The kernel checkpoint also carries the canonical deleted-byte
+`match_length`; a deletion-specific key is derived from the independently held kernel
+secret and `deletion_id`, and the erasure tag is HMAC over the canonical deleted
+bytes. Verification scans every contiguous candidate window of that length. Only the
+exact payload cell belonging to the explicitly identified independent source may be
+exempt; containing strings, other artifacts, caches, metadata, and unrelated lineage
+are never exempt. Plaintext, ordinary plaintext SHA-256, the kernel secret, and the
+derived key remain outside Notebook persistence and receipts.
+
+The exact V-04 Attempt 8 candidate passed independent promotion review with no
+blocking findings and is **PASS / PROMOTED**. Qualification preserved focused V-04
+**26/26**, V-03 **8/8 twice**, and broad discovery **618 tests / 11 skipped / 1 known
+sandbox loopback `PermissionError`**. Attempts 1–7 remain rejected historical evidence.
+This promotion proves only the synthetic logical-erasure contract; it does not claim
+physical SQLite remanence destruction. The reviewer's non-blocking routing-hygiene
+finding remains deferred and the router is unchanged. The next gate is V-05.
+
 ---
 
 ## 17. Encryption and key recovery direction

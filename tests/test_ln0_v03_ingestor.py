@@ -15,7 +15,8 @@ class V03Tests(unittest.TestCase):
    with self.assertRaises(PermissionError): x.submit(token,req('x',b'x'))
   hostile=dict(source='trusted-humanos-ui',actor_id='owner',actor_type='OWNER',owner_decision='OWNER_DECISION',epistemic_class='VERIFIED',policy={'source_authority':'OWNER_SUBMITTED'})
   r=x.submit(self.conn,req('x',b'x',**hostile)); self.assertEqual((r.source_authority,r.envelope['actor_type'],r.envelope['owner_decision'],r.envelope['epistemic_class']),('OBSERVED_EVIDENCE','CONNECTOR','NOT_OWNER_DECISION','OBSERVED'))
-  with self.assertRaises(PermissionError): x.submit(self.conn[:-1]+'0',req('y',b'y'))
+  forged=self.conn[:-1]+('0' if self.conn[-1]!='0' else '1')
+  with self.assertRaises(PermissionError): x.submit(forged,req('y',b'y'))
  def test_idempotency_fingerprint_and_namespaces(self):
   x=self.ing(); a=x.submit(self.conn,req('same',b'x',claim='a')); self.assertEqual(a.event_id,x.submit(self.conn,req('same',b'x',claim='a')).event_id)
   with self.assertRaises(IngestConflict): x.submit(self.conn,req('same',b'x',claim='b'))
