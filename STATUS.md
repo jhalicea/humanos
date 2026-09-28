@@ -1,4 +1,9 @@
-# HumanOS Status Snapshot
+# HumanOS Status Snapshot — Historical Record
+
+> **Snapshot date: 2026-09-19.** This document records the state and local
+> verification steps known on that date. It is historical evidence, not the
+> current project status. See the root README, current branch history, CI, and
+> linked work orders for current implementation and verification.
 
 Status: HOS-BROWSER-001 PROMOTED / LOCAL MAC READBACK PENDING
 Date: 2026-09-19
@@ -37,7 +42,7 @@ Route: `OWNER -> WS-HUMANOS -> HOS-BROWSER-001 -> HOS-BROWSER-001-R1 -> branch -
   Brave/macOS lookup was checked against current Brave source.
 - Promotion was performed only after the exact candidate was green.
 
-## Remaining evidence gap
+## Evidence gap recorded on 2026-09-19
 
 Repository/CI proof cannot establish that Jon's local Brave extension/native host is
 paired and the selected-tab bridge is live. That requires local post-promotion readback.
@@ -48,7 +53,7 @@ Revert `7c21306aa3dac28cf274e39360d600a7ca7e8abf` for the R1 correction and, if 
 `02869089cd336ffac17751a771bd61adcf21229d` for the parent activation. No Life
 Notebook migration was performed.
 
-## Next action
+## Next action recorded on 2026-09-19
 
 On Jon's Mac:
 
