@@ -1,9 +1,10 @@
 # HOS-LN-000 — Life Notebook LN-0 Consolidation
 
-**Status:** V-01–V-05 remain accepted/promoted; final V-04 composition remediation checks pass; external re-review pending; owner implementation-ready decision pending
+**Status:** CLOSED / IMPLEMENTATION-READY — owner approval given 2026-09-28; LN-1 implementation not started
 **Workspace:** `WS-HUMANOS`
-**Branch:** `ln0-baseline-qualification`
+**Branch:** `life-notebook-ln0`
 **Qualification baseline:** `2d034a235c90ef56d40be4c4d355fe419da5891a`
+**Promoted qualification commit:** `ccc9eddfc2e5787e7c8947b4b10f0c9a199829f0`
 **V-05 promotion baseline:** commit `5eec801abc498a0325350004b7a816cfac1a5bb8`
 **Qualification source branch:** `life-notebook-ln0` at qualification baseline `2d034a235c90ef56d40be4c4d355fe419da5891a`
 **Architecture contract:** `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`  
@@ -116,8 +117,47 @@ HOS-LN-000 is complete when:
 - [x] deletion fan-out dependency contract is turned into test cases/spec packet;
 - [x] source-authority/ingestion abuse cases are turned into test cases/spec packet;
 - [x] bounded LN-1 work order is written below with executable acceptance tests; it is a proposal and does not authorize implementation;
-- [ ] independent architecture/security review finds no unresolved schema-blocking defect;
-- [ ] one explicit owner decision promotes LN-0 from candidate to implementation-ready.
+- [x] independent architecture/security review finds no unresolved schema-blocking defect;
+- [x] one explicit owner decision promotes LN-0 from candidate to implementation-ready (2026-09-28).
+
+## Canonical LN-0 closure — 2026-09-28
+
+**Owner decision:** “I approve LN-0 as implementation-ready.” Owner approval is
+GIVEN. **LN-0: CLOSED / IMPLEMENTATION-READY. LN-1 implementation: NOT STARTED.**
+
+External architecture/security review: PASS. Baseline composition/security review:
+PASS. V3 external baseline qualification review: PASS, blocking findings: 0.
+Reviewed package `LN0_BASELINE_QUALIFICATION_REVIEW_V3.zip` SHA-256:
+`0d5923d4d40a9fd2de582205492fc576e5e2a1e43cc71a40f1a0284c96083d1a`.
+The reviewed synthetic qualification was committed as
+`ccc9eddfc2e5787e7c8947b4b10f0c9a199829f0` and promoted to `life-notebook-ln0`.
+
+This closure preserves the distinction between accepted individual V-01–V-05
+contract proofs, synthetic cross-contract composition qualification, and future
+production implementation. It does not claim production qualification and does not
+authorize LN-1 implementation. Historical failed attempts and remediation evidence
+above and in the linked verification records remain intact.
+
+### Mandatory PRE-LN-1 gates
+
+Owner approval does not waive these gates. Resolve and review them before LN-1
+implementation:
+
+1. **Schema / Integrity ADR:** NotebookEventV1/PayloadObjectV1 persistence contract;
+   payload_commitment representation; event_hash coverage; content_hash lifecycle;
+   erasure compatibility; idempotency implications; backup/restore implications;
+   and ErasureTag interaction.
+2. **SQLCipher Runtime Binding + Key Custody ADR:** supported runtime binding and
+   packaging; key generation; wrapping/recovery authority; OS secure custody;
+   rotation; backup/deletion; and provider/server portability.
+3. **Controlled Migration / Cutover Plan:** old-to-new evidence migration; parity
+   verification; rollback; cutover acceptance; and recovery.
+
+Production integration qualification remains required before a LIVE Notebook writer
+is trusted with owner data. The next authorized action is PRE-LN-1 architecture
+resolution, beginning with the Schema / Integrity ADR. No LN-1 implementation, live
+capture, Runtime 0.1 change, or owner Notebook migration is authorized by this
+closure record.
 
 ## Evidence plan
 

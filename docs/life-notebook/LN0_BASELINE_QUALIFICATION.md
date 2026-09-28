@@ -1,8 +1,8 @@
 # LN-0 Baseline Qualification
 
-Status: **PASS — synthetic qualification remediation candidate; external review resubmission pending.**
-LN-0 remains ACTIVE / NOT CLOSED. Owner implementation-ready approval has not been
-given. No LN-1 implementation is authorized or started by this qualification.
+Status: **PASS — synthetic baseline qualification; V3 external review PASS; LN-0 CLOSED / IMPLEMENTATION-READY by owner decision.**
+This report remains a synthetic qualification, not production qualification. LN-1
+implementation is NOT STARTED.
 
 ## Baseline and environment
 
@@ -143,5 +143,28 @@ skipped to obtain a green result.
 - Historical rejected V-03 attempts, the V-02 runtime-binding candidate, V-04
   Attempts 1–7, and V-05 failed/remediation passes remain unchanged evidence.
 
-Qualification is a bounded baseline result, not an external architecture/security
-review, LN-0 closure, or owner implementation-ready decision.
+Qualification is a bounded synthetic baseline result, not production qualification.
+
+## Canonical closure and owner approval — 2026-09-28
+
+The external V3 baseline qualification review of
+`LN0_BASELINE_QUALIFICATION_REVIEW_V3.zip` returned **PASS**, with zero blocking
+findings. Reviewed package SHA-256:
+`0d5923d4d40a9fd2de582205492fc576e5e2a1e43cc71a40f1a0284c96083d1a`.
+External architecture/security review and baseline composition/security review are
+also recorded as PASS in the canonical work order. The owner explicitly approved:
+“I approve LN-0 as implementation-ready.”
+
+The qualification candidate commit is
+`ccc9eddfc2e5787e7c8947b4b10f0c9a199829f0`; it was promoted to
+`life-notebook-ln0`. LN-0 is **CLOSED / IMPLEMENTATION-READY**; owner approval is
+GIVEN. This state records readiness to begin the separately gated PRE-LN-1
+architecture resolution, not completion or production qualification of LN-1.
+LN-1 implementation remains **NOT STARTED**.
+
+Mandatory gates remain: Schema / Integrity ADR; SQLCipher Runtime Binding + Key
+Custody ADR; Controlled Migration / Cutover Plan; and production integration
+qualification before a LIVE Notebook writer is trusted with owner data. The next
+authorized action is PRE-LN-1 architecture resolution, beginning with the Schema /
+Integrity ADR. Owner approval does not waive these gates or authorize LN-1
+implementation.

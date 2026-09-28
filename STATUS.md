@@ -1,12 +1,13 @@
 # HumanOS Status Snapshot
 
-Status: HOS-LN-000 ACTIVE / V2 CLOSURE REMEDIATION EXTERNAL REVIEW PASS / LN-0 BASELINE QUALIFICATION REMEDIATION PASS / EXTERNAL RE-REVIEW PENDING / OWNER READINESS NOT GIVEN
+Status: HOS-LN-000 CLOSED / LN-0 IMPLEMENTATION-READY / OWNER APPROVAL GIVEN / LN-1 NOT STARTED
 Date: 2026-09-28
 Workspace: `WS-HUMANOS`
 Workstream: `HOS-LN-000 — Life Notebook LN-0 Consolidation`
-Branch: `ln0-baseline-qualification`
+Branch: `life-notebook-ln0`
 Baseline/source branch: `life-notebook-ln0`
-Baseline commit: `2d034a235c90ef56d40be4c4d355fe419da5891a` (V2 closure-contract remediation promoted; qualification candidate is isolated and uncommitted)
+Qualification baseline commit: `2d034a235c90ef56d40be4c4d355fe419da5891a`
+Promoted qualification commit: `ccc9eddfc2e5787e7c8947b4b10f0c9a199829f0`
 Work order: `docs/work-orders/HOS-LN-000.md`
 Architecture contract: `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`
 
@@ -162,14 +163,26 @@ production runtime, owner data, commit, push, PR, or promotion had occurred; the
 later external review and promotion are recorded in the canonical work order and
 verification results.
 
-## Next action
+## LN-0 closure and next authorized phase
 
-V-05 remains promoted and the target-Mac V-02 SQLCipher proof remains accepted.
-The initial LN-0 external review found one payload-integrity schema blocker. The
-documentation-only V2 correction now makes the deletion-safe payload commitment
-invariant explicit and adds a mandatory PRE-LN-1 Schema/Integrity ADR gate. Submit
-the revised packet for independent review. Do not mark LN-0 closed or begin LN-1
-implementation until review passes and the owner separately approves readiness.
+On 2026-09-28, the owner explicitly approved: “I approve LN-0 as
+implementation-ready.” LN-0 is CLOSED / IMPLEMENTATION-READY. External architecture/
+security review and V3 baseline qualification review passed; the V3 review found
+zero blocking findings. Reviewed package SHA-256:
+`0d5923d4d40a9fd2de582205492fc576e5e2a1e43cc71a40f1a0284c96083d1a`.
+Qualification commit `ccc9eddfc2e5787e7c8947b4b10f0c9a199829f0` was promoted to
+`life-notebook-ln0`. Individual V-01–V-05 contract proofs, synthetic composition
+qualification, and future production implementation remain distinct evidence
+categories; this does not qualify a production kernel. LN-1 implementation has NOT
+STARTED.
+
+Owner approval does not waive the mandatory PRE-LN-1 gates recorded in
+`docs/work-orders/HOS-LN-000.md`: Schema/Integrity ADR; SQLCipher Runtime Binding +
+Key Custody ADR; controlled Migration/Cutover Plan; and production integration
+qualification before a LIVE Notebook writer is trusted with owner data.
+
+Next authorized action: PRE-LN-1 architecture resolution, beginning with the
+Schema/Integrity ADR. This is not authorization to start LN-1 implementation.
 
 ## V-05 candidate rollback procedure (historical; not current state)
 
