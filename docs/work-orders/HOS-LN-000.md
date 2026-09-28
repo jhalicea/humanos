@@ -1,9 +1,11 @@
 # HOS-LN-000 — Life Notebook LN-0 Consolidation
 
-**Status:** V-01–V-05 accepted (V-03/V-04/V-05 promoted); initial external review found one payload-integrity schema blocker; documentation-only correction prepared for V2 review; owner implementation-ready decision pending
-**Workspace:** `WS-HUMANOS`  
-**Branch:** `life-notebook-ln0`
-**Baseline:** promoted LN-0 branch head before this documentation/evidence reconciliation @ `5eec801abc498a0325350004b7a816cfac1a5bb8` (includes promoted V-05)
+**Status:** V-01–V-05 remain accepted/promoted; final V-04 composition remediation checks pass; external re-review pending; owner implementation-ready decision pending
+**Workspace:** `WS-HUMANOS`
+**Branch:** `ln0-baseline-qualification`
+**Qualification baseline:** `2d034a235c90ef56d40be4c4d355fe419da5891a`
+**V-05 promotion baseline:** commit `5eec801abc498a0325350004b7a816cfac1a5bb8`
+**Qualification source branch:** `life-notebook-ln0` at qualification baseline `2d034a235c90ef56d40be4c4d355fe419da5891a`
 **Architecture contract:** `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`  
 **Baseline map:** `docs/life-notebook/LN0_BASELINE_MAPPING.md`  
 **Verification plan:** `docs/life-notebook/LN0_VERIFICATION_PLAN.md`
@@ -760,3 +762,99 @@ Pass 4 evidence remains: focused **31/31 PASS**; affected regressions **59/59 PA
 broad suite **649 run / 11 skipped / 1 known sandbox loopback PermissionError**, no
 V-05 failure, broad suite **NOT GREEN**. This record documents external review only;
 promotion publication state is verified by Git commit and remote push evidence.
+
+## LN-0 baseline qualification — isolated candidate (2026-09-28)
+
+The owner-authorized baseline-hardening candidate branches from promoted V2
+documentation/evidence commit `2d034a235c90ef56d40be4c4d355fe419da5891a` on
+`ln0-baseline-qualification`. V-01 fixture/test hashes were established as a new
+qualification-era baseline freeze after byte comparison with accepted CI-tested
+commit `94be3b4cb34bacad23106044a5afc213d53fcc50`; this does not rewrite original
+V-01 history.
+
+Added `LN0_COMPOSITION_CONTRACT.md`, a test-only shared-store reference harness,
+cross-V lifecycle/adversarial tests, deterministic qualification runner, baseline
+manifest, and qualification report. These are synthetic composition evidence, not
+production kernel/runtime code. The focused V-01 (2/2), V-03 (8/8), V-04 Attempt 8
+(26/26), V-05 Pass 4 (31/31), six cross-V, five composition-adversarial, and two
+manifest-tamper tests passed. The unchanged V-02 revision-2 target proof passed with
+SQLCipher 4.19.0; serialized shared-store state was separately sealed/read back
+through the accepted SQLCipher CLI configuration with wrong/no-key and standard
+SQLite access rejected. Production SQLCipher binding remains a PRE-LN-1 ADR gate.
+
+The one broad suite run was 657 tests, 11 skipped, and exactly one sandbox
+`PermissionError` in `test_swarm.SwarmTests.test_live_loopback_and_attribution`.
+That exact test passed in native host context. The sandbox broad result remains
+truthfully recorded as not green; the error is classified as an environment
+limitation, not waived or skipped. Full output is preserved at
+`/var/folders/9f/p6ms55b11nz45nk7wmccyyh40000gn/T/ln0-baseline-qualification-wgvf3iis/99-broad-suite.txt`.
+
+The qualification report is
+`docs/life-notebook/LN0_BASELINE_QUALIFICATION.md`; candidate hashes are in
+`docs/life-notebook/LN0_BASELINE_MANIFEST.md`. No accepted V-01–V-05 fixture/test,
+Runtime 0.1 source, Router/Workbench component, or owner Notebook data changed.
+Qualification status is PASS for external review, not LN-0 closure. Do not start
+LN-1 until external review passes and the owner separately grants implementation
+readiness. Mandatory Schema/Integrity, SQLCipher runtime-binding/key-custody, and
+controlled migration/cutover decisions remain pre-LN-1 gates.
+
+## Baseline qualification external-review remediation — 2026-09-28
+
+External review rejected the qualification candidate for two composition issues:
+derivative fan-out was content-match-gated before lineage, and sources/migration
+could supply hosted/privacy authorization values. The test-only harness now applies
+lineage-first invalidation/recomputation, fails closed on matching bytes without
+erased-event lineage, and performs the final V-04 ErasureTag scan while retaining the
+narrow exact independent-source payload-cell exemption. New and migrated records are
+UNCLASSIFIED/provider-denied until a Core-owned capability grants hosted disclosure.
+Connector and migration claims cannot grant hosted access or public/standard privacy.
+
+The changed-composition regressions passed 5/5 and the full cross-V suite passed
+10/10. The qualification runner passed V-01 2/2, the unchanged V-02 target proof,
+V-03 8/8, V-04 Attempt 8 26/26, V-05 Pass 4 31/31, composition adversarial 9/9,
+and manifest-tamper 2/2. V-01–V-05 fixture/test bytes and canonical SQLCipher proof
+evidence remain unchanged. The V-02 interpreter is configurable with
+`--v02-python` / `LN0_V02_PYTHON`; Homebrew and virtualenvs remain development
+tooling, not runtime/deployment dependencies.
+
+The runner's one broad run recorded **661 tests / 11 skipped / one known sandbox
+loopback PermissionError** and is not green in the restricted sandbox. The exact
+loopback test source/hash was unchanged, so its existing native-host **1/1 PASS** was
+retained without rerunning. The broad suite was not run natively in full. This is a
+synthetic qualification candidate for external review, not production qualification;
+LN-0 remains ACTIVE / NOT CLOSED and owner implementation-ready approval remains
+pending. No commit or push was made.
+
+## Final baseline qualification external-review remediation — 2026-09-28
+
+The final external review found two V-04 composition blockers: the independent-source
+payload-cell exemption was based on distinct IDs alone, and restore could trust an
+ERASED receipt without rescanning. The harness now records an explicit Core-governed
+authorization bound to the exact independent event/payload-object identity; source
+claims, provenance, and content cannot grant that exception. An unauthorized exact
+duplicate and a Core-named embedded copy both fail closed; only the explicitly named
+exact payload cell may survive.
+
+Every authoritative erasure checkpoint is now reconciled/replayed on restore even
+when its receipt is already ERASED. Before LIVE, the harness checks identity,
+tombstone/receipt integrity, lineage fan-out, all-store ErasureTag scans, and
+unresolved-zero. The deterministic content scan includes every content-capable
+field named by the test-only schema; content hash and submission fingerprint for the
+erased event must be absent. A tampered post-erasure backup containing a resurrected
+auxiliary cache copy stayed quarantined until sanitized and replayed.
+
+Changed composition regressions passed 7/7; complete cross-V tests passed 15/15;
+runner composition adversarial tests passed 14/14; manifest adversarial tests passed
+2/2. Accepted focused gates passed: V-01 2/2, V-02 target proof, V-03 8/8, V-04
+Attempt 8 26/26, and V-05 Pass 4 31/31. All accepted V-01–V-05 artifacts and
+canonical SQLCipher proof remain byte-identical.
+
+The single broad run recorded **666 tests / 11 skipped / one known sandbox loopback
+PermissionError**; the restricted broad suite is not green. The loopback test source
+was unchanged, so its existing native-host **1/1 PASS** was retained without rerun.
+No native full-suite run was made. STATUS and this work-order metadata identify
+`ln0-baseline-qualification` as candidate branch, `life-notebook-ln0` as source
+branch, `2d034a235c90ef56d40be4c4d355fe419da5891a` as qualification baseline, and
+`5eec801abc498a0325350004b7a816cfac1a5bb8` only as the V-05 promotion baseline.
+Qualification remains synthetic; LN-0 is ACTIVE / NOT CLOSED, owner readiness is
+not approved, and the V3 external review gate is pending. No commit or push was made.

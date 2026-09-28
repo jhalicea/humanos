@@ -1,12 +1,12 @@
 # HumanOS Status Snapshot
 
-Status: HOS-LN-000 ACTIVE / V2 CLOSURE REVIEW PENDING / V-01–V-05 ACCEPTED / V-03–V-05 PROMOTED
+Status: HOS-LN-000 ACTIVE / V2 CLOSURE REMEDIATION EXTERNAL REVIEW PASS / LN-0 BASELINE QUALIFICATION REMEDIATION PASS / EXTERNAL RE-REVIEW PENDING / OWNER READINESS NOT GIVEN
 Date: 2026-09-28
 Workspace: `WS-HUMANOS`
 Workstream: `HOS-LN-000 — Life Notebook LN-0 Consolidation`
-Branch: `life-notebook-ln0`
-Baseline branch: `life-notebook-ln0`
-Baseline commit: `5eec801abc498a0325350004b7a816cfac1a5bb8` (promoted V-05; closure documentation/evidence reconciliation is uncommitted)
+Branch: `ln0-baseline-qualification`
+Baseline/source branch: `life-notebook-ln0`
+Baseline commit: `2d034a235c90ef56d40be4c4d355fe419da5891a` (V2 closure-contract remediation promoted; qualification candidate is isolated and uncommitted)
 Work order: `docs/work-orders/HOS-LN-000.md`
 Architecture contract: `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`
 
@@ -190,3 +190,44 @@ production, or deployment dependency. Initial independent review returned FAIL o
 one payload-integrity schema blocker; the documentation-only correction is prepared
 for V2 review. The owner implementation-ready decision has not been made. LN-0
 remains ACTIVE and NOT CLOSED.
+
+## LN-0 baseline qualification — 2026-09-28
+
+The isolated `ln0-baseline-qualification` candidate at baseline
+`2d034a235c90ef56d40be4c4d355fe419da5891a` freezes the accepted V-01 artifact
+hashes against the accepted CI-tested bytes and adds a test-only shared-store
+composition contract/harness. Focused V-01–V-05 and composition/adversarial gates
+passed. The one broad sandbox loopback `PermissionError` was independently rerun in
+native host context and passed; the restricted-environment broad output still records
+that single error and is not represented as green there. The qualification report is
+`docs/life-notebook/LN0_BASELINE_QUALIFICATION.md`; an external review package is
+prepared, not yet reviewed. No Runtime 0.1 source or owner Notebook data changed.
+LN-0 remains ACTIVE / NOT CLOSED, and the owner implementation-ready decision has
+not been given.
+
+## LN-0 baseline qualification external-review remediation — 2026-09-28
+
+The first baseline-qualification review returned FAIL on two composition blockers:
+lineage-first derivative fan-out and Core-exclusive hosted-disclosure authorization.
+The isolated candidate now addresses both through the test-only composition harness;
+accepted V-01–V-05 fixture/test bytes remain unchanged. Updated focused evidence is
+in `docs/life-notebook/LN0_BASELINE_QUALIFICATION.md`; that V2 package was later
+rejected for two V-04 composition blockers and is preserved as review history.
+
+The cross-V module passed 15/15, the runner composition adversarial gates 14/14, and
+the accepted focused V gates passed. The one broad run recorded 661 tests / 11
+skipped / the known sandbox loopback `PermissionError`; the unchanged exact loopback
+test's existing native 1/1 PASS was retained without rerunning. The qualification is
+synthetic only; the broad sandbox run is not green, production/runtime qualification
+is not claimed, and external re-review remains pending. LN-0 is ACTIVE / NOT CLOSED;
+owner implementation-ready approval has not been given.
+
+Final external-review remediation adds Core-bound exact independent-source
+authorization, unconditional checkpoint revalidation during restore, and a schema-
+enumerated all-store content scan. The changed tests passed 7/7, cross-V passed
+15/15, composition adversarial gates 14/14, runner tamper gates 2/2, and accepted
+focused V gates passed. The single broad run recorded 666 tests / 11 skipped / only
+the known sandbox loopback `PermissionError`; its existing native 1/1 PASS was
+retained because the test source was unchanged. V3 review package is
+`~/Downloads/LN0_BASELINE_QUALIFICATION_REVIEW_V3.zip`. Qualification is synthetic
+only; LN-0 remains ACTIVE / NOT CLOSED and owner readiness is not approved.
