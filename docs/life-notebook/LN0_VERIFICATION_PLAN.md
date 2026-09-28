@@ -406,4 +406,18 @@ A packet may be `FAILED` or `INCONCLUSIVE`. Those are valid outcomes. They are p
 
 # Exit from LN-0
 
-LN-0 becomes implementation-ready only when V-01 through V-03 have enough positive evidence to define the LN-1 migration/storage/ingestion contract, V-05 has a frozen adapter contract, and V-04's dependency semantics are encoded in the LN-1+ acceptance-test roadmap.
+LN-0 may be considered for implementation-ready status only after all of the following are true:
+
+- V-01 and V-02 are accepted; V-03, V-04, and V-05 are PASS / PROMOTED.
+- The LN0 architecture Definition of Done is evidence-backed, including target-stack encryption/key-recovery feasibility, SQLCipher/WAL behavior, and a bounded executable LN-1 work order.
+- V-04 dependency semantics are encoded in the LN-1+ acceptance-test roadmap and V-05 has a frozen adapter contract.
+- Independent architecture/security review finds no unresolved schema/security blocker.
+- The owner explicitly approves implementation readiness after that review.
+
+The 2026-09-28 target-Mac SQLCipher result and proposed LN-1 work order are
+reconciled in `docs/work-orders/HOS-LN-000.md`; the result is also preserved in
+the tracked `docs/life-notebook/LN0_V02_TARGET_MAC_EVIDENCE.md`. The storage-layer and
+synthetic-wrapper feasibility proof does not choose production Keychain, KDF,
+recovery-secret custody, rotation, or backup policy. Those remain explicit
+pre-implementation ADR decisions. At this date the external review and owner
+decision are pending; LN-0 is not closed and LN-1 implementation has not started.

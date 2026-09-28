@@ -1,12 +1,12 @@
 # HumanOS Status Snapshot
 
-Status: HOS-LN-000 ACTIVE / V-03 PASS / PROMOTED / V-04 ATTEMPT 8 PASS / PROMOTED / V-05 PASS / EXTERNAL PROMOTION REVIEW PASS
+Status: HOS-LN-000 ACTIVE / V2 CLOSURE REVIEW PENDING / V-01–V-05 ACCEPTED / V-03–V-05 PROMOTED
 Date: 2026-09-28
 Workspace: `WS-HUMANOS`
 Workstream: `HOS-LN-000 — Life Notebook LN-0 Consolidation`
 Branch: `life-notebook-ln0`
 Baseline branch: `life-notebook-ln0`
-Baseline commit: `e793aca454c087cb68503cb79871a844eb7bde03`
+Baseline commit: `5eec801abc498a0325350004b7a816cfac1a5bb8` (promoted V-05; closure documentation/evidence reconciliation is uncommitted)
 Work order: `docs/work-orders/HOS-LN-000.md`
 Architecture contract: `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`
 
@@ -123,9 +123,10 @@ physical SQLite remanence destruction. The independent review also retained the
 non-blocking routing-hygiene finding that the public Context Registry lacks an explicit
 HOS-LN-000 entry; the router is not changed by this promotion.
 
-## V-05 execution state
+## V-05 Pass 4 candidate execution record (historical)
 
-V-05 is a **REMEDIATION PASS 4 LOCAL CANDIDATE / EXTERNAL REVIEW NOT YET RUN** on
+At initial Pass 4 candidate freeze, V-05 was a **LOCAL CANDIDATE / EXTERNAL REVIEW
+NOT YET RUN** on
 `experiment/v05-context-boundary-chunk2`, based on promoted V-04 commit
 `e793aca454c087cb68503cb79871a844eb7bde03`. The isolated synthetic future
 adapter-contract fixture keeps records, classification, retrieval, policy, provider
@@ -152,21 +153,40 @@ sandbox loopback `PermissionError`. The single Pass 4 broad run was 649 run, 11
 skipped, one same known sandbox loopback `PermissionError`, with no V-05 failure.
 The broad suite is not green. Tests used Python 3.13.15.
 
-V-05 does not prove automatic discovery of secrets or sensitive content from arbitrary
+At the Pass 4 candidate freeze, V-05 did not prove automatic discovery of secrets or sensitive content from arbitrary
 plaintext. Content-classification/DLP capabilities are outside this synthetic boundary
 proof. It also does not prove production integration, an actual hosted provider,
 OS/process/filesystem isolation, LN-6/LN-7, or owner Notebook behavior. The public
-registry still lacks HOS-LN-000; it was not modified. No production runtime, owner
-data, commit, push, PR, or promotion was performed.
+registry still lacks HOS-LN-000; it was not modified. At that candidate freeze, no
+production runtime, owner data, commit, push, PR, or promotion had occurred; the
+later external review and promotion are recorded in the canonical work order and
+verification results.
 
 ## Next action
 
-External promotion review passed with no blocking findings. Stage and promote the
-six-file V-05 candidate on `life-notebook-ln0` under the approved commit/push sequence.
+V-05 remains promoted and the target-Mac V-02 SQLCipher proof remains accepted.
+The initial LN-0 external review found one payload-integrity schema blocker. The
+documentation-only V2 correction now makes the deletion-safe payload commitment
+invariant explicit and adds a mandatory PRE-LN-1 Schema/Integrity ADR gate. Submit
+the revised packet for independent review. Do not mark LN-0 closed or begin LN-1
+implementation until review passes and the owner separately approves readiness.
 
-## Rollback
+## V-05 candidate rollback procedure (historical; not current state)
 
-Remove or revert only the uncommitted V-05 fixture, V-05 tests, and V-05 documentation
-sections to restore the promoted V-04 baseline. Do not revert the promoted V-04 commit.
-The separate router-hardening commit is outside V-05 rollback. `runtime-0.1` and all
-owner Notebook data remain unchanged.
+The pre-promotion rollback procedure applied only at the Pass 4 candidate freeze:
+remove or revert the V-05 fixture, V-05 tests, and V-05 documentation sections to
+restore the promoted V-04 baseline. V-05 is now promoted; do not use that historical
+procedure to remove or rewrite promoted evidence. `runtime-0.1` and owner Notebook
+data remain unchanged.
+
+## Current LN-0 closure state — 2026-09-28
+
+V-01 and V-02 are accepted; V-03, V-04, and V-05 are PASS / PROMOTED. The target
+SQLCipher proof and full limits are in the tracked
+`docs/life-notebook/LN0_V02_TARGET_MAC_EVIDENCE.md`. The proposed bounded LN-1
+work order is in `docs/work-orders/HOS-LN-000.md`; implementation has not started.
+Homebrew is workstation development tooling only, not a HumanOS runtime,
+production, or deployment dependency. Initial independent review returned FAIL on
+one payload-integrity schema blocker; the documentation-only correction is prepared
+for V2 review. The owner implementation-ready decision has not been made. LN-0
+remains ACTIVE and NOT CLOSED.

@@ -1,9 +1,9 @@
 # HOS-LN-000 — Life Notebook LN-0 Consolidation
 
-**Status:** V-03 PASS / PROMOTED; V-04 Attempt 8 PASS / PROMOTED; V-05 PASS / EXTERNAL PROMOTION REVIEW PASS
+**Status:** V-01–V-05 accepted (V-03/V-04/V-05 promoted); initial external review found one payload-integrity schema blocker; documentation-only correction prepared for V2 review; owner implementation-ready decision pending
 **Workspace:** `WS-HUMANOS`  
 **Branch:** `life-notebook-ln0`
-**Baseline:** promoted V-04 @ `e793aca454c087cb68503cb79871a844eb7bde03`
+**Baseline:** promoted LN-0 branch head before this documentation/evidence reconciliation @ `5eec801abc498a0325350004b7a816cfac1a5bb8` (includes promoted V-05)
 **Architecture contract:** `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`  
 **Baseline map:** `docs/life-notebook/LN0_BASELINE_MAPPING.md`  
 **Verification plan:** `docs/life-notebook/LN0_VERIFICATION_PLAN.md`
@@ -110,10 +110,10 @@ HOS-LN-000 is complete when:
 - [x] Context Compiler/current Context Runtime integration point is mapped;
 - [x] component capability matrix is translated into implementable writer/model/worker boundaries at architecture level;
 - [x] encryption/key-recovery spike plan is written;
-- [ ] SQLCipher/SQLite WAL behavior is verified from primary technical evidence and a reproducible spike;
+- [x] SQLCipher/SQLite WAL behavior is verified from primary technical evidence and a reproducible spike on the target Mac; canonical tracked evidence: `docs/life-notebook/LN0_V02_TARGET_MAC_EVIDENCE.md`;
 - [x] deletion fan-out dependency contract is turned into test cases/spec packet;
 - [x] source-authority/ingestion abuse cases are turned into test cases/spec packet;
-- [ ] LN-1 work order is written with executable acceptance tests;
+- [x] bounded LN-1 work order is written below with executable acceptance tests; it is a proposal and does not authorize implementation;
 - [ ] independent architecture/security review finds no unresolved schema-blocking defect;
 - [ ] one explicit owner decision promotes LN-0 from candidate to implementation-ready.
 
@@ -131,7 +131,223 @@ Use:
 
 ## Rollback
 
-This workstream currently changes documentation only. `runtime-0.1` remains untouched. Delete/revert the `life-notebook-ln0` branch to abandon the candidate without affecting runtime behavior or Notebook data.
+This closure-reconciliation pass changes LN-0/status documentation and adds synthetic
+verification/review evidence only. `runtime-0.1`, owner Notebook data, and V-03/V-04/V-05
+fixtures/tests remain untouched. Reverting this pass must preserve promoted V-03/V-04/V-05
+history and must not be treated as a reason to delete or rewrite the promoted branch.
+
+## V-02 target Mac SQLCipher proof — 2026-09-28
+
+The existing `experiments/ln0_sqlcipher_spike_v2.py` ran unchanged on this Apple
+Silicon Mac and returned **PASS**, exit status 0. The target is macOS 26.6.2
+(`25G83`), arm64, Python 3.13.15, SQLCipher 4.19.0 community at
+`/opt/homebrew/bin/sqlcipher`. Both `sqlcipher --version` and
+`PRAGMA cipher_version;` identify SQLCipher 4.19.0. The full result, exact command,
+environment, and spike source hash are preserved in
+`docs/life-notebook/LN0_V02_TARGET_MAC_EVIDENCE.md` (SHA-256
+`a335daa5fc99595a60dc0644d25697598ed52c69822fafa441b672a15818c02e`).
+
+The spike verified encrypted creation/readback, wrong-key and standard-SQLite
+rejection, observed WAL operation, no governed synthetic marker in the DB/WAL/SHM,
+committed data recovery and uncommitted transaction rollback after SIGKILL,
+encrypted export/restore under a separate key, and the independent AES-GCM wrapper
+round-trip. A separate ephemeral synthetic check verified SQLCipher no-key access
+fails. No Homebrew-specific runtime or production dependency was added. Homebrew is
+workstation development tooling only, not a HumanOS runtime, production, or
+deployment dependency.
+
+This establishes storage-layer feasibility and synthetic wrapper behavior, not
+production key custody. The Mac Keychain integration, final KDF/wrapping format,
+recovery-secret distribution/custody, rotation, and backup/deletion policy remain
+explicit design/ADR decisions before production implementation. SQLCipher's tested
+WAL configuration was exercised; rollback-journal mode and temp-file packaging
+were not separately qualified by this spike.
+
+### V-02 evidence durability
+
+The original evidence file under ignored `evidence/ln0/` is preserved unchanged,
+SHA-256 `a335daa5fc99595a60dc0644d25697598ed52c69822fafa441b672a15818c02e`.
+Because that directory is ignored by Git, its complete safe Markdown contents are
+also copied byte-for-byte into the canonical tracked path
+`docs/life-notebook/LN0_V02_TARGET_MAC_EVIDENCE.md` with the same SHA-256. The
+tracked copy is the authoritative reference for the future LN-0 closure commit;
+neither version contains keys, passwords, owner data, or raw logs.
+
+## LN-0 closure criteria reconciliation — 2026-09-28
+
+The Architecture Definition of Done (items 1–12) and the overlapping HOS-LN-000
+acceptance criteria are reconciled here; overlapping items are mapped once rather
+than treated as additional independent requirements.
+
+| Criterion | Status | Existing evidence | Missing evidence | Next action |
+|---|---|---|---|---|
+| 1. Current repository baseline is inventoried | PASS | HOS-LN-000 existing-foundation inventory; V-01/V-02 evidence | None for LN-0 scope | None |
+| 2. Existing runtime behavior to preserve is documented | PASS | HOS-LN-000 Preserve list; baseline mapping | None identified | None |
+| 3. Event/payload contracts are specified | PASS — deletion-safe invariant and pre-LN-1 ADR gate explicit | Consolidated architecture §§6,8,16; mandatory Schema/Integrity ADR gate below | Final commitment representation and exact event-hash coverage remain unresolved by design | Resolve in accepted Schema/Integrity ADR before schema persistence or real capture |
+| 4. Source-authority and writer-authority matrices are specified | PASS | Consolidated architecture; V-03 source-authority proof | None identified | None |
+| 5. Capture/recovery semantics are mapped from existing HOS-006 behavior | PASS | Consolidated architecture and baseline mapping; V-01/V-03 evidence | None identified | None |
+| 6. State watermark/poison semantics are specified | PASS | Consolidated architecture §12 | None identified | None |
+| 7. Deletion fan-out semantics are specified | PASS — V-04 contract plus permanent-digest prohibition and ADR gate | Consolidated architecture §16; V-04 PASS / PROMOTED; low-entropy erase acceptance below | Final lifecycle/backup/idempotency interaction must be resolved in the ADR | Resolve in accepted Schema/Integrity ADR before schema persistence or real capture |
+| 8. Model/context boundary is specified | PASS | Consolidated architecture §§15,18; V-05 PASS / PROMOTED | None identified | None |
+| 9. Encryption/key-recovery design is verified enough to bound LN-1 | PASS — bounded feasibility only | Existing V-02 CI evidence plus this target-Mac V-02 proof and synthetic independent-wrapper round-trip | Production Keychain/KDF/custody/rotation/backup decisions remain open | Keep those decisions as LN-1 pre-implementation ADR gates; external reviewer assesses sufficiency |
+| 10. SQLCipher/storage spike produces target-stack evidence | PASS | `docs/life-notebook/LN0_V02_TARGET_MAC_EVIDENCE.md`; SQLCipher 4.19.0 on macOS 26.6.2 arm64 | Rollback-journal mode and temp-file packaging not separately tested | Carry explicit limits into LN-1 tests/design |
+| 11. LN-1 work order has bounded scope and executable acceptance tests | PASS — proposed below | Proposed LN-1 work order in this document | Not implemented; no implementation readiness claimed | External review, then owner readiness decision |
+| 12. No frozen/runtime evidence is overwritten or falsely superseded | PASS | V-03/V-04/V-05 hashes recorded in this reconciliation; runtime untouched | None identified | Recheck hashes before review package freeze |
+| Independent architecture/security review finds no unresolved schema-blocking defect | REVIEW — initial review found one schema blocker; this documentation-only correction addresses it | Initial external review result and this V2 packet | Independent review of the correction | Submit V2 package; do not close LN-0 before PASS |
+| Explicit owner decision promotes LN-0 to implementation-ready | OWNER DECISION | None | Explicit owner approval after review | Await owner decision after review PASS |
+
+Frozen implementation/test SHA-256 values verified for this reconciliation:
+
+| Evidence | SHA-256 |
+|---|---|
+| V-03 fixture `experiments/ln0_v03_ingestor.py` | `57b3916a316543de8afc928e3784189fc7bf9baccf6ae3ecfb7d73ca14420c50` |
+| V-03 tests `tests/test_ln0_v03_ingestor.py` | `b3f1f482c2c8c1f9a751643539bd1bc725b3c41a2ca639dccaae07e95d5771a6` |
+| V-04 fixture `experiments/ln0_v04_deletion_fanout.py` | `8f1778684918174ad36e741d14cd902b3eab1a01da7dbb2a07daedc097386c39` |
+| V-04 tests `tests/test_ln0_v04_deletion_fanout.py` | `e91c4c487da1acdaca1c1c7742e0d45ddff5657c8f6359c5501fc0be2d8e4e03` |
+| V-05 fixture `experiments/ln0_v05_context_boundary.py` | `7a1aebf8d6556ee8c6380340759794bfd0854df94861b2a3e216bb552a5c7693` |
+| V-05 tests `tests/test_ln0_v05_context_boundary.py` | `8fc5427ec9502a50f2d585a9830ece9f1dbbccdbd85e377eb0584b05fd794333` |
+
+V-01 and V-02 are accepted; V-03, V-04, and V-05 remain PASS / PROMOTED. The
+verification-plan exit criteria, architecture DoD, and HOS-LN-000 acceptance list
+are aligned by this mapping. LN-0 remains **ACTIVE / NOT CLOSED** until the review
+gate passes and the owner separately records implementation readiness.
+
+## Proposed bounded executable work order — LN-1 Capture → Encrypted Kernel
+
+**State:** review candidate only. This section does not authorize LN-1 implementation.
+
+### Objective
+
+Add the smallest additive path that durably captures an authorized `CaptureRequest`
+as an encrypted `NotebookEventV1` plus its independently deletable
+`PayloadObjectV1`, then reads it back and reports truthful capture/checkpoint state.
+Preserve existing Runtime 0.1 behavior until migration/cutover acceptance proves
+equivalence.
+
+### Prerequisites
+
+- LN-0 external architecture/security review returns PASS with no unresolved
+  schema/security blocker.
+- Jon explicitly records the implementation-ready decision.
+- A separate PRE-LN-1 Schema/Integrity ADR is reviewed and accepted before any
+  `NotebookEventV1` / `PayloadObjectV1` persistence implementation or real capture.
+  It resolves the payload commitment representation; whether/how `event_hash`
+  commits payload information; `content_hash` lifecycle; erase behavior;
+  idempotency/duplicate detection; backup/restore; and interaction with V-04
+  ErasureTag/deletion semantics. This gate does not select an algorithm in LN-0.
+- Before production encryption code, an owner-reviewed ADR selects the SQLCipher
+  runtime integration, key creation and local/recovery wrapper formats, platform
+  key storage, KDF parameters, custody/recovery process, rotation, and backup policy.
+  Homebrew is not an allowed runtime/deployment assumption.
+- Baseline the exact production commit and the existing migration/rollback path.
+
+### Scope and non-goals
+
+Scope is one additive capture-to-kernel vertical slice: capture adapter → Ingestor
+(sole kernel writer) → encrypted durable event and unique payload object → exact
+readback → truthful status/checkpoint. Integrate the existing `notebook.py`,
+`conversation_capture.py`, and `conversation_ledger.py` behavior as appropriate;
+limit changes to the smallest selected storage/capture modules, migrations, and
+focused tests. Exact new module names are chosen after the implementation baseline
+is inspected.
+
+Do not build Canonical State, Knowledge Graph, summaries, embeddings, external
+providers, autonomous identity resolution, multi-device replication, or a new
+runtime. Do not destructively migrate, delete, or rewrite existing Notebook data.
+Backup product features are not required in this slice; any implemented export or
+restore must use a separately keyed encrypted destination and prove restore with
+the correct key and rejection with an incorrect key.
+
+### Mandatory schema/integrity ADR gate
+
+This gate is distinct from the SQLCipher/key-custody ADR. It blocks all kernel
+event/payload schema implementation and real capture until the exact commitment
+representation and `event_hash` coverage are reviewed and accepted, and until
+content-hash lifecycle, deletion, idempotency/duplicate detection, backup/restore,
+and V-04 ErasureTag interaction are specified with tests. No final cryptographic
+algorithm is selected by this proposal.
+
+### Authority and data contracts
+
+- Capture occurs before model-dependent compute whenever the path permits.
+- The Ingestor is the sole kernel writer. Sources submit evidence; Core resolves
+  source authority, sequence, hashes, timestamps, classification, and status.
+  Callers/models cannot self-assign owner authority, `seq`, hashes, or verified
+  capture status.
+- Implement only the approved `NotebookEventV1` and `PayloadObjectV1` fields and
+  relationships from the consolidated architecture. Each event owns a unique,
+  independently deletable payload object. `payload_commitment?` is not an
+  ordinary permanent digest of erasable plaintext. `content_hash` may be used only
+  while the governed payload exists and must not survive ERASE as a
+  dictionary-testable plaintext fingerprint. Exact lifecycle and event-hash
+  coverage come from the accepted Schema/Integrity ADR. Content hashes are not
+  shared object identity.
+- Preserve exact text, speaker order, Unicode, whitespace, provenance, idempotency,
+  and read-back-before-checkpoint behavior.
+- Preserve distinct truthful states: `PENDING`, `PARTIAL/INCOMPLETE`, `WRITTEN`,
+  `READ_BACK_VERIFIED`, `CHECKPOINTED/VERIFIED`, `FAILED`, and
+  `RECOVERY_REQUIRED`; naming may normalize only in the schema ADR, not collapse
+  semantics.
+
+### Encryption, WAL, and recovery contract
+
+- Use a random data-encryption key and the two-wrapper direction: local OS secure
+  storage plus an independent recovery wrapper. The model/provider is never key
+  authority. No plaintext fallback is permitted.
+- Apply the key before any page access. Use only the SQLCipher configuration
+  selected in the reviewed ADR; do not copy unverified model-generated settings.
+- Under the chosen journal mode, demonstrate encrypted main DB and all active WAL,
+  SHM, rollback-journal, and temporary storage artifacts in scope. Known governed
+  synthetic plaintext markers must be absent from persistent database/journal
+  bytes. A SQLCipher/key failure must not expose raw plaintext.
+- Correct local/recovery authorization opens the database; wrong, absent, corrupt,
+  or unavailable key material fails closed and reports `RECOVERY_REQUIRED` (or
+  `FAILED` before durable capture). Loss of both independent wrappers is
+  irrecoverable and must be stated truthfully; no provider can recover it.
+- Test crash recovery for committed and uncommitted writes. Backup/export/restore
+  behavior is tested if included; encrypted exports use separate key material.
+
+### Executable acceptance tests
+
+1. Exact synthetic capture is durable before enrichment; forced enrichment failure
+   does not lose capture or fabricate a successful checkpoint.
+2. Readback byte-compares original text/provenance before checkpoint status.
+3. Duplicate retry returns the same event; conflicting reuse fails closed;
+   concurrent distinct captures preserve one global sequence/previous-hash chain.
+4. Only the Ingestor can append; source/model attempts to self-authorize or forge
+   canonical fields are rejected.
+5. Payload objects are unique per event and independently addressed/deletable.
+6. Wrong/no key and corrupt/missing wrapper fail closed; authorized recovery
+   restores access without provider participation.
+7. SQLCipher correct-key reopen succeeds; standard SQLite and wrong-key access
+   fail. WAL/crash tests preserve committed work and roll back uncommitted work.
+8. Synthetic marker scans cover DB, WAL, SHM, rollback journal when used, and
+   selected temporary files. No marker appears in governed persistent bytes.
+9. Existing exact-capture, idempotency, recovery visibility, and migration fixtures
+   remain green; no destructive migration or owner-data test is used.
+10. Capture a synthetic low-entropy payload and complete the authorized erase
+    lifecycle. Verify governed plaintext is gone; an ordinary plaintext-derived
+    digest is absent from immutable kernel/event history, receipt, projections,
+    caches, and backup state in scope; structural chronology/tombstone/deletion
+    evidence survives; the event/integrity chain remains valid; and no kernel
+    history rewrite was required. Include V-04 ErasureTag reconciliation in the
+    same acceptance proof.
+
+### Failure, rollback, evidence, and promotion
+
+Storage/key failure never becomes a false `WRITTEN` or `CHECKPOINTED` claim. Keep
+the old path available until additive migration and readback equivalence pass.
+Rollback disables the new capture path and restores the prior runtime selection;
+it does not delete evidence, decrypt/overwrite the prior store, or discard events
+already durably committed.
+
+Preserve exact tested commit, target OS/architecture, runtime/native SQLCipher
+versions, key-configuration reference (never secret material), commands, full
+focused output, hashes, recovery/crash results, known limitations, and rollback
+confirmation in the LN-1 evidence location. Promotion requires focused and affected
+regressions, migration/readback proof, `git diff --check`, scope/hash audit,
+independent review of the immutable candidate, and owner-authorized promotion under
+the HumanOS SDLC. No implementation or promotion is authorized by this proposal.
 
 ## V-03 execution record — 2026-09-26
 

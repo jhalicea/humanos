@@ -603,3 +603,40 @@ Preserved hashes: V-04 fixture
 hashes: fixture
 `7a1aebf8d6556ee8c6380340759794bfd0854df94861b2a3e216bb552a5c7693`; tests
 `8fc5427ec9502a50f2d585a9830ece9f1dbbccdbd85e377eb0584b05fd794333`.
+
+## V-05 external promotion review and promotion — 2026-09-28
+
+External review: **PASS**; blocking findings: **none**; security/code blockers: **0**.
+The reviewer independently verified the frozen Pass 4 hashes and the 31/31
+focused suite, including unclassified and custom-`safe-1` denial, explicit
+`HOSTED_ALLOWED` lookalike success, and hosted ContextRequest reauthorization.
+V-05 was promoted in commit
+`5eec801abc498a0325350004b7a816cfac1a5bb8`. The preserved fixture/test hashes are
+the Pass 4 values immediately above. The broad suite evidence remains 649 run,
+11 skipped, one known sandbox loopback `PermissionError`, no V-05 failure; the broad
+suite is **NOT GREEN**.
+
+## V-02 target Mac SQLCipher proof — 2026-09-28
+
+The unchanged `experiments/ln0_sqlcipher_spike_v2.py` passed (exit 0) on the
+current Apple Silicon Mac: macOS 26.6.2 (`25G83`), arm64, Python 3.13.15,
+SQLCipher 4.19.0 community at `/opt/homebrew/bin/sqlcipher`. The executable was
+verified using both `sqlcipher --version` and `PRAGMA cipher_version;`. The
+reproducible command, full JSON stdout, no-key follow-up output, and spike source
+hash are in the tracked `docs/life-notebook/LN0_V02_TARGET_MAC_EVIDENCE.md` (SHA-256
+`a335daa5fc99595a60dc0644d25697598ed52c69822fafa441b672a15818c02e`).
+
+The result confirms encrypted create/readback, wrong/no-key and standard-SQLite
+rejection, WAL observed with no governed synthetic marker in DB/WAL/SHM, committed
+recovery and uncommitted rollback after SIGKILL, encrypted export/restore under a
+separate key, and the independent AES-GCM wrapper round-trip. The inline no-key
+check used only a temporary synthetic database. The spike itself reported
+`keys_logged: false`.
+
+This is bounded storage-layer evidence. It does not qualify rollback-journal mode,
+temporary-file packaging, production Python SQLCipher binding, Keychain integration,
+KDF/wrapping/custody policy, key rotation, production recovery authority, or backup
+and deletion policy. The current proof is sufficient to bound the proposed LN-1
+work order, subject to external review; unresolved crypto decisions remain explicit
+pre-implementation ADR gates. Homebrew is workstation development tooling only and
+is not a HumanOS runtime, production, or deployment dependency.

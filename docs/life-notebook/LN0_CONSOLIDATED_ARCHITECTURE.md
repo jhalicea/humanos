@@ -214,7 +214,7 @@ policy:
 
 payload:
   payload_object_id?
-  payload_hash?
+  payload_commitment?
   payload_size?
 
 capture:
@@ -224,6 +224,24 @@ integrity:
   prev_event_hash
   event_hash
 ```
+
+### Payload integrity across authorized erasure
+
+`payload_commitment?` is a conceptual field, not an approved algorithm or stored
+representation. It MUST NOT be interpreted as an ordinary permanent SHA/content
+digest of erasable plaintext. No permanent immutable event, receipt, projection,
+cache, or backup may retain an ordinary plaintext-derived payload digest after
+authorized `ERASE.COMPLETED`.
+
+Before erasure, integrity/idempotency may use content-derived values only under the
+lifecycle selected by the Schema/Integrity ADR. At erase completion, no ordinary
+plaintext-derived digest may remain in any governed persistent store. Whatever
+payload commitment is retained, if any, must satisfy the deletion contract and
+permit the immutable event-integrity chain to remain valid after payload erasure
+without rewriting kernel history. `event_hash` must not make post-erasure chain
+verification depend on an erased plaintext digest. The exact commitment
+representation and the exact fields covered by `event_hash` are unresolved until
+the mandatory PRE-LN-1 Schema/Integrity ADR is reviewed and accepted.
 
 ### Global sequence
 
@@ -306,6 +324,14 @@ Two identical payloads captured twice remain two independently deletable objects
 `content_hash` is an integrity/duplicate-detection signal, not storage identity.
 
 Deletion-safe deduplication is explicitly deferred until it has a complete proof and test suite.
+
+`content_hash` may exist for integrity/idempotency while the governed payload
+exists, but its lifecycle MUST be compatible with authorized deletion. It MUST NOT
+survive `ERASE.COMPLETED` as an ordinary dictionary-testable plaintext fingerprint
+in this object or any permanent event, receipt, projection, cache, or backup.
+Whether it is removed, replaced, or represented otherwise is not decided here;
+the Schema/Integrity ADR must specify and test that lifecycle before schema
+implementation or real capture.
 
 ---
 
@@ -551,6 +577,16 @@ tombstone status, verification, and chained receipt integrity, but retains no
 plaintext, PII, summary, embedding, binary, reversible copy, or content-derived
 hash of the erased payload.
 
+The same prohibition applies to every permanent immutable event, projection,
+cache, and backup after authorized erase completion. `NotebookEventV1.payload_commitment?`
+is not an ordinary plaintext hash, and `PayloadObjectV1.content_hash` must not
+survive completion as a dictionary-testable plaintext fingerprint. Structural
+chronology, object/event identity, tombstone, and deletion evidence survive; the
+event/integrity chain remains valid without rewriting kernel history. The mandatory
+PRE-LN-1 Schema/Integrity ADR must specify how this interacts with `event_hash`,
+idempotency/duplicate detection, backup/restore, and the V-04 ErasureTag contract.
+It is separate from the SQLCipher/key-custody ADR.
+
 V-04 Attempt 4 refines this as a privacy/integrity contract: permanent event and
 receipt integrity may bind opaque payload-object identity or an encrypted/non-plaintext
 representation, but must not retain a dictionary-testable plaintext fingerprint after
@@ -558,7 +594,7 @@ erasure. Structural provenance (event/object/page/block identity, event type,
 chronology, deletion scope and lifecycle principals/times) survives so a page can
 truthfully render `13:43 — [CONTENT ERASED] — DEL-184` without retaining the original
 content. Production encrypted-payload integrity is intentionally deferred to the
-kernel/encryption ADR; this synthetic fixture does not select that production design.
+mandatory Schema/Integrity ADR; this synthetic fixture does not select that design.
 
 V-04 Attempt 5 binds every completed operation bidirectionally by `deletion_id`:
 exactly one tombstone, one receipt, one completion lifecycle event, and matching
@@ -634,6 +670,15 @@ The encrypted Notebook must remain recoverable after loss of the original Mac wi
 Exact cryptographic algorithms, KDF parameters, SQLCipher pragma order, key rotation, and macOS integration require direct technical verification before their ADR is ratified.
 
 Do not promote exact model-generated SQLCipher recipes without evidence.
+
+The unchanged V-02 spike passed on the target Mac (macOS 26.6.2 arm64, SQLCipher
+4.19.0); the full environment and result are in
+`docs/life-notebook/LN0_V02_TARGET_MAC_EVIDENCE.md`. This establishes SQLCipher
+storage-layer feasibility and a synthetic independent-wrapper round-trip, not
+production Keychain integration, KDF/wrapping/custody policy, rotation, or backup
+policy. Those remain explicit LN-1 pre-implementation ADR decisions. Homebrew is
+workstation development tooling only and is not a HumanOS runtime, production, or
+deployment dependency.
 
 ---
 
@@ -778,18 +823,45 @@ LN-0 closes when:
 11. LN-1 work order has bounded scope and executable acceptance tests;
 12. no existing frozen/runtime evidence is overwritten or falsely superseded.
 
-Until then this document is a **candidate architecture contract**, not an implementation claim.
+The technical criteria are reconciled in `docs/work-orders/HOS-LN-000.md`, including
+the bounded feasibility limits above. The independent architecture/security review
+and explicit owner implementation-ready decision remain required closure gates.
+Until both gates pass, this remains a **candidate architecture contract**, not an
+implementation-ready or closed workstream.
+
+### Mandatory PRE-LN-1 Schema/Integrity ADR gate
+
+Before any `NotebookEventV1` / `PayloadObjectV1` persistence implementation or real
+capture, a Schema/Integrity ADR MUST be reviewed and accepted. It is separate from
+the SQLCipher/key-custody ADR and MUST resolve:
+
+1. exact deletion-safe `payload_commitment` representation (or explicit omission);
+2. whether/how `event_hash` commits payload information and how verification works
+   after payload erasure without rewriting history;
+3. `PayloadObjectV1.content_hash` creation, use, and erase lifecycle;
+4. authorized deletion/erasure behavior across kernel, receipts, projections,
+   caches, and backups;
+5. idempotency and duplicate-detection semantics before and after erasure;
+6. backup/export/restore interaction and anti-resurrection behavior; and
+7. interaction with V-04 `ErasureTag`, tombstone, receipt, and completion semantics.
+
+This architecture does not select a final cryptographic commitment algorithm.
+Implementation is prohibited until the ADR records the chosen representation,
+threat analysis, and acceptance tests.
 
 ---
 
 ## 24. Immediate next actions
 
-1. Preserve this architecture on the `life-notebook-ln0` branch.
-2. Create/maintain one LN-0 work order (`HOS-LN-000`) rather than parallel planning documents.
-3. Run targeted verification spikes for encrypted SQLite/key recovery and local process/egress boundaries.
-4. Turn the verified results into small ADRs.
-5. Produce LN-1 acceptance tests before changing the Notebook schema.
-6. Only then begin LN-1 implementation.
+1. Preserve this architecture and its evidence on the `life-notebook-ln0` branch.
+2. Maintain one LN-0 work order (`HOS-LN-000`) rather than parallel planning documents.
+3. Resolve and review the mandatory Schema/Integrity ADR before event/payload
+   persistence or real capture begins.
+4. The target-Mac SQLCipher/storage feasibility proof is complete; retain its bounded
+   results and unresolved production key-policy decisions as explicit evidence.
+5. Obtain independent architecture/security review and record findings/disposition.
+6. Obtain the owner's explicit implementation-ready decision only after review passes.
+7. Only after all gates, begin the separately authorized LN-1 implementation.
 
 The operating principle is:
 

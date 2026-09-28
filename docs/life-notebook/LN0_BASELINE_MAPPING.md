@@ -281,6 +281,15 @@ Verify on the target stack:
 
 No model-generated SQLCipher recipe is considered verified until this passes against primary documentation and real execution.
 
+Target-stack evidence is now recorded in
+`docs/life-notebook/LN0_V02_TARGET_MAC_EVIDENCE.md`: the unchanged revision-2
+spike passed on macOS 26.6.2 arm64 with SQLCipher 4.19.0 community. It exercises
+WAL/SHM and scans the main DB/WAL/SHM for governed synthetic plaintext, plus crash,
+wrong-key, recovery-wrapper, and encrypted export/restore checks. Rollback-journal
+mode, temporary-file packaging, and production runtime binding are not qualified by
+that proof. The synthetic independent-wrapper check does not establish production
+Keychain/KDF/custody/rotation policy; those remain pre-implementation ADR gates.
+
 ### V-03 — Ingestor idempotency/concurrency
 
 Prove:
