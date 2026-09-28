@@ -1,4 +1,6 @@
 from pathlib import Path
+import errno
+import sqlite3
 import tempfile
 import unittest
 
@@ -109,6 +111,138 @@ class CaptureImporterTests(unittest.TestCase):
         self.assertEqual(self.transcript(), before)
         self.assertEqual(result['imported'], 0)
         self.assertEqual(result['acknowledged_seq'], 2)
+
+    def test_locked_notebook_storage_stays_staged_and_retries(self):
+        self.relay.append(self.event('human', 'durable after storage recovery'))
+        self.importer.stage(self.relay.after)
+        self.book.db.execute('PRAGMA busy_timeout=1')
+        blocker = sqlite3.connect(str(self.book.root / 'notebook.sqlite3'), timeout=0)
+        blocker.execute('BEGIN EXCLUSIVE')
+        result = self.importer.drain()
+        blocker.rollback()
+        blocker.close()
+        self.book.db.execute('PRAGMA busy_timeout=5000')
+        self.assertEqual(result['pending'], 1)
+        self.assertEqual(result['errors'], 1)
+        self.assertEqual(result['retryable_errors'], 1)
+        self.assertEqual(result['permanent_errors'], 0)
+        self.assertEqual(self.importer.status(), {
+            'staged_remote_seq': 1, 'acknowledged_seq': 0,
+            'staged': 1, 'imported': 0, 'errors': 1,
+            'retryable_errors': 1, 'permanent_errors': 0, 'failure_history': 1,
+        })
+
+        result = self.importer.drain()
+        self.assertEqual(result['imported'], 1)
+        self.assertEqual(result['pending'], 0)
+        self.assertEqual(result['errors'], 0)
+        self.assertEqual(result['failure_history'], 1)
+        self.assertEqual([(row['role'], row['text']) for row in self.book.db.execute(
+            'SELECT role,text FROM transcript ORDER BY seq'
+        )], [('HUMAN', 'durable after storage recovery')])
+
+    def test_injected_disk_full_stays_staged_and_retries(self):
+        """An ENOSPC reported by Notebook leaves the verified inbox evidence retryable.
+
+        This is fault injection at the Notebook boundary, not a claim that the
+        host filesystem has been filled in this test environment.
+        """
+        self.relay.append(self.event('human', 'durable after injected disk full'))
+        self.importer.stage(self.relay.after)
+        original = self.book.start
+
+        def disk_full(*args, **kwargs):
+            raise OSError(errno.ENOSPC, 'injected disk full')
+
+        self.book.start = disk_full
+        result = self.importer.drain()
+        self.book.start = original
+        self.assertEqual((result['pending'], result['retryable_errors'], result['permanent_errors']),
+                         (1, 1, 0))
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 1)
+        self.assertEqual([(role, text) for _, role, text in self.transcript()],
+                         [('HUMAN', 'durable after injected disk full')])
+
+    def test_injected_permission_loss_is_visible_until_owner_requeues(self):
+        """Permission loss is terminal, so the importer never retries it silently."""
+        self.relay.append(self.event('human', 'durable after permission repair'))
+        self.importer.stage(self.relay.after)
+        original = self.book.start
+
+        def permission_denied(*args, **kwargs):
+            raise PermissionError(errno.EACCES, 'injected permission denied')
+
+        self.book.start = permission_denied
+        result = self.importer.drain()
+        self.book.start = original
+        self.assertEqual((result['pending'], result['retryable_errors'], result['permanent_errors']),
+                         (0, 0, 1))
+        self.assertEqual(self.importer.status()['acknowledged_seq'], 0)
+        self.importer.requeue_error(1)
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 1)
+        self.assertEqual([(role, text) for _, role, text in self.transcript()],
+                         [('HUMAN', 'durable after permission repair')])
+
+    def test_permanent_error_does_not_block_later_capture_and_can_be_requeued(self):
+        self.relay.append(self.event('human', 'bad evidence', turn='turn-bad'))
+        self.relay.append(self.event('human', 'good evidence', turn='turn-good'))
+        self.importer.stage(self.relay.after)
+        original = self.importer._import_event
+
+        def import_with_permanent_failure(event):
+            if event.turn_id == 'turn-bad':
+                raise ValueError('preserved evidence conflict')
+            return original(event)
+
+        self.importer._import_event = import_with_permanent_failure
+        result = self.importer.drain()
+        self.assertEqual(result['imported'], 1)
+        self.assertEqual(result['acknowledged_seq'], 0)
+        self.assertEqual(result['permanent_errors'], 1)
+        self.assertEqual(self.importer.db.execute(
+            'SELECT status FROM inbox WHERE remote_seq=1').fetchone()[0], 'ERROR')
+        self.assertEqual([(role, text) for _, role, text in self.transcript()], [
+            ('HUMAN', 'good evidence')])
+
+        self.importer._import_event = original
+        self.importer.requeue_error(1)
+        self.assertEqual(self.importer.status()['errors'], 0)
+        history = list(self.importer.db.execute(
+            'SELECT classification,message FROM failure_history WHERE remote_seq=1 ORDER BY id'))
+        self.assertEqual([tuple(row) for row in history], [
+            ('TERMINAL', 'preserved evidence conflict'),
+            ('OWNER_REQUEUE', 'preserved evidence conflict'),
+        ])
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.importer.db.execute('UPDATE failure_history SET message="changed" WHERE remote_seq=1')
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.importer.db.execute('DELETE FROM failure_history WHERE remote_seq=1')
+        result = self.importer.drain()
+        self.assertEqual(result['acknowledged_seq'], 2)
+        self.assertEqual(result['errors'], 0)
+        self.assertEqual([(role, text) for _, role, text in self.transcript()], [
+            ('HUMAN', 'good evidence'), ('HUMAN', 'bad evidence')])
+
+    def test_legacy_error_is_visible_and_requires_explicit_requeue(self):
+        self.relay.append(self.event('human', 'legacy failed record'))
+        self.importer.stage(self.relay.after)
+        with self.importer.db:
+            self.importer.db.execute(
+                "UPDATE inbox SET status='ERROR', error='legacy storage failure' WHERE remote_seq=1"
+            )
+        self.assertEqual(self.importer.status()['permanent_errors'], 1)
+        self.assertEqual(self.importer.drain()['imported'], 0)
+        self.importer.requeue_error(1)
+        self.assertEqual(self.importer.db.execute(
+            'SELECT message FROM failure_history WHERE classification="OWNER_REQUEUE"').fetchone()[0],
+            'legacy storage failure')
+        self.assertEqual(self.importer.drain()['acknowledged_seq'], 1)
+
+    def test_retry_policy_excludes_permission_and_schema_errors(self):
+        self.assertFalse(self.importer._retryable(PermissionError(errno.EACCES, 'access denied')))
+        self.assertFalse(self.importer._retryable(sqlite3.OperationalError('no such table: transcript')))
+        self.assertTrue(self.importer._retryable(sqlite3.OperationalError('database is locked')))
+        self.assertTrue(self.importer._retryable(OSError(errno.ENOSPC, 'disk full')))
 
     def test_tampered_remote_digest_fails_before_local_staging(self):
         receipt = self.relay.append(self.event('human', 'hello'))

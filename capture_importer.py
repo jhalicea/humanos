@@ -12,6 +12,8 @@ No language model is called.
 
 from __future__ import annotations
 
+import errno
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -27,10 +29,16 @@ from conversation_capture import UniversalConversationCapture
 STAGED = 'STAGED'
 IMPORTED = 'IMPORTED'
 ERROR = 'ERROR'
+RETRYABLE_ERRNOS = frozenset({errno.EAGAIN, errno.EBUSY, errno.EINTR, errno.ENOSPC, errno.ETIMEDOUT})
+RETRYABLE_SQLITE_MESSAGES = frozenset({'database is locked', 'database is busy'})
 
 
 class _UnresolvedDependency(Exception):
     pass
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _private_dir(path: Path) -> Path:
@@ -87,6 +95,19 @@ class CaptureImporter:
                 hcid TEXT NOT NULL,
                 PRIMARY KEY(source, conversation_key, turn_key, variant_key)
             );
+            CREATE TABLE IF NOT EXISTS failure_history(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                remote_seq INTEGER NOT NULL REFERENCES inbox(remote_seq),
+                classification TEXT NOT NULL CHECK(classification IN ('RETRYABLE','TERMINAL','OWNER_REQUEUE')),
+                message TEXT NOT NULL,
+                created TEXT NOT NULL
+            );
+            CREATE TRIGGER IF NOT EXISTS failure_history_no_update
+              BEFORE UPDATE ON failure_history
+              BEGIN SELECT RAISE(ABORT, 'capture failure history is append-only'); END;
+            CREATE TRIGGER IF NOT EXISTS failure_history_no_delete
+              BEFORE DELETE ON failure_history
+              BEGIN SELECT RAISE(ABORT, 'capture failure history is append-only'); END;
         ''')
         self.db.commit()
         if self._meta('staged_remote_seq') is None:
@@ -250,11 +271,62 @@ class CaptureImporter:
         capture.finish_turn(tx, event.text)
         return tx
 
+    @staticmethod
+    def _retryable(error: Exception) -> bool:
+        """Retry only named storage conditions that may resolve without new evidence."""
+        if isinstance(error, TimeoutError):
+            return True
+        if isinstance(error, sqlite3.OperationalError):
+            text = str(error).casefold()
+            return any(message in text for message in RETRYABLE_SQLITE_MESSAGES)
+        if isinstance(error, OSError):
+            return error.errno in RETRYABLE_ERRNOS
+        return False
+
+    def _record_failure(self, row, error: Exception, retryable: bool) -> None:
+        classification = 'RETRYABLE' if retryable else 'TERMINAL'
+        message = str(error) or error.__class__.__name__
+        with self.db:
+            self.db.execute(
+                "UPDATE inbox SET status=?, error=? WHERE remote_seq=?",
+                (STAGED if retryable else ERROR, message, row['remote_seq']),
+            )
+            self.db.execute(
+                'INSERT INTO failure_history(remote_seq,classification,message,created) VALUES(?,?,?,?)',
+                (row['remote_seq'], classification, message, _now()),
+            )
+
+    def requeue_error(self, remote_seq: int) -> None:
+        """Explicitly return one terminally failed event to the staged queue.
+
+        This is for an owner who has resolved the recorded cause. It validates
+        the preserved event before changing its queue state, so a malformed or
+        tampered ERROR row cannot be silently retried.
+        """
+        if type(remote_seq) is not int or remote_seq < 1:
+            raise ValueError('remote_seq must be a positive integer')
+        row = self.db.execute('SELECT * FROM inbox WHERE remote_seq=?', (remote_seq,)).fetchone()
+        if not row or row['status'] != ERROR:
+            raise ValueError('Only an existing ERROR event can be requeued')
+        event = CaptureEvent.from_mapping(json.loads(row['payload']))
+        if event.digest() != row['payload_digest']:
+            raise RuntimeError('Terminal capture payload digest mismatch')
+        with self.db:
+            self.db.execute(
+                'INSERT INTO failure_history(remote_seq,classification,message,created) VALUES(?,?,?,?)',
+                (remote_seq, 'OWNER_REQUEUE', row['error'] or 'No recorded error', _now()),
+            )
+            self.db.execute(
+                "UPDATE inbox SET status=?, error=? WHERE remote_seq=?",
+                (STAGED, None, remote_seq),
+            )
+
     def drain(self, max_passes=4) -> dict:
         """Import staged events, tolerating temporary out-of-order dependencies."""
         if type(max_passes) is not int or not 1 <= max_passes <= 20:
             raise ValueError('max_passes must be from 1 to 20')
         imported = 0
+        retryable_failure = False
         for _ in range(max_passes):
             progress = False
             rows = self.db.execute(
@@ -271,12 +343,28 @@ class CaptureImporter:
                 except _UnresolvedDependency:
                     continue
                 except Exception as error:
-                    with self.db:
-                        self.db.execute(
-                            "UPDATE inbox SET status='ERROR', error=? WHERE remote_seq=?",
-                            (str(error), row['remote_seq']),
-                        )
-                    raise
+                    retryable = self._retryable(error)
+                    # A transient local-storage failure leaves the event staged
+                    # for a later drain. Evidence conflicts and unknown failures
+                    # stay visible as ERROR and do not block later captures.
+                    try:
+                        self._record_failure(row, error, retryable)
+                    except (sqlite3.Error, OSError) as persistence_error:
+                        # The status update and its history row are one SQLite
+                        # transaction.  If that transaction cannot commit, do
+                        # not claim that the original failure was recorded.
+                        # The relay is still the independent recovery source;
+                        # callers must treat this as a loud importer failure.
+                        raise RuntimeError(
+                            'Capture importer state persistence failed; no failure '
+                            'record was written and the remote relay remains the '
+                            'recovery source'
+                        ) from persistence_error
+                    if retryable:
+                        retryable_failure = True
+                        break
+                    progress = True
+                    continue
                 with self.db:
                     self.db.execute(
                         "UPDATE inbox SET status='IMPORTED', imported_tx=?, error=NULL "
@@ -285,16 +373,31 @@ class CaptureImporter:
                     )
                 imported += 1
                 progress = True
+            if retryable_failure:
+                break
             if not progress:
                 break
-        self.book.verify()
+        # A storage failure may prevent even read verification. The staged event
+        # and its error are durable in the importer before this result returns.
+        if not retryable_failure:
+            self.book.verify()
         return {
             'imported': imported,
             'pending': self.db.execute(
                 "SELECT COUNT(*) FROM inbox WHERE status='STAGED'"
             ).fetchone()[0],
             'errors': self.db.execute(
+                "SELECT COUNT(*) FROM inbox WHERE status='ERROR' OR "
+                "(status='STAGED' AND error IS NOT NULL)"
+            ).fetchone()[0],
+            'retryable_errors': self.db.execute(
+                "SELECT COUNT(*) FROM inbox WHERE status='STAGED' AND error IS NOT NULL"
+            ).fetchone()[0],
+            'permanent_errors': self.db.execute(
                 "SELECT COUNT(*) FROM inbox WHERE status='ERROR'"
+            ).fetchone()[0],
+            'failure_history': self.db.execute(
+                'SELECT COUNT(*) FROM failure_history'
             ).fetchone()[0],
             'staged_remote_seq': self.staged_remote_seq,
             'acknowledged_seq': self.acknowledged_seq(),
@@ -323,7 +426,17 @@ class CaptureImporter:
                 "SELECT COUNT(*) FROM inbox WHERE status='IMPORTED'"
             ).fetchone()[0],
             'errors': self.db.execute(
+                "SELECT COUNT(*) FROM inbox WHERE status='ERROR' OR "
+                "(status='STAGED' AND error IS NOT NULL)"
+            ).fetchone()[0],
+            'retryable_errors': self.db.execute(
+                "SELECT COUNT(*) FROM inbox WHERE status='STAGED' AND error IS NOT NULL"
+            ).fetchone()[0],
+            'permanent_errors': self.db.execute(
                 "SELECT COUNT(*) FROM inbox WHERE status='ERROR'"
+            ).fetchone()[0],
+            'failure_history': self.db.execute(
+                'SELECT COUNT(*) FROM failure_history'
             ).fetchone()[0],
         }
 
