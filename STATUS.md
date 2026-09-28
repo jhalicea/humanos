@@ -1,12 +1,12 @@
 # HumanOS Status Snapshot
 
-Status: HOS-LN-000 ACTIVE / V-03 PASS / PROMOTED / V-04 ATTEMPT 8 PASS / PROMOTED
-Date: 2026-09-27
+Status: HOS-LN-000 ACTIVE / V-03 PASS / PROMOTED / V-04 ATTEMPT 8 PASS / PROMOTED / V-05 PASS / EXTERNAL PROMOTION REVIEW PASS
+Date: 2026-09-28
 Workspace: `WS-HUMANOS`
 Workstream: `HOS-LN-000 — Life Notebook LN-0 Consolidation`
 Branch: `life-notebook-ln0`
-Baseline branch: `runtime-0.1`
-Baseline commit: `0cf78d9abe5dcfcc6114bb43167dcf7406478657`
+Baseline branch: `life-notebook-ln0`
+Baseline commit: `e793aca454c087cb68503cb79871a844eb7bde03`
 Work order: `docs/work-orders/HOS-LN-000.md`
 Architecture contract: `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`
 
@@ -123,14 +123,50 @@ physical SQLite remanence destruction. The independent review also retained the
 non-blocking routing-hygiene finding that the public Context Registry lacks an explicit
 HOS-LN-000 entry; the router is not changed by this promotion.
 
+## V-05 execution state
+
+V-05 is a **REMEDIATION PASS 4 LOCAL CANDIDATE / EXTERNAL REVIEW NOT YET RUN** on
+`experiment/v05-context-boundary-chunk2`, based on promoted V-04 commit
+`e793aca454c087cb68503cb79871a844eb7bde03`. The isolated synthetic future
+adapter-contract fixture keeps records, classification, retrieval, policy, provider
+authorization, compilation, and parsing Core-owned; it uses a canonical 16,384-byte
+ContextPacket, 4,096-byte raw response bound, byte-only local/hosted spies, an
+Core-held immutable issuance state for an invocation-bound, single-use wrapper, an explicit context-request state machine,
+deny-by-default/first-deny-wins policy, S3 and LOCAL_ONLY hosted denial, and empty
+retrieval/omitted-selection preservation. Hosted disclosure is now authorized from
+Core-owned classification metadata rather than literal plaintext markers. Hosted
+disclosure requires explicit Core-owned authorization; fallback classification does
+not authorize external disclosure, and caller-supplied record IDs cannot obtain the
+built-in `safe-1` authorization. The same policy is reevaluated for ContextRequest-
+driven recompilation. Pass 4 focused V-05 execution passed **31/31** and affected
+regressions passed **59/59**.
+
+Only `experiments/ln0_v05_context_boundary.py` and
+`tests/test_ln0_v05_context_boundary.py` are implementation/test changes; approved
+project routing was hardened separately in local commit
+`7c8c5fc09dbdaade0ee98e6030e9227b79384702`; it is not part of the V-05 candidate.
+The exact affected-regression command was
+`PYTHONPATH=tests python3 -m unittest tests.test_ln0_v03_ingestor tests.test_runtime tests.test_notebook_recall -v`
+and passed **59/59**. Pass 3 broad discovery was 647 run, 11 skipped, one known
+sandbox loopback `PermissionError`. The single Pass 4 broad run was 649 run, 11
+skipped, one same known sandbox loopback `PermissionError`, with no V-05 failure.
+The broad suite is not green. Tests used Python 3.13.15.
+
+V-05 does not prove automatic discovery of secrets or sensitive content from arbitrary
+plaintext. Content-classification/DLP capabilities are outside this synthetic boundary
+proof. It also does not prove production integration, an actual hosted provider,
+OS/process/filesystem isolation, LN-6/LN-7, or owner Notebook behavior. The public
+registry still lacks HOS-LN-000; it was not modified. No production runtime, owner
+data, commit, push, PR, or promotion was performed.
+
 ## Next action
 
-The next verification gate is **V-05**. V-03 implementation remains unchanged; its
-forged-token test construction received a deterministic test-only flake correction.
-The sandbox loopback environment issue and routing-hygiene finding remain separate
-non-blocking follow-up items.
+External promotion review passed with no blocking findings. Stage and promote the
+six-file V-05 candidate on `life-notebook-ln0` under the approved commit/push sequence.
 
 ## Rollback
 
-Revert the V-04 promotion commit on `life-notebook-ln0` to restore the pre-promotion
-branch state. `runtime-0.1` and all owner Notebook data remain unchanged.
+Remove or revert only the uncommitted V-05 fixture, V-05 tests, and V-05 documentation
+sections to restore the promoted V-04 baseline. Do not revert the promoted V-04 commit.
+The separate router-hardening commit is outside V-05 rollback. `runtime-0.1` and all
+owner Notebook data remain unchanged.

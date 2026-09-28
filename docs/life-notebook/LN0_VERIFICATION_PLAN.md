@@ -326,21 +326,42 @@ For hosted providers:
 ContextPacket -> Context Airlock -> Provider Gateway -> Hosted Provider
 ```
 
+Hosted providers receive only records explicitly authorized by Core for hosted
+disclosure. Records classified by Core as local-only, private, non-exportable, or
+otherwise provider-denied must not enter a hosted ContextPacket or reach the hosted
+adapter. Core owns record classification, effective provider policy, disclosure
+authorization, selection, and initial/recompiled ContextPacket construction. Source
+content and model output cannot assign or upgrade disclosure authority.
+Missing explicit hosted authorization fails closed; fallback classification alone is
+not permission to disclose. The built-in `safe-1` fixture is explicitly authorized by
+Core, while caller-supplied records require explicit Core classification.
+
+V-05 does not prove automatic discovery of secrets or sensitive content from
+arbitrary plaintext. Content-classification/DLP capabilities are outside this
+synthetic boundary proof.
+
 ## Test cases
 
 1. Adapter input contains only packet bytes/structured metadata required for the task.
-2. Packet contains no DB path, DB handle, Graph query handle, retrieval token, secret/key reference usable outside Core, or raw private path not required by task.
+2. Packet contains no DB path, DB handle, Graph query handle, retrieval token, or
+   secret/key reference usable outside Core. Private/path-like or credential-like
+   content classified provider-denied by Core does not enter a hosted packet;
+   equivalent-looking content explicitly classified `HOSTED_ALLOWED` is not rejected
+   merely because of its plaintext.
 3. Local model adapter has no direct Notebook DB object/reference.
 4. Hosted adapter has no filesystem access to Brain storage in the eventual enforcement spike.
 5. Model request for additional context returns a structured request to Core; it cannot call retrieval directly.
-6. Core recompiles a new packet only after local retrieval/policy evaluation.
+6. Core recompiles a new packet only after local retrieval/policy evaluation, and
+   applies the same hosted-disclosure authorization on every subsequent invocation.
 7. External response is classified as untrusted/proposal on return.
 8. A hostile prompt in retrieved content cannot cause N2/N3 material to be added to the outbound packet if policy denies it.
 9. Equivalent packet can be routed to a different provider without moving/migrating Notebook memory.
 
 ## Pass condition
 
-The model boundary is a data contract, not a hidden capability bridge.
+The model boundary is a data contract, not a hidden capability bridge. Initial and
+ContextRequest-driven hosted invocations enforce the same Core-owned disclosure
+decision without claiming general plaintext DLP.
 
 ## Evidence artifact
 

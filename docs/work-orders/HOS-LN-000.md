@@ -1,9 +1,9 @@
 # HOS-LN-000 — Life Notebook LN-0 Consolidation
 
-**Status:** V-03 PASS / PROMOTED; V-04 Attempt 8 PASS / PROMOTED
+**Status:** V-03 PASS / PROMOTED; V-04 Attempt 8 PASS / PROMOTED; V-05 PASS / EXTERNAL PROMOTION REVIEW PASS
 **Workspace:** `WS-HUMANOS`  
-**Branch:** `life-notebook-ln0`  
-**Baseline:** `runtime-0.1` @ `0cf78d9abe5dcfcc6114bb43167dcf7406478657`  
+**Branch:** `life-notebook-ln0`
+**Baseline:** promoted V-04 @ `e793aca454c087cb68503cb79871a844eb7bde03`
 **Architecture contract:** `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`  
 **Baseline map:** `docs/life-notebook/LN0_BASELINE_MAPPING.md`  
 **Verification plan:** `docs/life-notebook/LN0_VERIFICATION_PLAN.md`
@@ -459,3 +459,88 @@ and architecture first, obtain owner approval of the capability map, and only th
 begin implementation.
 
 Preserve this retrospective as an SDLC lesson for future HumanOS development.
+
+## V-05 local candidate record — 2026-09-27
+
+This record captures Pass 3 and is superseded by the Pass 4 record below.
+
+V-05 is a **REMEDIATION PASS 3 LOCAL CANDIDATE / EXTERNAL REVIEW NOT YET RUN** on
+`experiment/v05-context-boundary-chunk2`, from exact promoted V-04 baseline
+`e793aca454c087cb68503cb79871a844eb7bde03`. Only
+`experiments/ln0_v05_context_boundary.py` and
+`tests/test_ln0_v05_context_boundary.py` were added. Router policy was hardened
+separately in local commit `7c8c5fc09dbdaade0ee98e6030e9227b79384702` and is not
+part of the V-05 candidate.
+
+This isolated synthetic future adapter-contract fixture keeps records, classification,
+retrieval, policy, provider authorization, compilation, and parsing Core-owned. Hosted
+providers receive only records explicitly authorized by Core for hosted disclosure;
+Core-denied records do not enter a hosted ContextPacket or reach the hosted adapter on
+either initial invocation or ContextRequest-driven recompilation. Source content and
+models cannot self-assign or upgrade export authority. The fixture proves bounded
+canonical packet/response sizes, byte-only local/hosted spies,
+untrusted wrappers backed by immutable Core-held issuance state, replay-safe context-request recompilation, deny-by-default and
+first-deny-wins behavior, S3 and LOCAL_ONLY hosted denial, and empty retrieval
+and omitted-selection preservation. Unknown providers are rejected before any Core
+record access. Focused V-05 tests passed **29/29** with
+`python3 -m unittest tests.test_ln0_v05_context_boundary -v`. Directly affected
+regressions passed **59/59** with
+`PYTHONPATH=tests python3 -m unittest tests.test_ln0_v03_ingestor tests.test_runtime tests.test_notebook_recall -v`.
+The single Pass 3 broad discovery via
+`python3 -m unittest discover -s tests -v` recorded **647 run,
+11 skipped, 1 error**,
+the known sandbox loopback `PermissionError`; it is not green. `git diff --check`
+is the final static gate. Tests used Python 3.13.15.
+
+V-05 does not prove automatic discovery of secrets or sensitive content from arbitrary
+plaintext. Content-classification/DLP capabilities are outside this synthetic boundary
+proof. It also does not prove production integration, actual hosted providers,
+OS/process/filesystem isolation, LN-6/LN-7, or owner Notebook behavior. The public
+registry still lacks HOS-LN-000 and was not modified. No production runtime, owner
+data, V-05 commit, push, PR, or promotion occurred. Rollback removes/reverts only the
+V-05 fixture, tests, and this documentation append; the separate router-hardening
+commit and promoted V-04 remain intact. Next
+action: freeze Pass 3 evidence and provide a compact packet for external fresh read-only
+review while remaining uncommitted, unpublished, and unpromoted. Do not invoke the
+broken local Sol reviewer.
+
+## V-05 Remediation Pass 4 — 2026-09-28
+
+External review found one blocker: custom records without an explicit classification
+received fallback `S1 / LOCAL_OR_EXTERNAL` and could reach the hosted adapter, contrary
+to the explicit-authorization contract. Pass 4 changes only the synthetic V-05
+fixture/test and evidence documentation. Hosted disclosure now fails closed unless
+Core explicitly assigns `HOSTED_ALLOWED`; fallback classification does not grant
+external authorization. The built-in `safe-1` receives explicit Core-owned fixture
+authorization only on the built-in fixture construction path, so a caller-supplied
+record cannot inherit it by using that ID. No content scanning or DLP was added.
+
+Added adversarial tests prove an unclassified custom record with credential/path-like
+plaintext is denied with zero hosted adapter calls, a custom `safe-1` ID cannot self-
+authorize, and explicitly `HOSTED_ALLOWED` lookalike content still succeeds. Pass 3's
+initial hosted denial, same-provider ContextRequest reauthorization, and B1-B4 tests
+remain covered. Focused Pass 4 result: **31/31 passed**. Affected regressions:
+**59/59 passed**. The single broad-suite run was **649 run, 11 skipped, 1 error**:
+the known sandbox loopback `PermissionError` in `test_swarm.SwarmTests.test_live_loopback_and_attribution`; no V-05 failure occurred and the suite is not green. Final
+hashes are recorded in the verification results.
+
+V-05 remains synthetic fixture evidence. It does not prove arbitrary plaintext DLP,
+production provider integration, OS/process/filesystem isolation, LN-6/LN-7, or owner
+Notebook behavior. At Pass 4 candidate freeze, no commit, push, PR, or promotion had
+occurred. Rollback remains limited to the V-05 fixture, tests, and V-05 documentation;
+promoted V-04 and the separate router-hardening commit remain intact.
+
+## V-05 external promotion review — 2026-09-28
+
+External review result: **PASS**. Blocking findings: **none**. Security/code blockers:
+**0**. The reviewer independently verified the frozen Pass 4 fixture and test hashes,
+the 31/31 focused suite, unclassified-record and custom-`safe-1` denial, explicit
+`HOSTED_ALLOWED` lookalike success, and hosted ContextRequest reauthorization before a
+second adapter call. The reviewed hashes are fixture
+`7a1aebf8d6556ee8c6380340759794bfd0854df94861b2a3e216bb552a5c7693` and tests
+`8fc5427ec9502a50f2d585a9830ece9f1dbbccdbd85e377eb0584b05fd794333`.
+
+Pass 4 evidence remains: focused **31/31 PASS**; affected regressions **59/59 PASS**;
+broad suite **649 run / 11 skipped / 1 known sandbox loopback PermissionError**, no
+V-05 failure, broad suite **NOT GREEN**. This record documents external review only;
+promotion publication state is verified by Git commit and remote push evidence.

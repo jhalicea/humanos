@@ -517,3 +517,89 @@ Do not mutate the active plaintext database in place as the first encryption ste
 The production Python SQLCipher binding/packaging path remains an explicit open
 engineering item. It must be solved before the encrypted target becomes the live
 Notebook writer.
+
+## V-05 local candidate record — 2026-09-27
+
+This record captures Pass 3 and is superseded by the Pass 4 record below.
+
+Workstream `HOS-LN-000`; branch `experiment/v05-context-boundary-chunk2`; baseline
+exact promoted V-04 commit
+`e793aca454c087cb68503cb79871a844eb7bde03`. Only the isolated synthetic future
+adapter-contract fixture and its tests were added:
+`experiments/ln0_v05_context_boundary.py` and
+`tests/test_ln0_v05_context_boundary.py`. Router policy was hardened separately in
+local commit `7c8c5fc09dbdaade0ee98e6030e9227b79384702`; it is not part
+of the V-05 candidate. No unrelated experiment changes were transplanted.
+
+The Pass 3 fixture keeps records, classification, retrieval, policy, provider
+authorization, compilation, and parsing Core-owned. Hosted providers receive only
+records explicitly authorized by Core for hosted disclosure; Core-denied records do
+not enter a hosted ContextPacket or reach the hosted adapter on initial invocation or
+ContextRequest-driven recompilation. Source content and model output cannot self-assign
+or upgrade export authority. It enforces a canonical 16,384-byte
+ContextPacket, 4,096-byte raw response bound, byte-only local/hosted spies, an
+untrusted wrappers backed by immutable Core-held issuance state, an explicit context-request state machine,
+deny-by-default/first-deny-wins policy, S3 and LOCAL_ONLY hosted denial, and empty
+retrieval/omitted-selection preservation. Unknown providers are denied before Core
+record access. Classification-based adversarial tests use path-like,
+credential-like, `SYNTHETIC_SECRET`, and LOCAL_ONLY content. Core-denied examples fail
+before hosted invocation; a same-provider hosted ContextRequest is denied before a
+second adapter call; equivalent-looking `HOSTED_ALLOWED` content succeeds, proving the
+fixture is not accidental substring DLP. Focused execution:
+`python3 -m unittest tests.test_ln0_v05_context_boundary -v` — **29/29 passed**.
+
+The exact affected-regression command
+`PYTHONPATH=tests python3 -m unittest tests.test_ln0_v03_ingestor tests.test_runtime tests.test_notebook_recall -v`
+passed **59/59**. The single Pass 3 broad discovery via
+`python3 -m unittest discover -s tests -v` was **647
+run, 11 skipped, 1 error**, the known sandbox loopback `PermissionError` in
+`test_swarm.SwarmTests.test_live_loopback_and_attribution`; the broad suite is not
+green. Tests used Python 3.13.15; `git diff --check` is the final static gate.
+
+Preserved hashes: V-04 fixture
+`8f1778684918174ad36e741d14cd902b3eab1a01da7dbb2a07daedc097386c39`; V-04 tests
+`e91c4c487da1acdaca1c1c7742e0d45ddff5657c8f6359c5501fc0be2d8e4e03`; V-03 tests
+`b3f1f482c2c8c1f9a751643539bd1bc725b3c41a2ca639dccaae07e95d5771a6`. V-05
+Pass 3 candidate hashes: fixture
+`62a23ebd457afb3ae895df493bbae28da2ab912d9ef93103c1ee4c23be0044c0`; tests
+`8d3950b0d2f980773fd480a5b69e5e132a925f437920c9f52e89e7de5ba9067f`.
+
+This is **REMEDIATION PASS 3 LOCAL CANDIDATE / EXTERNAL REVIEW NOT YET RUN**. V-05
+does not prove automatic discovery of secrets or sensitive content from arbitrary
+plaintext. Content-classification/DLP capabilities are outside this synthetic boundary
+proof. It also does not prove production integration, an actual hosted provider,
+OS/process/filesystem isolation, LN-6/LN-7, or owner Notebook behavior. The public registry
+still lacks HOS-LN-000 and was not modified. No owner data, production runtime,
+commit, push, PR, or promotion occurred. Rollback is removal/reversion only of the
+V-05 fixture, V-05 test, and V-05 documentation append; promoted V-04, router
+infrastructure, runtime, and owner data remain unchanged. Next action is Pass 3 evidence
+freeze and a compact packet for external fresh read-only review while remaining
+uncommitted, unpublished, and unpromoted. The broken local Sol reviewer is excluded.
+
+## V-05 Remediation Pass 4 — 2026-09-28
+
+External review found one blocker: records with no explicit Core classification
+received fallback `S1 / LOCAL_OR_EXTERNAL` and could be sent to the hosted adapter.
+Pass 4 makes hosted disclosure fail closed unless Core explicitly authorizes
+`HOSTED_ALLOWED`. Fallback classification is not export authority. The built-in
+`safe-1` receives Core-owned fixture authorization only when constructing the actual
+built-in fixture; caller-supplied records, including a custom record using ID `safe-1`,
+do not inherit it. No content scanning or DLP was added.
+
+New adversarial tests prove (1) unclassified credential/path-like content is denied
+with zero hosted calls, (2) a custom `safe-1` ID cannot self-authorize, and (3)
+explicit `HOSTED_ALLOWED` lookalike content remains eligible. Existing initial hosted
+denial, ContextRequest reauthorization, B1-B4, packet validation, bounds, and provider
+isolation tests remain in the focused suite. Focused result: **31/31 passed**. Affected
+regressions passed **59/59**. The single Pass 4 broad run was **649 run, 11 skipped,
+1 error**, the known sandbox loopback `PermissionError` in
+`test_swarm.SwarmTests.test_live_loopback_and_attribution`; no V-05 failure occurred
+and the broad suite is not green. `git diff --check` passed.
+
+Preserved hashes: V-04 fixture
+`8f1778684918174ad36e741d14cd902b3eab1a01da7dbb2a07daedc097386c39`; V-04 tests
+`e91c4c487da1acdaca1c1c7742e0d45ddff5657c8f6359c5501fc0be2d8e4e03`; V-03 tests
+`b3f1f482c2c8c1f9a751643539bd1bc725b3c41a2ca639dccaae07e95d5771a6`. Pass 4 V-05
+hashes: fixture
+`7a1aebf8d6556ee8c6380340759794bfd0854df94861b2a3e216bb552a5c7693`; tests
+`8fc5427ec9502a50f2d585a9830ece9f1dbbccdbd85e377eb0584b05fd794333`.
