@@ -1,246 +1,98 @@
 # HumanOS Status Snapshot
 
-Status: HOS-LN-000 CLOSED / LN-0 IMPLEMENTATION-READY / OWNER APPROVAL GIVEN / LN-1 NOT STARTED
-Date: 2026-09-28
+Status: HOS-LN-001 ACTIVE / PRE-LN-1 SCHEMA-INTEGRITY ADR CANDIDATE / REVIEW REQUIRED / LN-1 NOT STARTED
+Date: 2026-09-29
 Workspace: `WS-HUMANOS`
-Workstream: `HOS-LN-000 — Life Notebook LN-0 Consolidation`
-Branch: `life-notebook-ln0`
-Baseline/source branch: `life-notebook-ln0`
-Qualification baseline commit: `2d034a235c90ef56d40be4c4d355fe419da5891a`
-Promoted qualification commit: `ccc9eddfc2e5787e7c8947b4b10f0c9a199829f0`
-Work order: `docs/work-orders/HOS-LN-000.md`
-Architecture contract: `docs/life-notebook/LN0_CONSOLIDATED_ARCHITECTURE.md`
+Project: Life Notebook
+Workstream: `HOS-LN-001 — PRE-LN-1 Schema / Integrity ADR`
+Branch: `life-notebook-ln1-schema-integrity`
+Baseline: `life-notebook-ln0` at `85e0308e19a9c145fa44bd922c2010bd87675658`
+Parent workstream: `HOS-LN-000` CLOSED / LN-0 IMPLEMENTATION-READY
+Work order: `docs/work-orders/HOS-LN-001.md`
+Primary ADR: `docs/life-notebook/ADR-LN-014_SCHEMA_INTEGRITY.md`
+
+## Routing / continuation
+
+The owner requested continuation from the current Life Notebook checkpoint. Repository
+evidence showed HOS-LN-000 closed on 2026-09-28 with the next authorized action:
+PRE-LN-1 architecture resolution beginning with the Schema / Integrity ADR.
+
+This session therefore continues the Life Notebook program but uses a separate bounded
+workstream for the first PRE-LN-1 gate. No LN-1 implementation is authorized.
 
 ## Current outcome
 
-The Life Notebook redesign is being merged into the existing HumanOS runtime rather
-than creating a competing system. The existing runtime foundation was inspected
-read-only and the first consolidation artifacts now preserve:
+A candidate Schema / Integrity ADR now defines:
 
-- current exact transcript / recovery / single-writer behavior;
-- Universal Conversation Capture and external conversation-ledger lineage;
-- existing Context Registry / Context Runtime / Context Graph work;
-- model/provider abstraction and governed capability boundaries;
-- the new Notebook > Canonical State > Knowledge Graph authority model;
-- the Context Compiler / ContextPacket intelligence-sovereignty boundary;
-- sole Ingestor and State Applier writer authority;
-- source-authority ceilings, deletion fan-out, reversible entity identity,
-  projection checkpoints, and encrypted-storage/key-recovery direction.
+- immutable `NotebookEventV1.event_hash` coverage and exclusions;
+- keyed/versioned structural event-chain integrity;
+- `payload_commitment = null` for LN-1 V1;
+- unique opaque `payload_object_id` as the immutable event-to-payload binding;
+- erasable keyed payload `content_hash` while payload is LIVE;
+- source-based idempotency with transient content fingerprinting only while LIVE;
+- post-erasure retry behavior that cannot silently recreate content;
+- event-chain validity after payload erasure without history rewrite;
+- V-04 ErasureTag separation from original event integrity;
+- restore quarantine plus deletion-checkpoint reconciliation requirements;
+- migration rules preventing legacy plaintext-derived hashes from becoming immutable
+  LN-1 event history.
 
-No production runtime or Notebook data has been changed by HOS-LN-000. The V-03
-isolated fixture remains non-production evidence.
+## Preserved invariants
 
-## Inherited runtime truth
+- HumanOS remains local-first authority.
+- Ingestor remains sole kernel writer.
+- Exact transcript fidelity and read-back-before-checkpoint remain required.
+- Each event owns one independently deletable payload object.
+- No normal plaintext-derived payload digest may survive `ERASE.COMPLETED` in governed
+  persistent stores in scope.
+- Promoted V-03/V-04/V-05 evidence is unchanged.
+- `runtime-0.1`, live capture, and owner Notebook data are unchanged.
 
-`runtime-0.1` remains the implementation baseline. It already contains a local
-Python HumanOS/Mirror runtime, SQLite Life Notebook, exact capture/readback,
-recovery state, local Ollama protocol, governed tools, Context work, browser work,
-and CI/review evidence. Its current security/storage limits remain real until a
-later verified slice changes them.
+## Explicit non-claims
 
-The previous branch STATUS for HOS-BROWSER-001 is preserved in `runtime-0.1`
-history; this branch intentionally changes STATUS because it is a separate active
-workstream snapshot.
+This branch does not claim:
 
-## Not in scope
+- LN-1 implementation has started;
+- the production SQLCipher Python binding is selected;
+- Keychain/KDF/wrapping/recovery/rotation policy is solved;
+- backup transport/custody is solved;
+- migration/cutover is approved;
+- production integration is qualified.
 
-- Constitution/Foundation redesign or ratification work;
-- Rust rewrite;
-- LN-1 implementation;
-- Graph/embedding implementation;
-- hosted-provider integration;
-- multi-device Brain replication;
-- migration or deletion of existing Notebook evidence.
+## Evidence state
 
-## V-03 evidence state
+Baseline branch head: `85e0308e19a9c145fa44bd922c2010bd87675658`.
 
-Attempts 1–4 are preserved as FAILED / rejected evidence: Attempts 1–3 had
-authority, authentication, and canonical-commitment defects; Attempt 4 did not
-commit `ingested_at`, did not test concurrent distinct-event ancestry, and
-contained stale/contradictory counts. Attempt 5 adds the bounded corrections
-and the completed independent review returned PASS WITH FINDINGS, with no
-blocking findings; the promotion decision is YES and V-03 is PASS / PROMOTED.
-The focused execution ran exactly 8 tests and passed. The broader suite ran 592
-tests, with 11 skipped and one sandbox loopback `PermissionError` in
-`test_swarm.SwarmTests.test_live_loopback_and_attribution`. It is unrelated to
-V-03 and prevents claiming a completely green repository suite. Record it as a
-separate known environment/test issue for later investigation; do not alter
-`test_swarm.py` as part of V-03. No Runtime 0.1 production source or owner
-Notebook data was modified.
+HOS-LN-001 work-order creation commit:
+`899da1fbc0d124345fe9c0249bc3bc8cd9cbe2fe`.
 
-## V-04 execution state
+ADR-LN-014 candidate creation commit:
+`af7837d6178f3ab66f0fb66f3cbe72c345260ac7`.
 
-Attempt 1 is preserved as FAILED / rejected evidence. Independent review rejected it
-because State survival was hard-coded to kind/name, lineage was not validated against
-real source event IDs, and restore testing did not deny presentation before replay.
-Attempt 2 was independently rejected because its authority boundary and lineage
-enforcement were insufficient for the requested contract. Attempt 3 was independently
-rejected because it retained an ordinary plaintext SHA-256, omitted required structural
-provenance, fabricated actors/times, did not make completion idempotent, stored but did
-not verify receipt-chain hashes, trusted imported receipts, hard-coded fan-out metrics,
-and did not adequately bind verification/scanner coverage to all persistent stores.
+This slice is documentation/architecture only. No runtime implementation file is
+intended to change in HOS-LN-001.
 
-Attempt 4 preserved those corrections but its independent review returned FAIL for
-three blockers: restore accepted a completed receipt without its tombstone; receipt
-verification could not detect deletion of the tail or whole chain; and ERASE trusted
-caller-supplied principal strings. Attempt 5 corrected those blockers, but its
-independent review returned FAIL because completion did not run the all-store byte
-scanner, public `db()` bypassed restore quarantine, the receipt expectation remained
-inside the attacked SQLite boundary, and its recorded hashes/counts were inconsistent.
-Attempts 1–5 remain preserved as rejected evidence.
+## Remaining acceptance gates
 
-Attempt 6 corrected only the Attempt 5 blockers, but independent review returned FAIL.
-Its exact blockers were: the volatile pre-erasure byte scan could not recognize an
-arbitrary unlineaged copy after process restart without retaining plaintext; restore
-did not perform final all-store verification before LIVE; public `search_persistent()`
-could bypass RESTORING quarantine; and final scan, receipt/checkpoint update, and
-`ERASE.COMPLETED` were not atomic against another SQLite writer. Attempts 1–6 remain
-rejected evidence.
+- [ ] Independent architecture/security review of ADR-LN-014.
+- [ ] Reproduce and resolve any blocking finding.
+- [ ] Record immutable reviewed commit/evidence.
+- [ ] Jon explicitly accepts ADR-LN-014 for PRE-LN-1 use.
 
-Attempt 7 preserved those corrections, but independent review found exactly one
-promotion blocker: its secret-keyed ErasureTag compared whole candidate cells and did
-not detect erased bytes embedded inside a larger persistent value. Attempts 1–7 remain
-rejected evidence.
+Only after this ADR is accepted may the program proceed to the separate SQLCipher
+Runtime Binding + Key Custody ADR and controlled Migration / Cutover Plan. None of
+those gates alone authorizes a LIVE Notebook writer; production integration
+qualification remains required.
 
-Attempt 8 is the bounded final remediation in the isolated fixture/tests.
-It preserves the generic authority, lineage, fan-out, quarantine, and identity-isolation
-architecture. It uses opaque payload-object commitments, explicit principals and UTC
-clock values, structural provenance, measured fan-out results, one idempotent deletion
-identity/result, chained receipts checked against an independently supplied kernel
-checkpoint expectation, secret-keyed ErasureTags held outside the restored Notebook DB,
-full deletion-ledger restore reconciliation, trusted principal resolution, fail-closed
-restore verification/replay across every public content path, and an exclusive SQLite
-completion transaction. Attempt 8 adds deletion-specific derived matching keys,
-authoritative `match_length`, and a sliding-window keyed-tag scan. The only exemption
-remains the exact payload cell of the explicitly identified independent source event;
-larger values containing the erased bytes are never exempt. Attempt 8 independent
-promotion review returned **PASS**, with no blocking findings and promotion decision
-**YES**. V-04 Attempt 8 is **PASS / PROMOTED**.
+## Rollback
 
-Promotion verification preserved focused V-04 **26/26**, V-03 **8/8 twice**, and
-broad discovery **618 tests, 11 skipped, 1 error**, solely the known sandbox loopback
-`PermissionError`. This remains synthetic logical-erasure evidence and does not claim
-physical SQLite remanence destruction. The independent review also retained the
-non-blocking routing-hygiene finding that the public Context Registry lacks an explicit
-HOS-LN-000 entry; the router is not changed by this promotion.
+This workstream is documentation-only. Revert HOS-LN-001/ADR/STATUS commits or delete
+the branch before promotion. `life-notebook-ln0`, `runtime-0.1`, promoted LN-0
+evidence, and owner Notebook data remain untouched.
 
-## V-05 Pass 4 candidate execution record (historical)
+## Next action
 
-At initial Pass 4 candidate freeze, V-05 was a **LOCAL CANDIDATE / EXTERNAL REVIEW
-NOT YET RUN** on
-`experiment/v05-context-boundary-chunk2`, based on promoted V-04 commit
-`e793aca454c087cb68503cb79871a844eb7bde03`. The isolated synthetic future
-adapter-contract fixture keeps records, classification, retrieval, policy, provider
-authorization, compilation, and parsing Core-owned; it uses a canonical 16,384-byte
-ContextPacket, 4,096-byte raw response bound, byte-only local/hosted spies, an
-Core-held immutable issuance state for an invocation-bound, single-use wrapper, an explicit context-request state machine,
-deny-by-default/first-deny-wins policy, S3 and LOCAL_ONLY hosted denial, and empty
-retrieval/omitted-selection preservation. Hosted disclosure is now authorized from
-Core-owned classification metadata rather than literal plaintext markers. Hosted
-disclosure requires explicit Core-owned authorization; fallback classification does
-not authorize external disclosure, and caller-supplied record IDs cannot obtain the
-built-in `safe-1` authorization. The same policy is reevaluated for ContextRequest-
-driven recompilation. Pass 4 focused V-05 execution passed **31/31** and affected
-regressions passed **59/59**.
-
-Only `experiments/ln0_v05_context_boundary.py` and
-`tests/test_ln0_v05_context_boundary.py` are implementation/test changes; approved
-project routing was hardened separately in local commit
-`7c8c5fc09dbdaade0ee98e6030e9227b79384702`; it is not part of the V-05 candidate.
-The exact affected-regression command was
-`PYTHONPATH=tests python3 -m unittest tests.test_ln0_v03_ingestor tests.test_runtime tests.test_notebook_recall -v`
-and passed **59/59**. Pass 3 broad discovery was 647 run, 11 skipped, one known
-sandbox loopback `PermissionError`. The single Pass 4 broad run was 649 run, 11
-skipped, one same known sandbox loopback `PermissionError`, with no V-05 failure.
-The broad suite is not green. Tests used Python 3.13.15.
-
-At the Pass 4 candidate freeze, V-05 did not prove automatic discovery of secrets or sensitive content from arbitrary
-plaintext. Content-classification/DLP capabilities are outside this synthetic boundary
-proof. It also does not prove production integration, an actual hosted provider,
-OS/process/filesystem isolation, LN-6/LN-7, or owner Notebook behavior. The public
-registry still lacks HOS-LN-000; it was not modified. At that candidate freeze, no
-production runtime, owner data, commit, push, PR, or promotion had occurred; the
-later external review and promotion are recorded in the canonical work order and
-verification results.
-
-## LN-0 closure and next authorized phase
-
-On 2026-09-28, the owner explicitly approved: “I approve LN-0 as
-implementation-ready.” LN-0 is CLOSED / IMPLEMENTATION-READY. External architecture/
-security review and V3 baseline qualification review passed; the V3 review found
-zero blocking findings. Reviewed package SHA-256:
-`0d5923d4d40a9fd2de582205492fc576e5e2a1e43cc71a40f1a0284c96083d1a`.
-Qualification commit `ccc9eddfc2e5787e7c8947b4b10f0c9a199829f0` was promoted to
-`life-notebook-ln0`. Individual V-01–V-05 contract proofs, synthetic composition
-qualification, and future production implementation remain distinct evidence
-categories; this does not qualify a production kernel. LN-1 implementation has NOT
-STARTED.
-
-Owner approval does not waive the mandatory PRE-LN-1 gates recorded in
-`docs/work-orders/HOS-LN-000.md`: Schema/Integrity ADR; SQLCipher Runtime Binding +
-Key Custody ADR; controlled Migration/Cutover Plan; and production integration
-qualification before a LIVE Notebook writer is trusted with owner data.
-
-Next authorized action: PRE-LN-1 architecture resolution, beginning with the
-Schema/Integrity ADR. This is not authorization to start LN-1 implementation.
-
-## V-05 candidate rollback procedure (historical; not current state)
-
-The pre-promotion rollback procedure applied only at the Pass 4 candidate freeze:
-remove or revert the V-05 fixture, V-05 tests, and V-05 documentation sections to
-restore the promoted V-04 baseline. V-05 is now promoted; do not use that historical
-procedure to remove or rewrite promoted evidence. `runtime-0.1` and owner Notebook
-data remain unchanged.
-
-## Current LN-0 closure state — 2026-09-28
-
-V-01 and V-02 are accepted; V-03, V-04, and V-05 are PASS / PROMOTED. The target
-SQLCipher proof and full limits are in the tracked
-`docs/life-notebook/LN0_V02_TARGET_MAC_EVIDENCE.md`. The proposed bounded LN-1
-work order is in `docs/work-orders/HOS-LN-000.md`; implementation has not started.
-Homebrew is workstation development tooling only, not a HumanOS runtime,
-production, or deployment dependency. Initial independent review returned FAIL on
-one payload-integrity schema blocker; the documentation-only correction is prepared
-for V2 review. The owner implementation-ready decision has not been made. LN-0
-remains ACTIVE and NOT CLOSED.
-
-## LN-0 baseline qualification — 2026-09-28
-
-The isolated `ln0-baseline-qualification` candidate at baseline
-`2d034a235c90ef56d40be4c4d355fe419da5891a` freezes the accepted V-01 artifact
-hashes against the accepted CI-tested bytes and adds a test-only shared-store
-composition contract/harness. Focused V-01–V-05 and composition/adversarial gates
-passed. The one broad sandbox loopback `PermissionError` was independently rerun in
-native host context and passed; the restricted-environment broad output still records
-that single error and is not represented as green there. The qualification report is
-`docs/life-notebook/LN0_BASELINE_QUALIFICATION.md`; an external review package is
-prepared, not yet reviewed. No Runtime 0.1 source or owner Notebook data changed.
-LN-0 remains ACTIVE / NOT CLOSED, and the owner implementation-ready decision has
-not been given.
-
-## LN-0 baseline qualification external-review remediation — 2026-09-28
-
-The first baseline-qualification review returned FAIL on two composition blockers:
-lineage-first derivative fan-out and Core-exclusive hosted-disclosure authorization.
-The isolated candidate now addresses both through the test-only composition harness;
-accepted V-01–V-05 fixture/test bytes remain unchanged. Updated focused evidence is
-in `docs/life-notebook/LN0_BASELINE_QUALIFICATION.md`; that V2 package was later
-rejected for two V-04 composition blockers and is preserved as review history.
-
-The cross-V module passed 15/15, the runner composition adversarial gates 14/14, and
-the accepted focused V gates passed. The one broad run recorded 661 tests / 11
-skipped / the known sandbox loopback `PermissionError`; the unchanged exact loopback
-test's existing native 1/1 PASS was retained without rerunning. The qualification is
-synthetic only; the broad sandbox run is not green, production/runtime qualification
-is not claimed, and external re-review remains pending. LN-0 is ACTIVE / NOT CLOSED;
-owner implementation-ready approval has not been given.
-
-Final external-review remediation adds Core-bound exact independent-source
-authorization, unconditional checkpoint revalidation during restore, and a schema-
-enumerated all-store content scan. The changed tests passed 7/7, cross-V passed
-15/15, composition adversarial gates 14/14, runner tamper gates 2/2, and accepted
-focused V gates passed. The single broad run recorded 666 tests / 11 skipped / only
-the known sandbox loopback `PermissionError`; its existing native 1/1 PASS was
-retained because the test source was unchanged. V3 review package is
-`~/Downloads/LN0_BASELINE_QUALIFICATION_REVIEW_V3.zip`. Qualification is synthetic
-only; LN-0 remains ACTIVE / NOT CLOSED and owner readiness is not approved.
+Run an independent architecture/security review of the exact ADR-LN-014 candidate
+commit against the frozen LN-0 architecture, V-04 deletion contract, current Runtime
+0.1 integrity behavior, and HOS-LN-001 acceptance criteria. Resolve only reproducible
+blockers; then present the reviewed ADR for the owner's explicit acceptance decision.
