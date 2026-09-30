@@ -1,6 +1,6 @@
 # ADR-LN-014 — Notebook Event / Payload Integrity and Erasure Boundary
 
-**Status:** CANDIDATE — REVIEW BLOCKERS REMEDIATED / FRESH REVIEW REQUIRED  
+**Status:** CANDIDATE — REVIEW BLOCKERS REMEDIATED / FINAL CLEAN REVIEW REQUIRED  
 **Date:** 2026-09-30  
 **Workstream:** `HOS-LN-001`  
 **Baseline:** `life-notebook-ln0` at `85e0308e19a9c145fa44bd922c2010bd87675658`
@@ -8,34 +8,35 @@
 ## Context
 
 LN-0 is CLOSED / IMPLEMENTATION-READY, but LN-1 implementation is blocked on a
-mandatory Schema / Integrity ADR. The unresolved design problem is subtle:
+mandatory Schema / Integrity ADR. The design must preserve all of these at once:
 
-- the kernel event chain must remain immutable and verifiable;
-- payload bytes must be independently erasable;
-- authorized erase must not require rewriting old kernel events;
-- no ordinary plaintext-derived payload digest may survive `ERASE.COMPLETED` in a
+- the kernel event chain remains immutable and verifiable;
+- payload bytes remain independently erasable;
+- authorized erase does not rewrite old kernel events;
+- no ordinary plaintext-derived payload digest survives `ERASE.COMPLETED` in a
   governed persistent store;
-- immutable metadata must not become a covert channel for erasable content;
-- idempotency and conflict detection must still behave truthfully;
-- event, payload and idempotency state must survive crash boundaries without hidden
-  partial commits;
-- LIVE payload integrity must remain verifiable across integrity-key rotation without
-  an unauthenticated or guessed key selector;
-- restore must not resurrect erased payloads;
-- the promoted V-04 ErasureTag contract must remain valid;
-- existing Runtime 0.1 integrity behavior must be migrated, not blindly copied.
+- immutable metadata cannot become a covert channel for erasable content;
+- idempotency and conflict detection remain truthful across retries and key rotation;
+- event, payload and idempotency state survive crash boundaries without hidden partial
+  commits;
+- LIVE payload integrity remains verifiable across integrity-key rotation without an
+  unauthenticated or guessed key selector;
+- restore cannot resurrect erased payloads;
+- the promoted V-04 ErasureTag contract remains valid;
+- existing Runtime 0.1 integrity behavior is migrated, not blindly copied.
 
-The current Runtime 0.1 already uses keyed HMAC-SHA-256 content/record integrity for
-new transcript rows and binds record metadata together with the content digest. LN-1
-preserves that useful separation between record integrity and event chronology while
-removing payload-derived values from the immutable event chain.
+Runtime 0.1 already uses keyed HMAC-SHA-256 content/record integrity for new transcript
+rows and binds record metadata together with the content digest. LN-1 preserves that
+useful separation between record integrity and event chronology while removing
+payload-derived values from the immutable event chain.
 
-Independent review of earlier revisions found four reproducible blockers: LIVE payload
-integrity did not bind event/object identity, event/payload/idempotency atomic creation
-was not explicit, immutable metadata was not constrained to content-free values, and
-the LIVE payload HMAC referenced a content-integrity key ID without making that key
-selector required/authenticated payload-integrity metadata. This revision remediates
-those findings without changing the central erasure model.
+Independent review of earlier revisions found five reproducible blockers: LIVE payload
+integrity did not bind event/object identity; event/payload/idempotency atomic creation
+was not explicit; immutable metadata was not constrained to content-free values; the
+LIVE payload HMAC referenced a content-integrity key ID without making that selector
+required/authenticated; and the LIVE keyed idempotency fingerprint had no versioned,
+authenticated key-selector contract across rotation. This revision remediates those
+findings without changing the central erasure model.
 
 ## Decision summary
 
@@ -53,24 +54,21 @@ LN-1 V1 separates **immutable event integrity** from **erasable payload integrit
    commitment is retained in the original immutable event.
 5. Payload integrity while the payload exists is enforced inside `PayloadObjectV1`
    using keyed content integrity that binds the exact persisted payload bytes to the
-   exact event/object identity, immutable payload metadata, integrity algorithm version
-   and exact `content_integrity_key_id`. That content-derived integrity state is
-   erasable and is removed at authorized erase completion.
+   exact event/object identity, immutable payload metadata, algorithm version and exact
+   `content_integrity_key_id`. That integrity state is erasable.
 6. The authoritative idempotency reservation, payload object and kernel event are
    committed as one LN-1 V1 durable transaction. Crash/retry semantics preserve the
-   already-proven V-03 rule: no partial pre-commit identity and no duplicate event
-   after commit-before-ack.
-7. Idempotency is source-identity based. A payload-derived request fingerprint may be
-   used only while the payload is LIVE; it is removed at erase completion. A retry of
-   an erased idempotency key returns the tombstoned/erased identity and never silently
-   recreates the payload.
+   promoted V-03 behavior: no partial pre-commit identity and no duplicate event after
+   commit-before-ack.
+7. Idempotency is source-identity based. While LIVE, semantic equality/conflict is
+   proven with a versioned keyed `request_fingerprint` whose exact key selector is
+   authenticated by the fingerprint itself. Fingerprint proof state is erased at
+   `ERASE.COMPLETED`; a later retry of the historical tuple returns ERASED identity
+   without content comparison or recreation.
 8. V-04 ErasureTags remain a separate deletion-verification mechanism. They are not
    original-event payload commitments and are never ordinary plaintext hashes.
 9. Restore is quarantined until authoritative deletion state has been reconciled and
-   all erased objects remain erased.
-
-This design lets HumanOS preserve immutable chronology while giving payload deletion a
-real lifecycle boundary.
+   all surviving LIVE integrity proofs verify under their exact historical keys.
 
 ---
 
@@ -89,13 +87,13 @@ event_hash = HMAC-SHA-256(
 )
 ```
 
-`JCS(...)` means RFC 8785 JSON Canonicalization Scheme. The production implementation
-must use one verified canonicalization implementation and test cross-process stable
-bytes before live use.
+`JCS(...)` means RFC 8785 JSON Canonicalization Scheme. Production must use one
+verified canonicalization implementation and test cross-process stable bytes before
+live use.
 
-The key is HumanOS-owned and never stored in the event row. Key custody, wrapping,
-rotation, recovery, and historical key availability are governed by the separate
-PRE-LN-1 SQLCipher Runtime Binding + Key Custody ADR.
+The key is HumanOS-owned and never stored in the event row. Key generation, custody,
+wrapping, rotation, recovery and historical key availability are governed by the
+separate PRE-LN-1 SQLCipher Runtime Binding + Key Custody ADR.
 
 ### Fields covered by `event_hash`
 
@@ -171,10 +169,10 @@ HumanOS must normalize every immutable field before hashing:
 - `source_system` is a controlled source class/name;
 - `source_locator` may contain only a bounded opaque locator generated or normalized
   by HumanOS. A path, URL with descriptive/query content, email subject, filename,
-  user-entered label, message body fragment or other content-bearing locator is not
+  user-entered label, message-body fragment or other content-bearing locator is not
   eligible for immutable storage;
 - `ingestion_id` is a bounded retry token. If a provider/source-native ID contains
-  user content or sensitive descriptive text, HumanOS stores an internal opaque retry
+  user content or sensitive descriptive text, HumanOS uses an internal opaque retry
   identity in the immutable/idempotency plane and keeps the original source-native
   value only in erasable payload/provenance state.
 
@@ -182,18 +180,12 @@ If a capture source tries to place arbitrary content into an immutable field, th
 Ingestor must reject it or move it into governed erasable payload state. Source claims
 cannot manufacture permanent metadata merely by naming a field.
 
-This is both a deletion rule and a source-authority rule: payload erasure must not be
-bypassed by metadata smuggling.
-
 ### Capture status rule
 
-`capture_status_at_commit` is immutable. In LN-1 V1 the original kernel event records
-the durable commit state only. Later read-back/checkpoint/recovery progress is recorded
-by separate transaction/checkpoint/recovery evidence rather than mutating the original
-event row.
-
-This preserves the existing HumanOS rule that a later verification state cannot be
-fabricated by editing earlier evidence.
+`capture_status_at_commit` is immutable. The original kernel event records only its
+durable commit state. Later read-back/checkpoint/recovery progress is represented by
+separate transaction/checkpoint/recovery evidence rather than mutating the original
+event.
 
 ### Explicitly excluded from the immutable event hash
 
@@ -201,20 +193,16 @@ The original event hash MUST NOT include:
 
 - plaintext payload bytes;
 - `content_hash` or any ordinary plaintext digest;
+- `request_fingerprint` or its erasable key-selector/version state;
 - ciphertext bytes or a ciphertext digest;
 - payload encryption nonce/tag/material;
-- `key_ref`;
-- `storage_ref`;
-- payload `size_bytes`;
-- payload lifecycle state;
+- `key_ref` or `storage_ref`;
+- payload `size_bytes` or lifecycle state;
 - `deleted_at`;
 - deletion receipt contents;
 - V-04 ErasureTag;
 - projection/cache identifiers;
 - mutable backup/export location metadata.
-
-Those values are either erasable, operational, storage-specific, or belong to a
-separate lifecycle.
 
 ---
 
@@ -226,18 +214,14 @@ separate lifecycle.
 Rationale:
 
 - a normal content hash violates the post-erasure privacy contract;
-- a keyed content MAC would couple original event verification to payload/key
-  lifecycle and complicate key deletion/rotation;
-- a ciphertext hash couples the immutable event to storage/encryption representation;
-- an opaque random value adds no integrity property beyond the already unique
+- a permanent keyed content MAC still couples original-event verification to
+  payload/key lifecycle;
+- a ciphertext hash couples immutable chronology to storage/encryption representation;
+- an opaque random value adds no integrity property beyond unique
   `payload_object_id`.
 
-The original event therefore commits only to the existence/identity of one payload
-slot through `payload_object_id`.
-
-A future non-null payload commitment requires a separate ADR, explicit deletion proof,
-migration plan, and regression tests. It must not be introduced as a silent schema
-extension.
+A future non-null payload commitment requires a separate ADR, deletion proof,
+migration plan and regression tests. It cannot appear as a silent schema extension.
 
 ---
 
@@ -269,60 +253,53 @@ object_id
 content-derived payload-integrity fields do not. `content_integrity_key_id` is required
 while `content_hash` exists, is authenticated by that MAC, and is removed with LIVE
 payload-integrity state at `ERASE.COMPLETED` unless a later reviewed Key Custody ADR
-proves a deletion-safe structural need to retain a content-free historical key label.
+proves a deletion-safe structural reason to retain a content-free historical key label.
 
 ### One-to-one structural binding
 
-LN-1 V1 requires a verifiable one-to-one binding:
+LN-1 V1 requires:
 
 ```text
 event.payload_object_id == payload.object_id
 payload.event_id         == event.event_id
 ```
 
-For an event with a payload:
+For an event with payload:
 
 - `object_id` is unique and never reassigned;
 - `event_id` is unique in the payload table;
-- a payload object cannot be rebound to another event;
-- an event cannot acquire a second payload object;
-- an event row referencing a missing/mismatched payload fails verification while the
-  lifecycle says a payload should exist;
+- a payload cannot be rebound to another event;
+- an event cannot acquire a second payload;
+- a LIVE event referencing a missing/mismatched payload fails verification;
 - an orphan LIVE payload fails verification.
 
-The SQL implementation must enforce the one-to-one relation with primary/unique and
-foreign-key constraints or an equivalently strong fail-closed invariant. The verifier
-must check both directions rather than trusting only one stored pointer.
+The SQL implementation must enforce this with primary/unique and foreign-key
+constraints or an equivalently strong fail-closed invariant. The verifier checks both
+directions.
 
 ### Exact payload-byte rule
 
-`content_hash` authenticates the **exact logical bytes that HumanOS durably stores as
-the payload**, not a later semantic reserialization.
+`content_hash` authenticates the **exact logical bytes HumanOS durably stores**, not a
+later semantic reserialization.
 
-- text capture uses the exact captured UTF-8 bytes; no Unicode normalization,
-  newline rewriting or whitespace normalization is performed by the integrity layer;
-- binary/file capture uses the exact captured bytes;
+- text uses exact captured UTF-8 bytes; the integrity layer performs no Unicode,
+  newline, whitespace or line-ending normalization;
+- binary/file capture uses exact captured bytes;
 - structured capture is serialized once by a versioned capture codec before the
-  durable transaction; the exact resulting bytes are stored and later verified;
-- a verifier never parses and reserializes arbitrary payload content to recreate the
+  durable transaction; exact resulting bytes are stored and verified;
+- verification never parses and reserializes arbitrary payload content to recreate
   integrity input.
-
-Any future alternate codec changes the payload/content-integrity version and requires
-migration/compatibility tests.
 
 ### LIVE state
 
-While the payload is LIVE:
+While LIVE:
 
 - bytes are stored only in the approved encrypted payload representation;
 - authenticated encryption provides cryptographic integrity for stored ciphertext;
-- `content_hash` is a versioned keyed HMAC that binds exact payload identity and
-  immutable payload metadata, exact integrity-key selector, and exact persisted
-  payload bytes;
-- `content_hash` is used for read-back verification and duplicate/conflict detection;
-- `content_hash`, `content_hash_version`, and `content_integrity_key_id` are stored only
-  in erasable payload/idempotency integrity state, never copied into immutable kernel
-  history, deletion receipts, projections, or public routing metadata.
+- `content_hash` is a versioned keyed HMAC binding exact payload identity, immutable
+  payload metadata, exact integrity-key selector and exact persisted bytes;
+- `content_hash`, `content_hash_version` and `content_integrity_key_id` remain only in
+  erasable payload-integrity state.
 
 V1 format:
 
@@ -347,43 +324,29 @@ content_hash = HMAC-SHA-256(
 )
 ```
 
-The verifier must resolve exactly the named `content_integrity_key_id`. Unknown,
-unavailable, malformed, revoked-without-valid-historical-verification-path, or otherwise
-unresolvable key IDs fail closed. The verifier must not guess a key, try every key,
-fall back to a current/default key, or silently rewrite the selector.
+The verifier resolves exactly the named `content_integrity_key_id`. Unknown,
+unavailable, malformed, revoked-without-valid-historical-verification-path or otherwise
+unresolvable IDs fail closed. No guessing, try-all, current/default-key fallback or
+silent selector rewrite is permitted.
 
-This closes both the payload-swap and key-selector gaps: moving otherwise valid bytes
-under a different `object_id` or `event_id`, changing bound immutable payload metadata,
-changing `content_integrity_key_id`, or changing the payload bytes must fail LIVE
-payload-integrity verification.
-
-`encryption_scope`, `key_ref` and `storage_ref` are intentionally excluded from this
-content MAC because authorized re-encryption/storage relocation may change them. They
-are not trusted to downgrade policy. Read/use authorization is derived from the
-immutable event `sensitivity_class` and current HumanOS policy; payload
-`sensitivity_class` must equal the event value. Changes to operational encryption or
-storage metadata must be performed by governed lifecycle code and recorded as new
-operational evidence.
-
-The exact key generation, custody, wrapping, rotation and historical-key availability
-mechanism remains deferred to the Key Custody ADR. That later ADR must satisfy this
-schema contract; it may not remove authenticated key-version selection or introduce a
-silent fallback.
+`encryption_scope`, `key_ref` and `storage_ref` are excluded from this content MAC so
+authorized re-encryption/storage relocation can change them. They cannot downgrade
+policy. Effective read/use authorization derives from immutable event sensitivity plus
+current HumanOS policy; payload sensitivity must equal event sensitivity. Operational
+metadata changes require governed lifecycle code and new operational evidence.
 
 ### TOMBSTONED / ERASED state
 
-At authorized erase completion all governed persistent copies of the following must
-be absent or cryptographically inaccessible under the accepted deletion contract:
+At `ERASE.COMPLETED`, governed persistent copies of the following must be absent or
+cryptographically inaccessible under the accepted deletion contract:
 
 - plaintext payload bytes;
-- payload ciphertext/key material required to recover those bytes;
-- `content_hash`;
-- `content_hash_version` and `content_integrity_key_id` associated with the erased LIVE
-  payload-integrity proof unless separately retained under a later reviewed
-  deletion-safe structural rule;
-- transient request fingerprint;
-- `key_ref` / usable payload-key wrapper;
-- `storage_ref` that still resolves to recoverable payload content;
+- payload ciphertext/key material required to recover them;
+- `content_hash`, `content_hash_version`, and `content_integrity_key_id` for the erased
+  LIVE proof unless later explicitly proven deletion-safe;
+- idempotency `request_fingerprint`, version and key selector;
+- usable payload `key_ref` / wrapper;
+- `storage_ref` resolving recoverable content;
 - payload-derived projection/cache/search/vector/summary artifacts.
 
 The payload row may retain only content-free structural evidence such as:
@@ -396,9 +359,6 @@ object_id
  deletion_id
 ```
 
-Any additional retained field must separately prove that it is not a prohibited
-content-derived fingerprint or user-content surrogate.
-
 ---
 
 ## 4. Atomic event / payload / idempotency commit
@@ -408,94 +368,133 @@ SQLCipher/SQLite transaction owned by the Ingestor.
 
 Within one `BEGIN IMMEDIATE`-equivalent transaction, HumanOS must:
 
-1. resolve the authenticated effective source identity and normalized retry token;
+1. resolve authenticated effective source identity and normalized retry token;
 2. check/reserve the idempotency tuple;
-3. allocate the global `seq`, `event_id` and `payload_object_id`;
-4. persist the encrypted payload object and its LIVE integrity state, including the
-   exact authenticated `content_integrity_key_id`;
-5. persist the immutable kernel event referencing that exact payload object;
-6. persist the authoritative idempotency binding to that event/object;
-7. persist any same-transaction outbox/commit marker required by the capture contract;
+3. allocate global `seq`, `event_id` and `payload_object_id`;
+4. persist encrypted payload + LIVE integrity state;
+5. persist immutable kernel event referencing that exact payload;
+6. persist authoritative idempotency binding and LIVE fingerprint proof state;
+7. persist any same-transaction outbox/commit marker required by capture;
 8. commit once.
 
 Required crash semantics:
 
-- failure or process death before commit leaves no durable event, LIVE payload object,
-  consumed sequence or authoritative idempotency reservation;
-- retry after a pre-commit failure may perform the capture normally;
-- commit followed by crash before acknowledgement is a completed capture; retry of the
-  same idempotency tuple returns the original event/object and never creates a second
-  event;
-- projections/enrichment occur after the authoritative commit and their failure does
-  not roll back or duplicate the captured event;
-- any implementation state where event/payload/idempotency linkage is uncertain is
-  `RECOVERY_REQUIRED`, never silently treated as success.
+- failure/process death before commit leaves no durable event, LIVE payload, consumed
+  sequence or authoritative idempotency reservation;
+- retry after pre-commit failure may capture normally;
+- commit then crash before acknowledgement is a completed capture; retry returns the
+  original event/object and never creates a second event;
+- projection/enrichment occurs after authoritative commit; failure cannot roll back or
+  duplicate capture;
+- uncertain event/payload/idempotency linkage is `RECOVERY_REQUIRED`, never silent
+  success.
 
-A future design that stores authoritative payload bytes outside the same transactional
-store requires a separate reviewed durability protocol (for example staged durable
-object + commit marker/outbox) and may not weaken these observable semantics.
+Authoritative payload bytes outside this transactional store require a separate
+reviewed durability protocol and cannot weaken these observable semantics.
 
 ---
 
 ## 5. Idempotency and duplicate-conflict semantics
 
-Idempotency identity is source-based, not content-addressed.
-
-The primary namespace is:
+The primary namespace is source identity, not content address:
 
 ```text
 (effective_source_id, ingestion_id)
 ```
 
-`effective_source_id` is resolved by HumanOS from authenticated source/principal
-identity and policy. It is not a caller-supplied authority claim. `ingestion_id` is the
-HumanOS-normalized bounded retry token described by the immutable metadata rule.
-`source_system` / `source_instance` remain provenance fields but cannot widen or
-replace the authenticated idempotency namespace.
+`effective_source_id` is resolved by HumanOS from authenticated principal/source
+identity and policy. `ingestion_id` is the bounded opaque retry token admitted by the
+immutable metadata rule. Caller claims cannot widen the namespace.
 
-### While payload is LIVE
+### LIVE fingerprint proof
 
-The idempotency record may contain:
+A LIVE idempotency row contains at least:
 
-- event_id;
-- payload_object_id;
-- lifecycle state;
-- a keyed transient `request_fingerprint` covering the normalized capture request,
-  including exact payload bytes where applicable.
+```text
+event_id
+payload_object_id        # nullable only for a legitimately payload-less event
+lifecycle_state
+request_fingerprint
+request_fingerprint_version
+request_fingerprint_key_id
+```
 
-Behavior:
+V1 fingerprint contract:
 
-- same idempotency tuple + same fingerprint -> return the existing event/object;
+```text
+request_fingerprint_version = hmac-sha256-capture-request-v1
+
+request_fingerprint_envelope = {
+  effective_source_id,
+  ingestion_id,
+  capture_request_schema_version,
+  normalized_source_claims,
+  payload_present,
+  payload_size_bytes,
+  request_fingerprint_version,
+  request_fingerprint_key_id
+}
+
+request_fingerprint = HMAC-SHA-256(
+    K_idempotency[request_fingerprint_key_id],
+    "HumanOS CaptureRequestV1\0" ||
+    JCS(request_fingerprint_envelope) || "\0" || exact_payload_bytes
+)
+```
+
+`normalized_source_claims` means the complete versioned set of source-supplied semantic
+claims accepted by the capture-request schema, canonicalized for fingerprint input.
+It is MAC input, not separately persisted inside immutable kernel history. The
+fingerprint excludes host-assigned `seq`, `event_id`, `payload_object_id`, ingest time,
+resolved authority labels, and other values that are outputs of HumanOS processing
+rather than source submission. Thus the proof preserves promoted V-03 semantics:
+same source tuple + same semantic submission is the same request; same tuple + changed
+payload or source-supplied semantic claims is conflicting reuse.
+
+The exact persisted fingerprint selector and version are authenticated because they
+are included inside the fingerprint envelope. Verification resolves exactly
+`request_fingerprint_key_id`; unknown, unavailable, malformed, or otherwise
+unresolvable selectors fail closed. No guessing, try-all or default/current-key
+fallback is permitted.
+
+The exact generation/custody/rotation mechanism for `K_idempotency` belongs to the Key
+Custody ADR, which must preserve historical LIVE verification for every still-LIVE
+fingerprint proof.
+
+### LIVE behavior
+
+- same idempotency tuple + valid same fingerprint -> return existing event/object;
 - same tuple + different fingerprint -> fail closed as conflicting reuse;
-- distinct tuple -> normal new capture path.
+- invalid/unverifiable stored fingerprint proof -> `RECOVERY_REQUIRED` / fail closed;
+- distinct tuple -> normal new capture.
+
+Before returning an existing LIVE event, HumanOS verifies the authoritative event,
+payload linkage/integrity where present, and stored fingerprint proof rather than
+trusting the idempotency row in isolation.
 
 ### After `ERASE.COMPLETED`
 
-The content-derived request fingerprint is deleted.
+`request_fingerprint`, `request_fingerprint_version` and
+`request_fingerprint_key_id` are deleted together. The idempotency tuple remains bound
+to historical `event_id` / `payload_object_id` with state `ERASED`.
 
-The idempotency tuple remains bound to the historical `event_id` and
-`payload_object_id` with state `ERASED`.
+A later retry using that tuple:
 
-Any later retry using that tuple:
-
-- returns a truthful erased/tombstoned result referencing the historical identity;
-- does not compare payload equality;
-- does not recreate payload bytes;
-- does not create a new event under the same idempotency tuple;
+- returns truthful ERASED identity;
+- performs no payload-equality/content comparison;
+- recreates no payload bytes;
+- creates no new event under that tuple;
 - requires an explicit new ingestion identity for a genuinely new capture.
-
-This preserves retry safety without retaining a permanent payload fingerprint.
 
 ---
 
 ## 6. Event-chain validity after payload erasure
 
-Authorized payload erasure does not modify the original `NotebookEventV1`.
+Authorized payload erasure never modifies the original `NotebookEventV1`. Because its
+hash covers immutable structural fields plus opaque `payload_object_id`, chain
+verification remains valid after payload deletion.
 
-Because the original event hash covers only immutable structural fields and the opaque
-`payload_object_id`, event-chain verification remains valid after payload deletion.
-
-The deletion lifecycle is represented by new evidence:
+Deletion is new evidence:
 
 ```text
 ERASE.REQUESTED
@@ -506,113 +505,92 @@ ERASE.REQUESTED
   -> ERASE.COMPLETED
 ```
 
-Failure records `ERASE.RECOVERY_REQUIRED` and never fabricates completion.
-
-No kernel-history rewrite is permitted merely to make a deletion pass.
+Failure records `ERASE.RECOVERY_REQUIRED`; no history rewrite is permitted merely to
+make deletion pass.
 
 ---
 
 ## 7. V-04 ErasureTag reconciliation
 
-The promoted V-04 ErasureTag remains valid as a deletion-verification primitive:
+Promoted V-04 ErasureTag remains a separate deletion-verification primitive:
 
 ```text
 ErasureTag = HMAC(deletion_specific_key, canonical_deleted_bytes)
 ```
 
-with the deletion-specific key derived from a HumanOS-held erasure secret and
-`deletion_id`, plus the promoted `match_length` scanning contract.
+with a deletion-specific key derived from HumanOS-held erasure secret + `deletion_id`
+and the promoted match-length/sliding-window scan contract.
 
 Rules:
 
-1. ErasureTag is **not** `payload_commitment`.
-2. ErasureTag is **not** part of the original event hash.
+1. ErasureTag is not `payload_commitment`.
+2. ErasureTag is not part of original event hash.
 3. No ordinary plaintext SHA/content digest is stored alongside it.
-4. The erasure secret and derived keys are not stored in the Notebook database,
-   deletion receipt, restored backup, or provider-visible material.
-5. ErasureTag exists only for deletion/restore verification under the V-04 contract.
-6. Historical erasure-secret custody/rotation required for restore verification is
-   resolved by the Key Custody ADR.
-
-This preserves V-04's ability to scan for erased bytes without turning immutable
-kernel history into a dictionary-testable payload index.
+4. Erasure secret/derived keys are not stored in Notebook DB, deletion receipt,
+   restored backup, or provider-visible material.
+5. ErasureTag exists only for deletion/restore verification under V-04.
+6. Historical erasure-secret custody/rotation belongs to Key Custody ADR.
 
 ---
 
 ## 8. Backup / export / restore implications
 
-An old backup cannot be treated as LIVE merely because its SQLCipher key is valid.
+An old backup cannot become LIVE merely because its SQLCipher key is valid.
 
-### Restore quarantine
-
-Every restored Notebook enters `RESTORING` / quarantined state before any public
-content path is enabled.
-
-Before transition to LIVE, HumanOS must reconcile the restored data against an
-authoritative deletion checkpoint that is at least as recent as the restore target's
-known deletion frontier.
-
-The restore process must:
+Every restored Notebook enters `RESTORING` quarantine before any public content path.
+Before LIVE transition HumanOS must:
 
 1. verify kernel/checkpoint integrity;
-2. verify every surviving LIVE event↔payload one-to-one binding, LIVE payload MAC and
-   exact historical `content_integrity_key_id` resolution;
-3. load authoritative deletion identities/checkpoint state;
-4. replay tombstones missing from the restored snapshot;
-5. remove/invalidate payload bytes, payload keys/wrappers, content hashes, content
-   integrity key selectors, transient request fingerprints, and derived artifacts for
-   erased objects;
-6. run the V-04 all-store ErasureTag scan under the correct retained erasure-key
-   authority;
-7. verify zero unresolved derivatives;
-8. verify deletion receipt/checkpoint consistency;
-9. only then transition to LIVE.
+2. verify every surviving LIVE event↔payload binding, payload MAC and exact historical
+   `content_integrity_key_id` resolution;
+3. verify each surviving LIVE idempotency fingerprint proof and exact historical
+   `request_fingerprint_key_id` resolution;
+4. load authoritative deletion identities/checkpoint state;
+5. replay missing tombstones;
+6. remove/invalidate payload bytes, payload keys/wrappers, content hashes/selectors,
+   request fingerprints/selectors and derived artifacts for erased objects;
+7. run V-04 all-store ErasureTag scan under correct retained erasure authority;
+8. verify zero unresolved derivatives;
+9. verify deletion receipt/checkpoint consistency;
+10. only then transition to LIVE.
 
-### Completion and backup scope
+`ERASE.COMPLETED` may be asserted only for the backup/export scope covered by accepted
+deletion policy. Any governed backup that can restore deleted content without mandatory
+tombstone reconciliation is an unresolved derivative.
 
-`ERASE.COMPLETED` may be asserted only for the backup/export set covered by the
-accepted deletion policy. A governed backup that can still restore deleted content
-without mandatory tombstone reconciliation is an unresolved derivative and blocks
-completion for that scope.
-
-For LN-1, backup product behavior remains outside the first capture vertical slice.
-If export/restore is included, the destination must be separately encrypted and the
-acceptance tests must prove correct-key restore, wrong-key rejection, restore
-quarantine, payload-binding/key-version verification, and deletion reconciliation.
-
-The exact durable location/custody of the authoritative deletion checkpoint belongs
-to the Key Custody / backup ADR and the controlled Migration/Cutover Plan.
+Backup product behavior remains outside the first LN-1 capture vertical slice. If
+export/restore is included, destination encryption, correct/wrong-key behavior,
+quarantine, LIVE integrity proof verification, and deletion reconciliation must all be
+tested.
 
 ---
 
 ## 9. Legacy Runtime 0.1 migration implications
 
-Runtime 0.1 contains both legacy naked SHA-256 transcript rows and newer keyed-HMAC
-integrity rows. Those values are source-side migration evidence; they are **not**
-blindly copied into immutable LN-1 kernel events.
+Runtime 0.1 contains legacy naked SHA-256 transcript rows and newer keyed-HMAC
+integrity rows. They are source-side migration evidence and are not copied blindly into
+immutable LN-1 events.
 
 Migration rules:
 
-1. verify the legacy/source row using its existing content and record-envelope
-   integrity rules before mapping;
-2. preserve the exact legacy payload bytes used by the verified source row;
-3. normalize only the new immutable metadata under the content-free rule; descriptive
-   legacy metadata that is not admissible becomes erasable payload/provenance state;
-4. create the new encrypted payload object and compute the LN-1 LIVE `content_hash`
-   bound to its new `object_id`, new `event_id`, exact `content_integrity_key_id`, and
-   exact payload bytes;
-5. create the new structural kernel event with `payload_commitment = null`;
-6. persist source-to-target mapping without embedding the old plaintext digest into
-   the new immutable event;
-7. perform the target event/payload/idempotency authoritative commit under the same
-   atomicity contract used for native LN-1 capture;
-8. keep the legacy source read-only during parity/cutover verification;
-9. before any future erase is called complete, the controlled migration/cutover plan
-   must define how retained legacy rollback sources and their old digests are either
-   deleted, cryptographically made inaccessible, or otherwise kept from resurrecting
-   erased content.
+1. verify legacy/source row under its existing content and record-envelope rules;
+2. preserve exact verified payload bytes;
+3. normalize new immutable metadata under the content-free rule; inadmissible
+   descriptive metadata becomes erasable payload/provenance;
+4. create encrypted payload + LIVE content MAC bound to new object/event IDs and exact
+   `content_integrity_key_id`;
+5. create structural event with `payload_commitment = null`;
+6. create LIVE idempotency proof under the same versioned fingerprint/key-selector
+   contract when migration uses a retryable ingestion identity;
+7. preserve source-to-target mapping without embedding legacy plaintext digest into
+   immutable event;
+8. commit target event/payload/idempotency atomically;
+9. keep legacy source read-only during parity/cutover;
+10. before future erase completion, Migration/Cutover must define how retained legacy
+    rollback sources/digests are deleted, made cryptographically inaccessible, or
+    otherwise prevented from resurrecting erased content.
 
-This is a migration dependency, not permission to alter the existing owner Notebook.
+This is not permission to alter owner Notebook data.
 
 ---
 
@@ -620,136 +598,91 @@ This is a migration dependency, not permission to alter the existing owner Noteb
 
 ### Positive
 
-- immutable chronology survives payload deletion without event rewriting;
-- event verification does not depend on content that policy may later erase;
-- immutable metadata cannot be used as an unchecked payload-content side channel;
-- LIVE payload integrity detects object/event identity swaps, key-selector tampering,
-  and payload byte changes;
-- crash/retry behavior has one explicit authoritative commit boundary;
-- no normal plaintext-derived payload digest needs to remain after erase;
-- source-based idempotency remains truthful after content fingerprint removal;
-- V-04 ErasureTag remains usable for deletion verification;
-- storage/key locations can evolve without invalidating historical event hashes;
-- legacy digest formats do not become permanent LN-1 privacy liabilities.
+- immutable chronology survives payload deletion without rewriting;
+- immutable metadata cannot be an unchecked content side channel;
+- LIVE payload integrity detects byte, identity, metadata and key-selector tamper;
+- LIVE idempotency equality/conflict remains deterministic across key rotation;
+- crash/retry has one explicit authoritative commit boundary;
+- no normal plaintext-derived payload digest must survive erase;
+- V-04 ErasureTag remains deletion-specific;
+- storage/encryption representation can evolve without invalidating event hashes;
+- legacy digests do not become permanent LN-1 liabilities.
 
 ### Costs
 
-- original event hashes do not cryptographically commit to plaintext payload bytes;
-- payload/content verification is therefore a separate lifecycle proof rather than a
-  single permanent event-chain proof;
-- source metadata requires normalization/indirection before it may become immutable;
-- the first LN-1 capture slice keeps its authoritative event/payload/idempotency state
-  within one transactional store; external authoritative blob storage needs a later
-  reviewed durability protocol;
-- LIVE verification across content-integrity key rotation requires historical key
-  resolution until the affected payload integrity state is erased or migrated;
-- restore depends on durable deletion checkpoint continuity;
-- exact event/content/erasure key generation, custody, rotation and recovery remain a
-  mandatory next ADR;
-- migration/cutover must explicitly handle retained legacy rollback databases.
-
-This separation is intentional: HumanOS chooses erasability over permanent
-content-addressed proof for owner-controlled payloads.
+- original event hash does not commit to plaintext payload bytes;
+- payload integrity and idempotency proof are separate erasable lifecycle proofs;
+- source metadata requires normalization/indirection before becoming immutable;
+- first LN-1 capture keeps authoritative event/payload/idempotency state in one
+  transactional store; external authoritative blob storage needs a later protocol;
+- historical LIVE verification requires historical payload-integrity and idempotency
+  keys while corresponding proof state remains LIVE;
+- restore depends on authoritative deletion checkpoint continuity;
+- exact key generation/custody/rotation/recovery remains a mandatory next ADR;
+- migration/cutover must handle retained legacy rollback databases explicitly.
 
 ---
 
 ## 11. Rejected alternatives
 
-### Permanent SHA-256 of plaintext in `payload_commitment`
-
-Rejected. Low-entropy payloads remain dictionary-testable after authorized erase.
-
-### Permanent keyed HMAC of plaintext in the original event
-
-Rejected for LN-1 V1. Although stronger than a normal digest, it still couples event
-verification to long-lived payload-derived key material and complicates deletion,
-rotation, and restore semantics. V-04 already provides a bounded deletion-specific
-keyed verification mechanism.
-
-### Hash of ciphertext in the original event
-
-Rejected for LN-1 V1. It unnecessarily couples immutable chronology to a specific
-storage/encryption representation and complicates re-encryption/migration.
-
-### Rewriting the old event after payload erase
-
-Rejected. It destroys the append-only historical property and changes all downstream
-chain hashes.
-
-### Content-addressed payload identity / cross-event deduplication
-
-Rejected. It conflicts with independent per-event deletion and remains deferred until
-there is a complete deletion-safe proof.
-
-### Trusting source-provided descriptive metadata in the immutable envelope
-
-Rejected. It creates an erasure bypass and source-authority escalation path.
-
-### Independent event and payload commits with best-effort cleanup
-
-Rejected for LN-1 V1. It allows ambiguous crash states and hidden divergence between
-immutable event identity, payload existence and retry identity.
-
-### Unauthenticated/default payload integrity key selection
-
-Rejected. LIVE verification must name and authenticate the exact content-integrity key
-version. Unknown or unavailable selectors fail closed; the verifier never guesses.
+- **Permanent SHA-256 plaintext commitment:** dictionary-testable after erase.
+- **Permanent keyed plaintext MAC in original event:** couples event verification to
+  payload-derived key lifecycle.
+- **Ciphertext hash in original event:** couples chronology to storage representation.
+- **Rewriting old event after erase:** breaks append-only history/chain.
+- **Content-addressed payload identity/cross-event dedup:** conflicts with independent
+  per-event deletion; deferred until fully proven.
+- **Source descriptive metadata in immutable envelope:** erasure bypass and source
+  authority escalation path.
+- **Independent event/payload commits with best-effort cleanup:** ambiguous crash state.
+- **Unauthenticated/default payload integrity key selection:** rotation/downgrade gap.
+- **Unversioned/default idempotency fingerprint key selection:** false conflict,
+  fallback and downgrade ambiguity across rotation.
 
 ---
 
-## 12. Required implementation tests derived from this ADR
+## 12. Required implementation tests
 
 LN-1 implementation must include at least:
 
-1. changing payload bytes while the LIVE payload row remains otherwise valid causes
-   payload-integrity/read-back verification failure;
-2. changing any event-hash-envelope field causes event-chain verification failure;
-3. changing a LIVE payload `object_id`, `event_id`, bound mime/size/sensitivity field,
-   `content_integrity_key_id`, or swapping otherwise valid payload rows between events
-   causes verification failure;
-4. unknown/unavailable payload `content_integrity_key_id` fails closed and the verifier
-   does not guess/fallback/try-all;
-5. a LIVE payload created under an older available integrity key still verifies after
-   rotation to a new current key;
-6. event→payload and payload→event one-to-one linkage is verified in both directions;
-7. exact UTF-8/binary payload bytes survive write/read/reopen without normalization or
-   semantic reserialization;
-8. changing storage/key operational metadata alone does not require rewriting the
-   original event or LIVE content MAC, but cannot downgrade effective authorization;
-9. immutable metadata containing unapproved arbitrary source content is rejected or
-   moved to erasable payload/provenance state before commit;
-10. duplicate retry while LIVE returns the same event only when the transient keyed
-    request fingerprint matches;
-11. conflicting reuse while LIVE fails closed;
-12. crash/process death before authoritative commit leaves no event, LIVE payload,
-    consumed sequence or idempotency reservation;
-13. crash after authoritative commit but before acknowledgement returns the same event
-    on retry and does not create a duplicate;
-14. projection/enrichment failure after commit does not alter or duplicate the capture;
-15. after erase, the content hash, content integrity selector, and request fingerprint
-    are absent and the original event chain still verifies;
-16. retry after erase returns the historical erased identity and never recreates the
-    payload;
-17. V-04 ErasureTag scanning still detects erased bytes embedded in larger persistent
-    values under the promoted sliding-window/match-length contract;
-18. restore remains quarantined until event/payload/key-version integrity plus deletion
+1. payload byte tamper fails LIVE verification;
+2. any event-hash-envelope field tamper fails chain verification;
+3. LIVE payload object/event identity or bound metadata swap/tamper fails;
+4. unknown/unavailable payload integrity key ID fails closed with no fallback;
+5. older LIVE payload still verifies after current content-integrity key rotates;
+6. event↔payload linkage verifies both directions and rejects orphan/missing rows;
+7. exact UTF-8/binary bytes survive write/read/reopen without normalization;
+8. operational storage/key metadata change cannot downgrade effective authorization;
+9. unapproved content in immutable metadata is rejected or moved to erasable state;
+10. same LIVE idempotency tuple + same exact semantic submission returns same event;
+11. same tuple + payload or source-claim change fails closed as conflict;
+12. request fingerprint version/key-ID tamper fails verification;
+13. unknown/unavailable request-fingerprint key ID fails closed with no fallback;
+14. older LIVE request fingerprint still verifies after current idempotency key rotates;
+15. pre-commit crash leaves no event/payload/sequence/idempotency reservation;
+16. commit-before-ack crash retries to same event without duplicate;
+17. post-commit projection failure does not alter/duplicate capture;
+18. after erase, payload MAC state and request fingerprint proof state are absent while
+    original event chain still verifies;
+19. retry after erase returns historical ERASED identity and never recreates payload;
+20. V-04 ErasureTag scan still detects erased bytes embedded in larger persistent
+    values under promoted sliding-window/match-length contract;
+21. restore stays quarantined until event/payload/idempotency/key-version and deletion
     checkpoint/receipt/tag reconciliation succeeds;
-19. a restored pre-erasure snapshot cannot become LIVE with recoverable erased payload;
-20. migration does not copy legacy naked/plaintext-derived hashes or inadmissible
-    descriptive metadata into immutable new events;
-21. no owner Notebook data is used in these tests.
+22. pre-erasure restore cannot become LIVE with recoverable erased payload;
+23. migration copies neither legacy naked hashes nor inadmissible descriptive metadata
+    into immutable new events;
+24. no owner Notebook data is used in these tests.
 
 ---
 
 ## 13. Open dependencies — intentionally not resolved here
 
-This ADR does not close the remaining PRE-LN-1 gates.
-
-Still required:
+Still required before LN-1 implementation:
 
 - SQLCipher Runtime Binding + Key Custody ADR;
-- exact kernel/content/erasure key generation, wrapping, storage, rotation, recovery,
-  and historical-key retention policy satisfying the authenticated key-ID contract;
+- exact kernel/content/idempotency/erasure key generation, wrapping, storage, rotation,
+  recovery and historical-key retention satisfying authenticated key-ID contracts;
 - authoritative deletion-checkpoint storage/recovery location;
 - controlled Migration / Cutover Plan;
 - production integration qualification before a LIVE writer is trusted with owner data.
@@ -758,14 +691,14 @@ Still required:
 
 ## 14. Promotion gates
 
-This ADR is accepted for PRE-LN-1 use only when:
+ADR-LN-014 is accepted for PRE-LN-1 use only when:
 
-1. a fresh independent architecture/security review of the remediated candidate finds
-   no unresolved schema-blocking deletion, integrity, key-version, metadata-smuggling,
-   atomicity, idempotency, restore, or migration defect;
-2. required corrections are committed and read back;
-3. fresh CI at the reviewed commit passes;
-4. the reviewed commit is recorded in `HOS-LN-001`;
-5. Jon explicitly approves this ADR.
+1. a fresh clean architecture/security review of this remediated candidate finds no
+   unresolved schema-blocking deletion, integrity, key-version, metadata-smuggling,
+   atomicity, idempotency, restore or migration defect;
+2. corrections are committed/read back;
+3. fresh CI at the reviewed branch head passes;
+4. exact reviewed ADR commit and review evidence are recorded;
+5. Jon explicitly approves ADR-LN-014.
 
 Until then it is a candidate and does not authorize LN-1 implementation.
