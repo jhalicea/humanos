@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from capture_current_conversation import capture_audit, capture_current, capture_status
@@ -13,6 +14,11 @@ DEFAULT_LEDGER = Path(__file__).resolve().parent / "var" / "current-conversation
 
 
 def main(argv=None):
+    raw_args = list(argv) if argv is not None else sys.argv[1:]
+    if raw_args and raw_args[0] == "academy":
+        from learning.academy_cli import main as academy_main
+        return academy_main(raw_args[1:])
+
     parser = argparse.ArgumentParser(prog="humanos")
     parser.add_argument("command", choices=("capture", "turn", "project", "verify", "status", "audit"))
     parser.add_argument("--ledger", type=Path)
@@ -23,7 +29,7 @@ def main(argv=None):
     parser.add_argument("--assistant")
     parser.add_argument("--notebook", type=Path)
     parser.add_argument("--pretty", action="store_true")
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_args)
     if args.command == "capture":
         result = capture_current(args.ledger, args.source)
     elif args.command == "turn":
@@ -42,10 +48,11 @@ def main(argv=None):
             result = {"ledger": {"status": "PENDING", "rows": 0},
                       "capture": capture_status(ledger),
                       "reason": "local ledger has not been created yet"}
+            runtime_status = "PENDING"
         else:
             runtime_receipt = ledger.parent / "runtime-capture-receipts.jsonl"
-        runtime_status = "CHECKPOINTED" if runtime_receipt.exists() else "PENDING"
-        result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger), "runtime_capture": runtime_status}
+            runtime_status = "CHECKPOINTED" if runtime_receipt.exists() else "PENDING"
+            result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger), "runtime_capture": runtime_status}
         if args.notebook is not None:
             result["notebook"] = project_all_pairs(ledger, args.notebook)
     elif args.command == "status":
