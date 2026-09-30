@@ -55,6 +55,15 @@ class AcademyStoreTests(unittest.TestCase):
                 self.assertIsNone(state["current_focus"])
                 self.assertNotIn("lab-1", state["unfinished"])
 
+    def test_completion_of_unknown_activity_fails_closed(self) -> None:
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "academy.sqlite3"
+            with AcademyStore(db) as store:
+                with self.assertRaisesRegex(KeyError, "not unfinished"):
+                    store.complete_activity("missing")
+
     def test_evidence_rebuilds_scores_without_auto_promoting_stage(self) -> None:
         from tempfile import TemporaryDirectory
         from pathlib import Path
@@ -108,6 +117,24 @@ class AcademyStoreTests(unittest.TestCase):
                     source="synthetic-test",
                     summary="same",
                     created_at="2000-01-01T00:00:00+00:00",
+                )
+                first = store.record_evidence(**kwargs)
+                second = store.record_evidence(**kwargs)
+                self.assertEqual(first, second)
+                self.assertEqual(store.rebuild_state()["event_count"], 1)
+
+    def test_evidence_retry_without_repeated_timestamp_is_idempotent(self) -> None:
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "academy.sqlite3"
+            with AcademyStore(db) as store:
+                kwargs = dict(
+                    evidence_id="ev-no-time",
+                    skill_id="skill-1",
+                    scores={"diagnostic": 4},
+                    source="synthetic-test",
+                    summary="same semantic retry",
                 )
                 first = store.record_evidence(**kwargs)
                 second = store.record_evidence(**kwargs)
