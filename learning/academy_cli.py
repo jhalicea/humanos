@@ -127,7 +127,10 @@ def _parse_scores(values: Iterable[str]) -> Dict[str, float]:
         if "=" not in item:
             raise ValueError("score must use dimension=value")
         key, value = item.split("=", 1)
-        scores[key.strip()] = float(value)
+        key = key.strip()
+        if key in scores:
+            raise ValueError(f"duplicate score dimension: {key}")
+        scores[key] = float(value)
     return scores
 
 
@@ -139,11 +142,25 @@ def _validate_focus(package, course_id: str, module_id: Optional[str]) -> None:
         raise KeyError(f"unknown module in {course_id}: {module_id}")
 
 
+def _validate_skill(package, skill_id: str, course_id: Optional[str] = None) -> None:
+    if package.get_skill(skill_id) is None:
+        raise KeyError(f"unknown skill: {skill_id}")
+    if course_id is None:
+        return
+    course = package.get_course(course_id)
+    if course is None:
+        raise KeyError(f"unknown course: {course_id}")
+    if skill_id not in course.skill_ids:
+        raise ValueError(f"skill {skill_id} is not part of course {course_id}")
+
+
 def main(argv=None) -> None:
     parser = _parser()
     args = parser.parse_args(argv)
     package = None
-    package_actions = {"courses", "course", "certifications", "job-packs", "select", "start"}
+    package_actions = {
+        "courses", "course", "certifications", "job-packs", "select", "start", "stage", "evidence"
+    }
     if args.action in package_actions:
         package = load_package(args.package)
 
@@ -248,9 +265,11 @@ def main(argv=None) -> None:
                     event_id = store.complete_activity(args.activity_id, summary=args.summary)
                     result = {"event_id": event_id, "state": store.rebuild_state()}
                 elif args.action == "stage":
+                    _validate_skill(package, args.skill_id)
                     event_id = store.set_skill_stage(args.skill_id, args.stage, reason=args.reason)
                     result = {"event_id": event_id, "state": store.rebuild_state()}
                 elif args.action == "evidence":
+                    _validate_skill(package, args.skill_id, args.course_id)
                     event_id = store.record_evidence(
                         args.evidence_id,
                         args.skill_id,
