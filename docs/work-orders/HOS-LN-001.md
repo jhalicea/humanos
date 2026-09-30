@@ -15,18 +15,19 @@ Resolve the first mandatory PRE-LN-1 gate without starting LN-1 implementation.
 Define the exact event/payload integrity boundary so authorized payload erasure can
 complete without rewriting immutable kernel history, leaving a permanent
 plaintext-derived fingerprint, allowing content to leak through immutable metadata,
-or creating ambiguous event/payload/idempotency crash state.
+creating ambiguous event/payload/idempotency crash state, or losing deterministic
+payload-integrity verification across key rotation.
 
 ## Why this slice exists
 
 LN-0 closed on 2026-09-28 as implementation-ready, but explicitly blocked LN-1
 implementation on three PRE-LN-1 gates. The first gate is the Schema / Integrity ADR.
-The unresolved questions are:
+This gate resolves:
 
 - exact `NotebookEventV1.event_hash` coverage;
 - immutable metadata admissibility after erasure;
 - whether/how `payload_commitment` is represented;
-- `PayloadObjectV1.content_hash` lifecycle and identity binding;
+- `PayloadObjectV1.content_hash` lifecycle, identity binding, and key-version selector;
 - one-to-one event↔payload linkage;
 - authoritative event/payload/idempotency transaction boundary;
 - event/payload integrity before and after authorized erasure;
@@ -46,8 +47,9 @@ It may:
 - define the LN-1 event-hash envelope and payload-integrity lifecycle;
 - define immutable metadata admissibility and content-free identifier rules;
 - define one-to-one event/payload binding and crash atomicity requirements;
+- define authenticated LIVE payload-integrity key-version selection;
 - define idempotency behavior across LIVE -> TOMBSTONED -> ERASED states;
-- define deletion/restore invariants that the later implementation must test;
+- define deletion/restore invariants that later implementation must test;
 - record unresolved dependencies on key custody and migration/cutover;
 - repair CI-only dependency setup when an existing required test cannot execute
   because a GitHub runner lacks an already-required tool.
@@ -60,8 +62,8 @@ This slice does **not**:
 - change `notebook.py`, capture adapters, SQLCipher bindings, or the live writer;
 - migrate or touch owner Notebook data;
 - select the production SQLCipher Python binding;
-- finalize key custody, Keychain integration, KDF parameters, recovery-secret storage,
-  rotation, or backup transport;
+- finalize key generation/custody, Keychain integration, KDF parameters,
+  recovery-secret storage, rotation, historical-key retention, or backup transport;
 - authorize LN-1 implementation;
 - weaken or rewrite promoted V-03/V-04/V-05 evidence.
 
@@ -82,8 +84,10 @@ change runtime behavior or architecture authority.
 7. Immutable event/idempotency metadata must be HumanOS-normalized and content-free;
    arbitrary descriptive/source content belongs in erasable payload/provenance state.
 8. LIVE payload integrity must bind exact payload bytes to exact event/object identity.
-9. Idempotency reservation, payload object and kernel event must have one authoritative
-   durable commit boundary for the LN-1 V1 first slice.
+9. The exact LIVE payload-integrity key selector must be required, MAC-authenticated,
+   fail closed when unavailable/unknown, and remain part of erasable integrity state.
+10. Idempotency reservation, payload object and kernel event must have one authoritative
+    durable commit boundary for the LN-1 V1 first slice.
 
 ## Acceptance criteria
 
@@ -92,6 +96,8 @@ change runtime behavior or architecture authority.
 - [x] The candidate ADR decides the LN-1 V1 `payload_commitment` behavior.
 - [x] The candidate ADR defines the `content_hash` / payload-integrity lifecycle.
 - [x] LIVE payload integrity binds exact payload bytes to exact `object_id` / `event_id`.
+- [x] The LIVE payload MAC authenticates `content_integrity_key_id`, and verification
+      rejects unknown/unavailable selectors without guessing or fallback.
 - [x] The candidate ADR defines one-to-one event↔payload linkage invariants.
 - [x] The candidate ADR defines atomic event/payload/idempotency crash/retry semantics.
 - [x] The candidate ADR defines idempotency before and after authorized erase.
@@ -102,8 +108,8 @@ change runtime behavior or architecture authority.
 - [x] The candidate ADR records legacy migration implications.
 - [x] Current GitHub runner dependency gap for required SQLCipher CLI tests is repaired
       in CI harness only and proven by a passing full matrix at an immutable head.
-- [ ] Fresh independent architecture/security review of the remediated ADR finds no
-      schema-blocking defect.
+- [ ] Fresh independent architecture/security review of the latest remediated ADR finds
+      no schema-blocking defect.
 - [ ] Jon explicitly accepts the ADR for PRE-LN-1 use.
 
 ## Evidence plan
@@ -125,21 +131,41 @@ Verification for this slice:
 3. verify no runtime implementation file changed on this branch;
 4. preserve independent-review findings before remediation;
 5. run the full existing regression/encrypted-backup matrices with SQLCipher available;
-6. submit the remediated immutable commit/ref to a fresh architecture/security review;
+6. submit the latest remediated immutable ADR commit/ref to a fresh architecture/security
+   review;
 7. preserve findings before any owner promotion decision.
 
 ## Review remediation record
 
-Initial independent review found three blockers:
+### Review pass 1
+
+Three blockers were preserved on PR #117 before remediation:
 
 1. LIVE payload MAC did not bind `object_id` / `event_id`;
 2. event/payload/idempotency atomic commit semantics were missing;
 3. immutable metadata had no explicit content-free admissibility rule.
 
-Those findings were preserved on PR #117 before remediation. ADR revision commit
-`4d082fcfe1b02bc38bc32a5e3e1700c0bad6b527` addresses them without changing the
-central decision to keep `payload_commitment = null`, keep payload integrity erasable,
-and preserve V-04 ErasureTag as a separate deletion-verification mechanism.
+ADR remediation commit:
+`4d082fcfe1b02bc38bc32a5e3e1700c0bad6b527`.
+
+### Review pass 2
+
+Fresh review at branch head `f08eb60681ee72b805aa6779ce47e756549e349d`
+found one remaining blocker: `content_integrity_key_id` was referenced by the LIVE
+payload HMAC but was not a required payload field and was not authenticated by the MAC
+envelope. The finding was preserved on PR #117 before correction.
+
+ADR key-version remediation commit:
+`e715af891d05cf092475d3b244ad087d429787c7`.
+
+The latest ADR now requires the selector as LIVE payload-integrity metadata, includes it
+in the HMAC envelope, fails closed for unknown/unavailable selectors, removes it with
+erased LIVE integrity state by default, and derives implementation tests for tamper,
+unknown-key, and historical-key verification after rotation.
+
+These remediations do not change the central decision to keep
+`payload_commitment = null`, keep payload integrity erasable, and preserve V-04
+ErasureTag as a separate deletion-verification mechanism.
 
 ## CI evidence
 
@@ -152,8 +178,10 @@ Harness-only repair commits:
 - `d07a98f7510ab0e5a9b5b595dc9b5642d03a6067` — regression matrix;
 - `a97aa8d37afe85485fdc772b6366bf3681a900dc` — encrypted-backup matrix.
 
-At `a97aa8d37afe85485fdc772b6366bf3681a900dc`, both workflow families completed
-SUCCESS. A final fresh run is still required at the final reviewed documentation head.
+At both `a97aa8d37afe85485fdc772b6366bf3681a900dc` and later
+`f08eb60681ee72b805aa6779ce47e756549e349d`, both workflow families completed SUCCESS.
+A fresh run is still required at the final candidate branch head after the latest
+review-remediation bookkeeping commits.
 
 ## Risks
 
@@ -161,6 +189,7 @@ SUCCESS. A final fresh run is still required at the final reviewed documentation
 - retaining a low-entropy dictionary-testable fingerprint after erase;
 - smuggling erasable content into immutable metadata;
 - allowing authenticated payload bytes to be rebound/swapped across event identity;
+- accepting an unauthenticated/guessed integrity-key selector after rotation;
 - overloading the event hash with mutable storage/key metadata;
 - creating hidden partial capture state across crash boundaries;
 - making idempotency depend on a permanent payload digest;
@@ -176,12 +205,13 @@ evidence, and owner Notebook data remain untouched.
 
 ## Current state
 
-The remediated ADR candidate is prepared. It is **not accepted** and does not
+The latest remediated ADR candidate is prepared. It is **not accepted** and does not
 authorize schema implementation or live capture.
 
 ## Next action
 
-Finish fresh CI at the final candidate head, then run a fresh independent
-architecture/security review of `ADR-LN-014_SCHEMA_INTEGRITY.md`. Resolve only any new
-reproducible blocker. If review is clean, present the exact reviewed commit to Jon for
-explicit PRE-LN-1 acceptance.
+Obtain fresh CI at the final candidate head, then run a fresh independent
+architecture/security review of ADR commit
+`e715af891d05cf092475d3b244ad087d429787c7`. Resolve only any new reproducible blocker.
+If review is clean, record the reviewed SHA and present it to Jon for explicit
+PRE-LN-1 acceptance.
