@@ -684,6 +684,45 @@
       "next_action": "On the owner Mac, pull runtime-0.1, run humanos --browser-setup, load browser-extension/ once as unpacked, select a tab, verify humanos --browser-status, and run one bounded browser_search or browser_inspect action."
     },
     {
+      "workstream_id": "HOS-LN-000",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Life Notebook LN-0 Consolidation",
+      "project": "Life Notebook",
+      "repository": "jhalicea/humanos",
+      "branch": "life-notebook-ln0",
+      "work_order": "docs/work-orders/HOS-LN-000.md",
+      "status": "ACTIVE",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "life notebook",
+        "LN-0",
+        "consolidation",
+        "verification",
+        "V-05",
+        "context boundary",
+        "model context boundary"
+      ],
+      "components": [
+        "docs/life-notebook",
+        "docs/work-orders/HOS-LN-000.md",
+        "tests/test_ln0_v03_ingestor.py",
+        "tests/test_ln0_v04_deletion.py"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-NB-CAPTURE-001"
+        },
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-NB-RECALL-001"
+        }
+      ],
+      "last_verified_commit": "e793aca454c087cb68503cb79871a844eb7bde03",
+      "resume_point": "LN-0 V-04 Attempt 8 is PASS / PROMOTED on the life-notebook-ln0 branch; the next verification gate is V-05 Model Context Boundary / No Brain Retrieval Handle.",
+      "next_action": "Continue HOS-LN-000 with the bounded LN-0 V-05 context-boundary verification packet without reopening or modifying the promoted V-04 implementation and tests."
+    },
+    {
       "workstream_id": "HOS-NB-CAPTURE-001",
       "workspace_id": "WS-HUMANOS",
       "title": "Life Notebook Exact Turn Capture",

@@ -21,12 +21,21 @@ def resolve_source(session_id, sessions_root=None):
     return matches[-1]
 
 
-def capture_current(ledger=None, source=None):
+def resolve_latest_source(sessions_root=None):
+    root = Path(sessions_root or Path.home() / '.codex' / 'sessions')
+    matches = [path for path in root.glob('**/rollout-*.jsonl') if path.is_file()]
+    if not matches:
+        raise FileNotFoundError(f'no Codex rollouts found under {root}')
+    return max(matches, key=lambda path: path.stat().st_mtime_ns)
+
+
+def capture_current(ledger=None, source=None, latest=False):
     ledger = Path(ledger or DEFAULT_LEDGER)
     session_id = os.environ.get("CODEX_SESSION_ID")
-    if source is None and not session_id:
-        raise RuntimeError("CODEX_SESSION_ID is required for /capture")
-    source = source or resolve_source(session_id)
+    if source is None:
+        source = resolve_latest_source() if latest else (resolve_source(session_id) if session_id else None)
+    if source is None:
+        raise RuntimeError("CODEX_SESSION_ID is required for /capture, or use --latest")
     receipt = ledger.parent / "capture-receipts.jsonl"
     receipt.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -80,12 +89,13 @@ def capture_audit(ledger=None):
 def main():
     parser = argparse.ArgumentParser(description="Capture the current Codex conversation into the local ledger")
     parser.add_argument("--source", type=Path, help="explicit observed rollout JSONL")
+    parser.add_argument("--latest", action="store_true", help="capture the newest local Codex rollout")
     parser.add_argument("--ledger", type=Path, default=None)
     parser.add_argument("--status", action="store_true")
     parser.add_argument("--audit", action="store_true")
     args = parser.parse_args()
     try:
-        print(capture_audit(args.ledger) if args.audit else (capture_status(args.ledger) if args.status else capture_current(args.ledger, args.source)))
+        print(capture_audit(args.ledger) if args.audit else (capture_status(args.ledger) if args.status else capture_current(args.ledger, args.source, args.latest)))
     except (FileNotFoundError, RuntimeError) as error:
         parser.error(str(error))
 
