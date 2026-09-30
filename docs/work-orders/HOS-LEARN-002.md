@@ -1,12 +1,14 @@
 # HOS-LEARN-002 — Adaptive Academy Kernel & Runtime Vertical Slice
 
-Status: ACTIVE
+Status: REVIEW_CANDIDATE
 Workspace: `WS-HUMANOS`
 Project: Learning and Mastery
 Classification: `EXTEND` existing Academy/Mastery lineage
 Branch: `feature/academy-kernel-runtime-v1`
 Baseline: `runtime-0.1` at `a85462ccde61ea84e8f1cb680c7fdeefe04c97bf`
 Related: `HOS-LEARN-001`, `HOS-MASTERY-001`
+Public PR: `#118`
+Private content candidate: `jhalicea/humanos-academy-private#1`
 
 ## Desired outcome
 
@@ -51,6 +53,7 @@ The append-only Academy event ledger is authority for runtime learner-state tran
 - State integrity: event history is append-only through the Academy store API; derived views may be rebuilt.
 - Human agency: current focus is explicit owner choice, never inferred from oldest unfinished work.
 - Portability: standard-library implementation only for this slice; no cloud/provider lock-in.
+- Local privacy: default learner-state database is outside the repository at `$HOME/.humanos/private/academy/academy.sqlite3` unless explicitly overridden.
 
 ## Observable acceptance criteria
 
@@ -69,7 +72,7 @@ A fresh HumanOS checkout can, using only synthetic public fixtures:
 
 All existing regression tests plus new Academy tests must pass in CI before promotion is considered.
 
-## Planned components
+## Implemented components
 
 - `learning/academy_models.py`
 - `learning/academy_loader.py`
@@ -86,15 +89,52 @@ All existing regression tests plus new Academy tests must pass in CI before prom
 - `tests/test_academy_kernel.py`
 - `tests/test_academy_store.py`
 - `tests/test_academy_cli.py`
-- `config/context_registry.public.json`
+- `humanos.py` Academy command routing
 
-## Test / evidence plan
+## Verification evidence
 
-- Run targeted Academy unit tests.
-- Run `python3 -m unittest discover -s tests -v`.
-- Use GitHub Actions on the exact branch commit as remote evidence.
-- Review the diff for private-data leakage, authority widening, destructive state behavior, and accidental coupling to private Academy content.
-- Verify the package loader and SQLite state survive process/store restart through tests.
+Public kernel candidate code head: `a3a74a3fdf824aa116d8a03b2833da2b4655047d`
+
+GitHub Actions run `36756402100`:
+
+- Ubuntu 24.04 / Python 3.11 — PASS
+- Ubuntu 24.04 / Python 3.13 — PASS
+- macOS 15 / Python 3.11 — PASS
+- macOS 15 / Python 3.13 — PASS
+- full suite result on verified matrix job: **606 tests, PASS**
+
+The suite includes Academy package-reference validation, teaching-protocol invariants, certification-as-overlay behavior, CLI integration, append-only database enforcement, explicit current-focus behavior, restart/rebuild, evidence idempotence including semantic retries without a repeated timestamp, and fail-closed completion of unknown activities.
+
+Private compatibility candidate: `jhalicea/humanos-academy-private` head `c953a8bfcc63c0e2f44d8dffee5cd883a2ef81b0`.
+
+Private validation run `36756552647` checked the real curriculum package against public kernel code head `a3a74a3fdf824aa116d8a03b2833da2b4655047d` on the same macOS/Ubuntu and Python 3.11/3.13 matrix. All four jobs passed. The validated package reports:
+
+- 11 courses;
+- 134 shared skills;
+- 20 nested labs;
+- 10 Course 01 certification overlays;
+- 8 job-training packs;
+- `current_focus: null`;
+- schema `humanos.academy.package.v1`;
+- status `VALID`.
+
+Routing/status evidence was also recorded in Work Router issue `#67`. No merge or promotion has occurred.
+
+## Review findings
+
+- Public Academy fixture is synthetic; real curriculum remains private.
+- Default real learner-state DB was moved out of the repository into the private HumanOS home path.
+- Coverage output is labeled `COVERAGE_NOT_CREDENTIAL_READINESS`.
+- Evidence events do not silently promote a learner stage.
+- Labs and certification overlays are subordinate to parent courses.
+- Historical continuation data is preserved separately in the private repo; it is not silently imported as new live state.
+- `TTX-001` remains historical unfinished work and is not current focus.
+
+## Remaining pre-promotion gates
+
+1. Owner review/approval of public PR `#118` and private PR `#1`.
+2. Reconcile the public context registry entry for `HOS-LEARN-002` at promotion so the canonical registry points to the promoted commit and resume point rather than a moving feature head.
+3. Merge/promote only after explicit owner authorization; then record final merge SHAs and checkpoint/resume state.
 
 ## Rollback
 
@@ -102,4 +142,4 @@ The slice is isolated to `feature/academy-kernel-runtime-v1`. Before promotion, 
 
 ## Current next action
 
-Implement the generic package model/loader and teaching protocol, then the append-only Academy state store and CLI, followed by tests and CI verification.
+Owner review of the two green candidate PRs. If approved, reconcile the canonical workstream registry at the exact promotion point, merge/promote in the governed order, record final SHAs, and then begin the next bounded Academy slice rather than expanding scope inside this workstream.
