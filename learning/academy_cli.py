@@ -12,7 +12,12 @@ from .academy_store import AcademyStore
 from .teaching_protocol import load_default_teaching_protocol
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DB = Path(os.environ.get("HUMANOS_ACADEMY_DB", REPO_ROOT / "var" / "academy.sqlite3"))
+DEFAULT_DB = Path(
+    os.environ.get(
+        "HUMANOS_ACADEMY_DB",
+        Path.home() / ".humanos" / "private" / "academy" / "academy.sqlite3",
+    )
+)
 DEFAULT_PACKAGE = Path(
     os.environ.get(
         "HUMANOS_ACADEMY_PACKAGE",
