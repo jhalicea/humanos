@@ -111,8 +111,25 @@ class AcademyStore:
         if not isinstance(payload, dict):
             raise ValueError("event payload must be an object")
         event_id = event_id or str(uuid.uuid4())
-        timestamp = self._timestamp(created_at)
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+        # Check before generating a new timestamp so a network/process retry using the
+        # same deterministic event_id remains idempotent even when created_at was not
+        # repeated by the caller.
+        existing = self.connection.execute(
+            "SELECT event_type, course_id, module_id, skill_id, activity_id, payload_json, created_at "
+            "FROM academy_events WHERE event_id = ?",
+            (event_id,),
+        ).fetchone()
+        if existing is not None:
+            semantic = (event_type, course_id, module_id, skill_id, activity_id, encoded)
+            if tuple(existing)[:6] == semantic:
+                if created_at is not None and existing["created_at"] != self._timestamp(created_at):
+                    raise ValueError(f"Academy event_id collision: {event_id}")
+                return event_id
+            raise ValueError(f"Academy event_id collision: {event_id}")
+
+        timestamp = self._timestamp(created_at)
         try:
             self.connection.execute(
                 """
@@ -124,13 +141,17 @@ class AcademyStore:
             )
             self.connection.commit()
         except sqlite3.IntegrityError as exc:
+            # Concurrent writers can race the pre-check. Re-read and accept only an
+            # exact semantic retry; anything else is a collision and fails closed.
             row = self.connection.execute(
                 "SELECT event_type, course_id, module_id, skill_id, activity_id, payload_json, created_at "
                 "FROM academy_events WHERE event_id = ?",
                 (event_id,),
             ).fetchone()
-            expected = (event_type, course_id, module_id, skill_id, activity_id, encoded, timestamp)
-            if row is not None and tuple(row) == expected:
+            semantic = (event_type, course_id, module_id, skill_id, activity_id, encoded)
+            if row is not None and tuple(row)[:6] == semantic:
+                if created_at is not None and row["created_at"] != timestamp:
+                    raise ValueError(f"Academy event_id collision: {event_id}") from exc
                 return event_id
             raise ValueError(f"Academy event_id collision: {event_id}") from exc
         return event_id
@@ -204,6 +225,14 @@ class AcademyStore:
     ) -> str:
         if not activity_id or not course_id:
             raise ValueError("activity_id and course_id are required")
+        state = self.rebuild_state()
+        if activity_id in state["unfinished"]:
+            existing = state["unfinished"][activity_id]
+            requested = {"course_id": course_id, "module_id": module_id, "title": title}
+            current = {key: existing.get(key) for key in requested}
+            if current == requested:
+                raise ValueError(f"activity already in progress: {activity_id}")
+            raise ValueError(f"activity_id already belongs to another unfinished activity: {activity_id}")
         return self.append_event(
             "ACTIVITY_STARTED",
             {
@@ -220,9 +249,15 @@ class AcademyStore:
     def complete_activity(self, activity_id: str, *, summary: str = "") -> str:
         if not activity_id:
             raise ValueError("activity_id is required")
+        state = self.rebuild_state()
+        if activity_id not in state["unfinished"]:
+            raise KeyError(f"activity is not unfinished: {activity_id}")
+        activity = state["unfinished"][activity_id]
         return self.append_event(
             "ACTIVITY_COMPLETED",
             {"activity_id": activity_id, "summary": summary},
+            course_id=activity.get("course_id"),
+            module_id=activity.get("module_id"),
             activity_id=activity_id,
         )
 
@@ -272,6 +307,8 @@ class AcademyStore:
         )
 
     def checkpoint(self, label: str, *, note: str = "") -> str:
+        if not label:
+            raise ValueError("checkpoint label is required")
         return self.append_event("CHECKPOINT_RECORDED", {"label": label, "note": note})
 
     def iter_events(self) -> Iterable[sqlite3.Row]:
