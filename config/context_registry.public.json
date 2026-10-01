@@ -587,7 +587,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/adaptive-learning-academy-v1",
       "work_order": null,
-      "status": "UNKNOWN",
+      "status": "SUPERSEDED",
       "confidentiality": "INTERNAL",
       "topics": [
         "learning",
@@ -610,8 +610,8 @@
         }
       ],
       "last_verified_commit": null,
-      "resume_point": "Branch discovered; exact status is intentionally UNKNOWN until inspected.",
-      "next_action": "Inspect branch and evidence before resuming learning-system implementation."
+      "resume_point": "Historical Academy branch preserved for provenance. It is superseded by HOS-LEARN-002, promoted through PR #118.",
+      "next_action": "Do not resume this historical branch directly; extend the promoted HOS-LEARN-002 lineage."
     },
     {
       "workstream_id": "HOS-MASTERY-001",
@@ -621,7 +621,7 @@
       "repository": "jhalicea/humanos",
       "branch": "feature/adaptive-mastery-engine-v1",
       "work_order": null,
-      "status": "UNKNOWN",
+      "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
         "mastery",
@@ -641,9 +641,60 @@
           "target_workstream_id": "HOS-LEARN-001"
         }
       ],
-      "last_verified_commit": null,
-      "resume_point": "Branch discovered; inspect implementation before choosing CONTINUE or EXTEND.",
-      "next_action": "Inspect branch history and tests when mastery work is requested."
+      "last_verified_commit": "be0ce155c40cdfe33ace858f55df7ca3d2efa0d5",
+      "resume_point": "Adaptive Mastery Engine v1 was promoted through PR #58 at merge commit be0ce155c40cdfe33ace858f55df7ca3d2efa0d5 and is now a dependency of HOS-LEARN-002.",
+      "next_action": "Preserved as the mastery substrate; extend through HOS-LEARN-002 or a new bounded mastery workstream."
+    },
+    {
+      "workstream_id": "HOS-LEARN-002",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Adaptive Academy Kernel & Runtime Vertical Slice",
+      "project": "Learning and Mastery",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/academy-kernel-runtime-v1",
+      "work_order": "docs/work-orders/HOS-LEARN-002.md",
+      "status": "PROMOTED",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "learning",
+        "academy",
+        "course",
+        "mastery",
+        "skills",
+        "curriculum",
+        "grading",
+        "teaching protocol",
+        "certifications",
+        "job packs",
+        "learner state"
+      ],
+      "components": [
+        "learning/academy_models.py",
+        "learning/academy_loader.py",
+        "learning/academy_store.py",
+        "learning/teaching_protocol.py",
+        "learning/academy_cli.py",
+        "learning/protocols/humanos-teaching-v1.json",
+        "schemas/academy-package-v1.schema.json",
+        "docs/academy",
+        "tests/test_academy_kernel.py",
+        "tests/test_academy_store.py",
+        "tests/test_academy_cli.py",
+        "config/context_registry.public.json"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-MASTERY-001"
+        },
+        {
+          "relation": "SUPERSEDES",
+          "target_workstream_id": "HOS-LEARN-001"
+        }
+      ],
+      "last_verified_commit": "5e535a2de48b984a90f7ed5ba5d26864cd4fab86",
+      "resume_point": "Promoted through PR #118 at merge commit 5e535a2de48b984a90f7ed5ba5d26864cd4fab86 after green macOS/Ubuntu Python 3.11/3.13 regression and encrypted-backup matrices. The reusable Academy kernel is canonical; real curriculum and learner state remain private.",
+      "next_action": "Use the promoted Academy kernel with the private curriculum package. The next bounded Academy increment should build the Mission Board / first real session flow without auto-resuming historical unfinished work."
     },
     {
       "workstream_id": "HOS-BROWSER-001",

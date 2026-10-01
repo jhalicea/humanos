@@ -1,6 +1,6 @@
 # HOS-LEARN-002 — Adaptive Academy Kernel & Runtime Vertical Slice
 
-Status: REVIEW_CANDIDATE
+Status: PROMOTED
 Workspace: `WS-HUMANOS`
 Project: Learning and Mastery
 Classification: `EXTEND` existing Academy/Mastery lineage
@@ -8,7 +8,8 @@ Branch: `feature/academy-kernel-runtime-v1`
 Baseline: `runtime-0.1` at `a85462ccde61ea84e8f1cb680c7fdeefe04c97bf`
 Related: `HOS-LEARN-001`, `HOS-MASTERY-001`
 Public PR: `#118`
-Private content candidate: `jhalicea/humanos-academy-private#1`
+Public promotion merge: `5e535a2de48b984a90f7ed5ba5d26864cd4fab86`
+Private content workstream: `jhalicea/humanos-academy-private#1`
 
 ## Desired outcome
 
@@ -48,7 +49,7 @@ The append-only Academy event ledger is authority for runtime learner-state tran
 ## Risks / authority boundaries
 
 - Privacy: public fixtures must remain synthetic.
-- Continuity: historical `feature/adaptive-learning-academy-v1` is preserved and not force-rebased or overwritten.
+- Continuity: historical `feature/adaptive-learning-academy-v1` is preserved for provenance and is superseded for new Academy work by `HOS-LEARN-002`.
 - Authority: AI may propose curriculum changes but may not promote them automatically.
 - State integrity: event history is append-only through the Academy store API; derived views may be rebuilt.
 - Human agency: current focus is explicit owner choice, never inferred from oldest unfinished work.
@@ -70,7 +71,7 @@ A fresh HumanOS checkout can, using only synthetic public fixtures:
 9. reject invalid package references and unsupported schema versions;
 10. expose the ordered Teaching Protocol and invariant that AI must not perform the cognitive work the lesson is intended to develop.
 
-All existing regression tests plus new Academy tests must pass in CI before promotion is considered.
+All existing regression tests plus new Academy tests passed in CI before promotion.
 
 ## Implemented components
 
@@ -93,7 +94,7 @@ All existing regression tests plus new Academy tests must pass in CI before prom
 
 ## Verification evidence
 
-Public kernel candidate code head: `a3a74a3fdf824aa116d8a03b2833da2b4655047d`
+Public kernel qualified code head: `a3a74a3fdf824aa116d8a03b2833da2b4655047d`
 
 GitHub Actions run `36756402100`:
 
@@ -105,9 +106,7 @@ GitHub Actions run `36756402100`:
 
 The suite includes Academy package-reference validation, teaching-protocol invariants, certification-as-overlay behavior, CLI integration, append-only database enforcement, explicit current-focus behavior, restart/rebuild, evidence idempotence including semantic retries without a repeated timestamp, and fail-closed completion of unknown activities.
 
-Private compatibility candidate: `jhalicea/humanos-academy-private` head `c953a8bfcc63c0e2f44d8dffee5cd883a2ef81b0`.
-
-Private validation run `36756552647` checked the real curriculum package against public kernel code head `a3a74a3fdf824aa116d8a03b2833da2b4655047d` on the same macOS/Ubuntu and Python 3.11/3.13 matrix. All four jobs passed. The validated package reports:
+Private compatibility candidate validated the real curriculum package against the public Academy kernel on the same macOS/Ubuntu and Python 3.11/3.13 matrix. All four jobs passed. The validated package reports:
 
 - 11 courses;
 - 134 shared skills;
@@ -118,28 +117,38 @@ Private validation run `36756552647` checked the real curriculum package against
 - schema `humanos.academy.package.v1`;
 - status `VALID`.
 
-Routing/status evidence was also recorded in Work Router issue `#67`. No merge or promotion has occurred.
+Routing/status evidence was recorded in Work Router issue `#67`.
+
+## Promotion record
+
+Owner promotion authorization was given on 2026-10-01.
+
+Public PR `#118` was promoted into `runtime-0.1` at merge commit:
+
+`5e535a2de48b984a90f7ed5ba5d26864cd4fab86`
+
+The canonical public context registry was reconciled on promotion branch `promotion/academy-v0.1` so that:
+
+- `HOS-LEARN-001` is preserved as `SUPERSEDED`;
+- `HOS-MASTERY-001` records its earlier promoted PR #58 merge commit `be0ce155c40cdfe33ace858f55df7ca3d2efa0d5`;
+- `HOS-LEARN-002` is recorded as `PROMOTED` and points to the public promotion merge above.
+
+The private curriculum companion is promoted separately after validation against the public promoted kernel. No historical learner-state migration is part of this promotion.
 
 ## Review findings
 
 - Public Academy fixture is synthetic; real curriculum remains private.
-- Default real learner-state DB was moved out of the repository into the private HumanOS home path.
+- Default real learner-state DB is outside the repository in the private HumanOS home path.
 - Coverage output is labeled `COVERAGE_NOT_CREDENTIAL_READINESS`.
 - Evidence events do not silently promote a learner stage.
 - Labs and certification overlays are subordinate to parent courses.
 - Historical continuation data is preserved separately in the private repo; it is not silently imported as new live state.
 - `TTX-001` remains historical unfinished work and is not current focus.
 
-## Remaining pre-promotion gates
-
-1. Owner review/approval of public PR `#118` and private PR `#1`.
-2. Reconcile the public context registry entry for `HOS-LEARN-002` at promotion so the canonical registry points to the promoted commit and resume point rather than a moving feature head.
-3. Merge/promote only after explicit owner authorization; then record final merge SHAs and checkpoint/resume state.
-
 ## Rollback
 
-The slice is isolated to `feature/academy-kernel-runtime-v1`. Before promotion, rollback is branch deletion. After a future approved merge, rollback is revert of the promotion commit; no Life Notebook or existing mastery migration is performed by this slice.
+After promotion, rollback is revert of the public promotion merge plus any later promotion-bookkeeping merge. Private curriculum promotion is independently revertible. No Life Notebook or historical Academy migration was performed by this slice.
 
 ## Current next action
 
-Owner review of the two green candidate PRs. If approved, reconcile the canonical workstream registry at the exact promotion point, merge/promote in the governed order, record final SHAs, and then begin the next bounded Academy slice rather than expanding scope inside this workstream.
+Complete the private curriculum companion promotion after its post-public-promotion compatibility CI is green. Then create a new bounded Academy workstream for the usable/fun layer: Mission Board + first real Academy session. Do not auto-resume historical unfinished work.
