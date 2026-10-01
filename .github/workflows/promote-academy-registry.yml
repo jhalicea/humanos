@@ -110,8 +110,9 @@ jobs:
 
           python -m json.tool config/context_registry.public.json >/dev/null
           python - <<'PY'
+          from pathlib import Path
           from context_registry import load_registry
-          registry = load_registry()
+          registry = load_registry(Path('config/context_registry.public.json'))
           assert registry.workstreams['HOS-LEARN-002'].status == 'PROMOTED'
           assert registry.workstreams['HOS-LEARN-002'].last_verified_commit == '5e535a2de48b984a90f7ed5ba5d26864cd4fab86'
           assert registry.workstreams['HOS-LEARN-001'].status == 'SUPERSEDED'
