@@ -162,6 +162,9 @@ class NotebookMemoryTests(unittest.TestCase):
         result = agent.run('tx-live-1', self.binding['hcid'], 'I prefer concise morning summaries.')
         self.assertEqual(result, 'acknowledged')
         self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['value'], 'concise')
+        receipt = self.book.task('tx-live-1')['memory_capture']
+        self.assertEqual(set(receipt), {'status', 'event_id', 'supersedes', 'tx'} - {'supersedes'})
+        self.assertNotIn('state', receipt)
 
         hcid = self.binding['hcid']
         self.book.close()
@@ -183,6 +186,17 @@ class NotebookMemoryTests(unittest.TestCase):
         self.assertEqual(remembered['value'], 'detailed')
         self.assertEqual(remembered['provenance']['tx'], 'tx-live-4')
         self.assertEqual(self.book.db.execute('SELECT COUNT(*) FROM memory_events').fetchone()[0], 2)
+
+    def test_existing_transaction_resume_does_not_inject_new_memory_context(self):
+        model = _MemoryAwareModel()
+        agent = self._live_agent(model)
+        first = agent.run('tx-resume', self.binding['hcid'], 'Hello there.')
+        self.assertEqual(first, 'acknowledged')
+        calls_before = len(model.calls)
+        with patch('server.memory_context', side_effect=AssertionError('resume must not compile new memory')):
+            again = agent.run('tx-resume', self.binding['hcid'])
+        self.assertEqual(again, 'acknowledged')
+        self.assertEqual(len(model.calls), calls_before)
 
     def test_memory_failure_cannot_erase_or_block_completed_conversation(self):
         model = _MemoryAwareModel()
