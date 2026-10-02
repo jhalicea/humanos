@@ -163,7 +163,7 @@ class NotebookMemoryTests(unittest.TestCase):
         self.assertEqual(result, 'acknowledged')
         self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['value'], 'concise')
         receipt = self.book.task('tx-live-1')['memory_capture']
-        self.assertEqual(set(receipt), {'status', 'event_id', 'supersedes', 'tx'} - {'supersedes'})
+        self.assertEqual(set(receipt), {'status', 'event_id', 'supersedes', 'tx'})
         self.assertNotIn('state', receipt)
 
         hcid = self.binding['hcid']
