@@ -119,10 +119,17 @@ class _ContextAwareAgent:
             result = capture_memory_from_turn(book, tx)
         except Exception as error:
             result = {'status': 'MEMORY_EXTRACTION_FAILED', 'error_type': type(error).__name__, 'tx': tx}
+        # Task state stores only a content-light processing receipt. Semantic
+        # content remains in the authoritative transcript and memory ledger/state.
+        receipt = {
+            key: result[key]
+            for key in ('status', 'event_id', 'supersedes', 'error_type', 'tx')
+            if key in result
+        }
         state = book.task(tx)
         if state is not None:
             state = dict(state)
-            state['memory_capture'] = result
+            state['memory_capture'] = receipt
             book.save_task(tx, state)
         return result
 
