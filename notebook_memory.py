@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 SCHEMA_VERSION = 1
 GENESIS = "GENESIS"
 MAX_CONTEXT_PREFERENCES = 32
+MAX_CONTEXT_EVENTS = 128
 
 
 def _now():
@@ -221,9 +222,8 @@ def capture_memory_from_turn(book, tx):
     if candidate is None:
         return {"status": "NO_MEMORY_EVENT", "tx": tx}
 
-    # Stable identity is content-free. Crucially, replay is checked BEFORE current
-    # state resolution so later changes cannot alter the result of reprocessing an
-    # already-observed source message.
+    # Stable identity is content-free. Replay is checked before current-state
+    # resolution so later changes cannot alter reprocessing of observed evidence.
     idempotency_key = f"PREFERENCE:{tx}:{source['seq']}"
     event_id = _event_id(idempotency_key)
     existing = book.db.execute(
@@ -334,13 +334,99 @@ def get_preference(book, owner, subject):
     }
 
 
-def memory_context(book, owner, limit=MAX_CONTEXT_PREFERENCES):
+def memory_binding(book, owner, limit=MAX_CONTEXT_PREFERENCES):
+    """Return content-free immutable event IDs needed to reconstruct this context."""
+    ensure_memory_schema(book)
+    states = list(
+        book.db.execute(
+            """SELECT subject FROM memory_state
+               WHERE owner=? ORDER BY updated DESC,subject LIMIT ?""",
+            (owner, int(limit)),
+        )
+    )
+    if not states:
+        return {"schema_version": SCHEMA_VERSION, "status": "READY", "event_ids": []}
+    subjects = [row["subject"] for row in states]
+    marks = ",".join("?" for _ in subjects)
+    rows = list(
+        book.db.execute(
+            f"""
+            SELECT e.event_id FROM memory_events e
+            WHERE e.owner=? AND e.subject IN ({marks})
+              AND NOT EXISTS (
+                SELECT 1 FROM memory_events newer WHERE newer.supersedes=e.event_id
+              )
+            ORDER BY e.seq
+            """,
+            (owner, *subjects),
+        )
+    )
+    if len(rows) > MAX_CONTEXT_EVENTS:
+        raise RuntimeError("Current semantic memory exceeds the bounded context-event limit")
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "status": "READY",
+        "event_ids": [row["event_id"] for row in rows],
+    }
+
+
+def memory_context_from_binding(book, owner, binding):
+    """Reconstruct exactly the immutable memory-event snapshot bound to a task."""
+    ensure_memory_schema(book)
+    if not isinstance(binding, dict) or binding.get("schema_version") != SCHEMA_VERSION:
+        raise RuntimeError("Invalid memory context binding")
+    if binding.get("status") == "UNAVAILABLE":
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "source": "LOCAL_DERIVED_LIFE_NOTEBOOK_STATE",
+            "status": "UNAVAILABLE",
+            "error_type": binding.get("error_type", "MemoryUnavailable"),
+            "preferences": [],
+            "conflicts": [],
+        }
+    if binding.get("status") != "READY":
+        raise RuntimeError("Unknown memory context binding status")
+    ids = binding.get("event_ids")
+    if not isinstance(ids, list) or len(ids) > MAX_CONTEXT_EVENTS or len(ids) != len(set(ids)):
+        raise RuntimeError("Invalid memory context event binding")
+    if any(not isinstance(item, str) or not item.startswith("HOS-MEM-") for item in ids):
+        raise RuntimeError("Invalid memory context event identity")
+    if not ids:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "source": "LOCAL_DERIVED_LIFE_NOTEBOOK_STATE",
+            "preferences": [],
+            "conflicts": [],
+        }
+
+    marks = ",".join("?" for _ in ids)
+    rows = list(
+        book.db.execute(
+            f"""
+            SELECT e.*,i.page,i.hcid,s.created AS source_created
+            FROM memory_events e
+            JOIN transactions t ON t.tx=e.source_tx
+            JOIN identities i ON i.hcid=t.hcid
+            JOIN transcript s ON s.seq=e.source_seq
+            WHERE e.owner=? AND e.event_id IN ({marks})
+            ORDER BY e.seq
+            """,
+            (owner, *ids),
+        )
+    )
+    if len(rows) != len(ids) or {row["event_id"] for row in rows} != set(ids):
+        raise RuntimeError("Bound semantic memory evidence is missing or belongs to another owner")
+
+    by_subject = {}
+    for row in rows:
+        by_subject.setdefault(row["subject"], []).append(row)
     preferences, conflicts = [], []
-    for row in active_preferences(book, owner, limit=limit):
-        if row["status"] == "ACTIVE":
+    for subject, group in by_subject.items():
+        if len(group) == 1:
+            row = group[0]
             preferences.append(
                 {
-                    "subject": row["subject"],
+                    "subject": subject,
                     "value": row["value"],
                     "event_id": row["event_id"],
                     "provenance": {
@@ -352,13 +438,19 @@ def memory_context(book, owner, limit=MAX_CONTEXT_PREFERENCES):
                 }
             )
         else:
-            conflicts.append({"subject": row["subject"], "status": row["status"]})
+            conflicts.append({"subject": subject, "status": "CONFLICTED"})
+    preferences.sort(key=lambda item: item["subject"])
+    conflicts.sort(key=lambda item: item["subject"])
     return {
         "schema_version": SCHEMA_VERSION,
         "source": "LOCAL_DERIVED_LIFE_NOTEBOOK_STATE",
         "preferences": preferences,
         "conflicts": conflicts,
     }
+
+
+def memory_context(book, owner, limit=MAX_CONTEXT_PREFERENCES):
+    return memory_context_from_binding(book, owner, memory_binding(book, owner, limit=limit))
 
 
 def verify_memory(book):
