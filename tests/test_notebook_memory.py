@@ -9,7 +9,9 @@ from notebook import Notebook
 from notebook_memory import (
     capture_memory_from_turn,
     get_preference,
+    memory_binding,
     memory_context,
+    memory_context_from_binding,
     rebuild_memory_state,
     verify_memory,
 )
@@ -171,6 +173,44 @@ class NotebookMemoryTests(unittest.TestCase):
         self.assertEqual(context['conflicts'], [
             {'subject': 'morning summaries', 'status': 'CONFLICTED'}])
 
+    def test_hide_filters_memory_and_unhide_restores_it(self):
+        self._complete('tx-private-pref', 'I prefer concise morning summaries.')
+        capture_memory_from_turn(self.book, 'tx-private-pref')
+        self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['value'], 'concise')
+
+        self.book.set_privacy('tx-private-pref', 0, 'HIDE', confirmation='HIDE')
+        self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['status'], 'NOT_FOUND')
+        context = memory_context(self.book, 'Jon')
+        self.assertEqual(context['preferences'], [])
+        self.assertEqual(context['conflicts'], [])
+        self.assertEqual(memory_binding(self.book, 'Jon')['event_ids'], [])
+
+        self.book.set_privacy('tx-private-pref', 0, 'UNHIDE', confirmation='UNHIDE')
+        restored = get_preference(self.book, 'Jon', 'morning summaries')
+        self.assertEqual(restored['status'], 'ACTIVE')
+        self.assertEqual(restored['value'], 'concise')
+
+    def test_hidden_ancestor_suppresses_dependent_correction_and_bound_snapshot(self):
+        self._complete('tx-base-private', 'I prefer concise morning summaries.')
+        old = capture_memory_from_turn(self.book, 'tx-base-private')
+        self._complete('tx-correct-private', 'Actually, make them detailed.')
+        new = capture_memory_from_turn(self.book, 'tx-correct-private')
+        self.assertEqual(new['supersedes'], old['event_id'])
+        self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['value'], 'detailed')
+
+        bound = memory_binding(self.book, 'Jon')
+        self.assertEqual(bound['event_ids'], [new['event_id']])
+        self.assertEqual(bound['dependency_event_ids'], [old['event_id']])
+
+        self.book.set_privacy('tx-base-private', 0, 'HIDE', confirmation='HIDE')
+        self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['status'], 'NOT_FOUND')
+        self.assertEqual(memory_context(self.book, 'Jon')['preferences'], [])
+        with self.assertRaisesRegex(PermissionError, 'hidden by the human'):
+            memory_context_from_binding(self.book, 'Jon', bound)
+
+        self.book.set_privacy('tx-base-private', 0, 'UNHIDE', confirmation='UNHIDE')
+        self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['value'], 'detailed')
+
     def test_derived_state_can_be_destroyed_and_rebuilt_from_events(self):
         self._complete('tx-rebuild', 'I prefer concise morning summaries.')
         capture_memory_from_turn(self.book, 'tx-rebuild')
@@ -221,9 +261,6 @@ class NotebookMemoryTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'synthetic model outage'):
             agent.run('tx-interrupted', self.binding['hcid'], 'Tell me something.')
 
-        # Model failure marks the transaction for recovery and leaves projections
-        # intentionally stale until the normal startup recovery pass. Simulate that
-        # real process boundary before allowing any later turn.
         self.book.close()
         self.book = Notebook(self.vault)
         self.book.recover()
@@ -233,9 +270,10 @@ class NotebookMemoryTests(unittest.TestCase):
             ('tx-interrupted',),
         ).fetchone()
         self.assertIsNotNone(binding_row)
-        binding = json.loads(binding_row['payload'])
-        self.assertEqual(binding['status'], 'READY')
-        self.assertEqual(binding['event_ids'], [first['event_id']])
+        bound = json.loads(binding_row['payload'])
+        self.assertEqual(bound['status'], 'READY')
+        self.assertEqual(bound['event_ids'], [first['event_id']])
+        self.assertEqual(bound['dependency_event_ids'], [])
         self.assertNotIn('concise', binding_row['payload'].casefold())
         self.assertNotIn('morning summaries', binding_row['payload'].casefold())
 
@@ -255,6 +293,22 @@ class NotebookMemoryTests(unittest.TestCase):
             ('tx-interrupted',),
         ).fetchone()[0]
         self.assertEqual(binding_count, 1)
+
+    def test_hidden_bound_source_revokes_interrupted_task_memory(self):
+        self._complete('tx-revoke-base', 'I prefer concise morning summaries.')
+        capture_memory_from_turn(self.book, 'tx-revoke-base')
+        agent = self._live_agent(_OutageModel())
+        with self.assertRaisesRegex(RuntimeError, 'synthetic model outage'):
+            agent.run('tx-revoke-task', self.binding['hcid'], 'Tell me something.')
+
+        self.book.close()
+        self.book = Notebook(self.vault)
+        self.book.recover()
+        self.book.set_privacy('tx-revoke-base', 0, 'HIDE', confirmation='HIDE')
+
+        agent = self._live_agent(_ResumeMemoryModel())
+        with self.assertRaisesRegex(PermissionError, 'hidden by the human'):
+            agent.run('tx-revoke-task', self.binding['hcid'])
 
     def test_memory_failure_cannot_erase_or_block_completed_conversation(self):
         model = _MemoryAwareModel()
