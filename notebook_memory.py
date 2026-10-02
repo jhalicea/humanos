@@ -1,16 +1,14 @@
-"""Deterministic derived memory over authoritative HumanOS Life Notebook transcripts.
+"""Small deterministic semantic-memory layer over authoritative Life Notebook evidence.
 
-The transcript remains canonical evidence. This module appends semantic memory events
-with provenance, derives current state from those events, and never rewrites history.
-It is intentionally small: v1 promotes user preferences only, proving the usable
-conversation -> ledger -> state -> recall loop before broader semantic extraction.
+The transcript is canonical. Semantic events are append-only history; current state is
+a rebuildable projection. V1 intentionally promotes only explicit user preferences so
+HumanOS can prove the complete usable memory loop before expanding the taxonomy.
 """
 
 import hashlib
 import json
 import re
 from datetime import datetime, timezone
-
 
 SCHEMA_VERSION = 1
 GENESIS = "GENESIS"
@@ -30,7 +28,6 @@ def _event_id(idempotency_key):
 
 
 def ensure_memory_schema(book):
-    """Create the replaceable semantic-memory projection beside Notebook evidence."""
     book.db.executescript(
         """
         CREATE TABLE IF NOT EXISTS memory_meta(
@@ -61,7 +58,7 @@ def ensure_memory_schema(book):
           event_id TEXT,
           value TEXT,
           updated TEXT NOT NULL,
-          PRIMARY KEY(owner, subject)
+          PRIMARY KEY(owner,subject)
         );
         CREATE TRIGGER IF NOT EXISTS memory_events_no_update
           BEFORE UPDATE ON memory_events
@@ -109,35 +106,30 @@ def _clean_value(value):
 
 
 def _extract_preference(text):
-    """Return a deterministic candidate or None; no model authority is required."""
     compact = " ".join(text.strip().split())
-    match = re.match(r"(?i)^i\s+prefer\s+([\w-]+)\s+(.+?)[.!?]*$", compact)
-    if match:
-        value = _clean_value(match.group(1))
-        subject = _clean_subject(match.group(2))
+    declared = re.match(r"(?i)^i\s+prefer\s+([\w-]+)\s+(.+?)[.!?]*$", compact)
+    if declared:
+        value = _clean_value(declared.group(1))
+        subject = _clean_subject(declared.group(2))
         if value and subject:
-            return {"kind": "PREFERENCE", "mode": "DECLARE", "subject": subject, "value": value}
-    match = re.match(
+            return {"mode": "DECLARE", "subject": subject, "value": value}
+    corrected = re.match(
         r"(?i)^(?:actually|instead|correction|i\s+changed\s+my\s+mind)[,\s:-]*"
         r"(?:please\s+)?(?:make|use|set)\s+(?:it|them|that|those)?\s*(?:to\s+)?(.+?)[.!?]*$",
         compact,
     )
-    if match:
-        value = _clean_value(match.group(1))
+    if corrected:
+        value = _clean_value(corrected.group(1))
         if value:
-            return {"kind": "PREFERENCE", "mode": "CORRECT_RECENT", "value": value}
+            return {"mode": "CORRECT_RECENT", "value": value}
     return None
 
 
 def _active_rows(book, owner):
     return list(
         book.db.execute(
-            """
-            SELECT owner,subject,status,event_id,value,updated
-            FROM memory_state
-            WHERE owner=?
-            ORDER BY updated DESC,subject
-            """,
+            """SELECT owner,subject,status,event_id,value,updated
+               FROM memory_state WHERE owner=? ORDER BY updated DESC,subject""",
             (owner,),
         )
     )
@@ -152,22 +144,21 @@ def _resolve_candidate(book, source, candidate):
     return active[0]["subject"], candidate["value"], active[0]["event_id"]
 
 
-def _event_payload(*, event_id, owner, subject, value, source_tx, source_seq, source_role,
-                   created, supersedes, idempotency_key, previous_hash):
+def _event_payload(row):
     return {
-        "event_id": event_id,
+        "event_id": row["event_id"],
         "schema_version": SCHEMA_VERSION,
-        "owner": owner,
+        "owner": row["owner"],
         "event_type": "PREFERENCE",
-        "subject": subject,
-        "value": value,
-        "source_tx": source_tx,
-        "source_seq": int(source_seq),
-        "source_role": source_role,
-        "created": created,
-        "supersedes": supersedes,
-        "idempotency_key": idempotency_key,
-        "previous_hash": previous_hash,
+        "subject": row["subject"],
+        "value": row["value"],
+        "source_tx": row["source_tx"],
+        "source_seq": int(row["source_seq"]),
+        "source_role": row["source_role"],
+        "created": row["created"],
+        "supersedes": row["supersedes"],
+        "idempotency_key": row["idempotency_key"],
+        "previous_hash": row["previous_hash"],
     }
 
 
@@ -175,8 +166,7 @@ def _derive_subject_state(book, owner, subject):
     rows = list(
         book.db.execute(
             """
-            SELECT e.*
-            FROM memory_events e
+            SELECT e.* FROM memory_events e
             WHERE e.owner=? AND e.subject=?
               AND NOT EXISTS (
                 SELECT 1 FROM memory_events newer WHERE newer.supersedes=e.event_id
@@ -211,37 +201,29 @@ def _derive_subject_state(book, owner, subject):
 def _write_derived_state(book, owner, subject):
     state = _derive_subject_state(book, owner, subject)
     book.db.execute("DELETE FROM memory_state WHERE owner=? AND subject=?", (owner, subject))
-    if state is not None:
+    if state:
         book.db.execute(
-            """
-            INSERT INTO memory_state(owner,subject,status,event_id,value,updated)
-            VALUES(?,?,?,?,?,?)
-            """,
+            """INSERT INTO memory_state(owner,subject,status,event_id,value,updated)
+               VALUES(?,?,?,?,?,?)""",
             (
-                state["owner"], state["subject"], state["status"], state["event_id"],
-                state["value"], state["updated"],
+                state["owner"], state["subject"], state["status"],
+                state["event_id"], state["value"], state["updated"],
             ),
         )
     return state
 
 
 def capture_memory_from_turn(book, tx):
-    """Promote deterministic semantics from one already-persisted human turn.
-
-    A no-op is safe and expected for ordinary conversation. All semantic writes are
-    atomic. The transcript is already durable before this function is called.
-    """
+    """Promote semantics only after the exact human turn is already persisted."""
     ensure_memory_schema(book)
     source = _source_for_tx(book, tx)
     candidate = _extract_preference(source["text"])
     if candidate is None:
         return {"status": "NO_MEMORY_EVENT", "tx": tx}
-    resolved = _resolve_candidate(book, source, candidate)
-    if resolved is None:
-        return {"status": "AMBIGUOUS_MEMORY_CORRECTION", "tx": tx}
-    subject, value, supersedes = resolved
-    # Identity is derived only from opaque source identity + event type. Semantic
-    # content is deliberately excluded from stable IDs and idempotency metadata.
+
+    # Stable identity is content-free. Crucially, replay is checked BEFORE current
+    # state resolution so later changes cannot alter the result of reprocessing an
+    # already-observed source message.
     idempotency_key = f"PREFERENCE:{tx}:{source['seq']}"
     event_id = _event_id(idempotency_key)
     existing = book.db.execute(
@@ -250,23 +232,26 @@ def capture_memory_from_turn(book, tx):
     if existing is not None:
         return {"status": "ALREADY_CAPTURED", "event_id": existing["event_id"], "tx": tx}
 
-    created = _now()
+    resolved = _resolve_candidate(book, source, candidate)
+    if resolved is None:
+        return {"status": "AMBIGUOUS_MEMORY_CORRECTION", "tx": tx}
+    subject, value, supersedes = resolved
+
     previous = book.db.execute("SELECT event_hash FROM memory_events ORDER BY seq DESC LIMIT 1").fetchone()
-    previous_hash = previous["event_hash"] if previous else GENESIS
-    payload = _event_payload(
-        event_id=event_id,
-        owner=source["owner"],
-        subject=subject,
-        value=value,
-        source_tx=tx,
-        source_seq=source["seq"],
-        source_role=source["role"],
-        created=created,
-        supersedes=supersedes,
-        idempotency_key=idempotency_key,
-        previous_hash=previous_hash,
-    )
-    event_hash = book.content_digest(previous_hash + "\n" + _canonical(payload))
+    row = {
+        "event_id": event_id,
+        "owner": source["owner"],
+        "subject": subject,
+        "value": value,
+        "source_tx": tx,
+        "source_seq": source["seq"],
+        "source_role": source["role"],
+        "created": _now(),
+        "supersedes": supersedes,
+        "idempotency_key": idempotency_key,
+        "previous_hash": previous["event_hash"] if previous else GENESIS,
+    }
+    event_hash = book.content_digest(row["previous_hash"] + "\n" + _canonical(_event_payload(row)))
 
     with book._immediate():
         book.db.execute(
@@ -277,9 +262,9 @@ def capture_memory_from_turn(book, tx):
             ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
-                event_id, SCHEMA_VERSION, source["owner"], "PREFERENCE", subject, value, tx,
-                source["seq"], source["role"], created, supersedes, idempotency_key,
-                previous_hash, event_hash,
+                event_id, SCHEMA_VERSION, row["owner"], "PREFERENCE", subject, value,
+                tx, row["source_seq"], row["source_role"], row["created"], supersedes,
+                idempotency_key, row["previous_hash"], event_hash,
             ),
         )
         state = _write_derived_state(book, source["owner"], subject)
@@ -293,7 +278,6 @@ def capture_memory_from_turn(book, tx):
 
 
 def rebuild_memory_state(book):
-    """Rebuild the replaceable current-state projection from append-only history."""
     ensure_memory_schema(book)
     pairs = list(book.db.execute("SELECT DISTINCT owner,subject FROM memory_events ORDER BY owner,subject"))
     with book._immediate():
@@ -309,7 +293,8 @@ def active_preferences(book, owner, limit=MAX_CONTEXT_PREFERENCES):
         book.db.execute(
             """
             SELECT ms.owner,ms.subject,ms.status,ms.event_id,ms.value,ms.updated,
-                   me.source_tx,me.source_seq,i.page,i.hcid,s.created AS source_created,s.text AS source_text
+                   me.source_tx,me.source_seq,i.page,i.hcid,
+                   s.created AS source_created,s.text AS source_text
             FROM memory_state ms
             LEFT JOIN memory_events me ON me.event_id=ms.event_id
             LEFT JOIN transactions t ON t.tx=me.source_tx
@@ -350,9 +335,7 @@ def get_preference(book, owner, subject):
 
 
 def memory_context(book, owner, limit=MAX_CONTEXT_PREFERENCES):
-    """Bounded, provenance-carrying current state for the ContextPacket."""
-    preferences = []
-    conflicts = []
+    preferences, conflicts = [], []
     for row in active_preferences(book, owner, limit=limit):
         if row["status"] == "ACTIVE":
             preferences.append(
@@ -379,7 +362,6 @@ def memory_context(book, owner, limit=MAX_CONTEXT_PREFERENCES):
 
 
 def verify_memory(book):
-    """Verify append-only hash lineage, source provenance, and rebuildable state."""
     ensure_memory_schema(book)
     previous_hash = GENESIS
     for row in book.db.execute("SELECT * FROM memory_events ORDER BY seq"):
@@ -390,26 +372,21 @@ def verify_memory(book):
         ).fetchone()
         if source is None or source["tx"] != row["source_tx"] or source["role"] != row["source_role"]:
             raise RuntimeError("Memory event provenance mismatch")
-        payload = _event_payload(
-            event_id=row["event_id"], owner=row["owner"], subject=row["subject"], value=row["value"],
-            source_tx=row["source_tx"], source_seq=row["source_seq"], source_role=row["source_role"],
-            created=row["created"], supersedes=row["supersedes"], idempotency_key=row["idempotency_key"],
-            previous_hash=row["previous_hash"],
-        )
-        expected = book.content_digest(previous_hash + "\n" + _canonical(payload))
+        expected = book.content_digest(previous_hash + "\n" + _canonical(_event_payload(row)))
         if row["event_hash"] != expected:
             raise RuntimeError("Memory event hash mismatch")
         previous_hash = row["event_hash"]
 
     expected = {}
-    pairs = list(book.db.execute("SELECT DISTINCT owner,subject FROM memory_events"))
-    for pair in pairs:
+    for pair in book.db.execute("SELECT DISTINCT owner,subject FROM memory_events"):
         state = _derive_subject_state(book, pair["owner"], pair["subject"])
         if state:
             expected[(pair["owner"], pair["subject"])] = state
     actual = {
         (row["owner"], row["subject"]): dict(row)
-        for row in book.db.execute("SELECT owner,subject,status,event_id,value,updated FROM memory_state")
+        for row in book.db.execute(
+            "SELECT owner,subject,status,event_id,value,updated FROM memory_state"
+        )
     }
     if expected != actual:
         raise RuntimeError("Derived memory state does not match append-only event history")
