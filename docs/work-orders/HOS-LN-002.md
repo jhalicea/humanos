@@ -53,8 +53,9 @@ exists.
 - schema versioning;
 - owner + subject + value;
 - exact source transaction / transcript sequence / role provenance;
-- idempotency keys;
-- previous-event and event hashes;
+- content-free idempotency identity derived from source transaction + transcript row;
+- replay detection before current-state resolution;
+- previous-event and event hashes protected by the Notebook integrity key;
 - no-update / no-delete database triggers for semantic events;
 - `supersedes` lineage expressed by a new event rather than rewriting the old event.
 
@@ -72,22 +73,34 @@ preferences. It requires no model authority.
 A plain contradictory declaration does not silently replace an earlier preference. An
 explicit correction can supersede the active event.
 
-### Live Mirror context
+### Crash-safe bounded Mirror context
 
-`server.py` injects bounded current derived memory into the model system context as
-host-derived data. The packet includes provenance and explicitly states that memory is
-not permission, not independent factual verification, and that conflicted records must
-not be resolved by guessing.
+A new Mirror turn computes a bounded semantic-memory selection and writes a
+`MEMORY_CONTEXT_BOUND` audit event **before first model execution**. That event contains
+only immutable `HOS-MEM-*` event IDs plus schema/status metadata; it does not duplicate
+preference text.
 
-Semantic-memory failure is fail-soft for conversation usability: transcript completion
-wins. A failed extractor is recorded as a content-light processing receipt and cannot
-erase or block the completed conversation.
+The model context is reconstructed from those exact immutable event IDs. If the task is
+interrupted and later resumed, HumanOS reuses the original binding rather than compiling
+latest memory. Therefore a task that began with `concise` cannot silently resume with a
+later `detailed` preference. Legacy unfinished tasks that predate this feature have no
+binding and resume without retroactive semantic-memory injection.
 
-### Content-light task receipt
+If a persisted binding cannot be reconstructed from its source events, resume fails
+closed rather than substituting current memory or an empty packet.
+
+The model receives the reconstructed snapshot as host-derived data with provenance. It
+is explicitly labeled as neither permission nor independent factual verification, and
+conflicted records must not be resolved by guessing.
+
+### Fail-soft extraction, content-light receipts
+
+Semantic extraction runs after the exact conversation turn completes. An extractor
+failure cannot erase or block that completed transcript.
 
 Task state stores only processing status/IDs (`status`, `event_id`, `supersedes`,
 `error_type`, `tx` when present). Preference content remains in the transcript and
-semantic memory store rather than being copied into the memory-processing receipt.
+semantic memory store rather than being copied into the processing receipt.
 
 ## Acceptance contract
 
@@ -106,34 +119,43 @@ The bounded acceptance scenario is:
 11. Current state becomes `detailed`.
 12. Both historical events remain verifiable.
 
+The crash/recovery extension additionally proves:
+
+1. Current preference is `concise`.
+2. A new task binds that semantic event before model execution.
+3. The model fails and the task remains resumable.
+4. Current preference later changes to `detailed`.
+5. The interrupted task resumes with its original bound `concise` snapshot.
+6. Exactly one content-light memory binding exists for the interrupted task.
+
 ## Tests
 
-`tests/test_notebook_memory.py` covers:
+`tests/test_notebook_memory.py` now covers eight acceptance areas:
 
 1. exact transcript provenance and idempotent retry;
 2. restart persistence;
-3. explicit supersession without history rewriting;
+3. explicit supersession without history rewriting, including replay after state changed;
 4. unresolved contradiction -> `CONFLICTED`;
-5. destruction/rebuild of derived state from event history;
+5. destruction/rebuild of derived state from append-only events;
 6. live Mirror acceptance flow across Notebook reopen;
-7. semantic-extractor failure cannot erase or block the completed conversation.
+7. interrupted-task recovery with the exact pre-failure memory binding;
+8. semantic-extractor failure cannot erase or block the completed conversation.
 
 The first complete CI execution at commit
 `846338877a99e3aa0e014ef76888f089df3042f9` ran 613 regression tests on macOS/Python
-3.13 and returned `OK` with 8 optional-dependency skips; all seven new memory tests
-passed. The encrypted-backup full-suite matrix passed on Ubuntu/macOS and Python
-3.11/3.13 at the same commit.
+3.13 and returned `OK` with 8 optional-dependency skips; all seven tests that existed at
+that earlier commit passed. The encrypted-backup full-suite matrix also passed on
+Ubuntu/macOS and Python 3.11/3.13 at that commit.
 
-A later privacy refinement at
-`059e02c4edd82506afee3d599e441a5a94e13440` made the task receipt content-light. Fresh
-final-head CI is required before promotion.
+Subsequent privacy, idempotency, and crash-safe binding refinements deliberately invalidate
+that earlier commit as final qualification evidence. Fresh final-head CI is required.
 
 ## Provenance correction
 
-The branch merge base was independently re-read after implementation using GitHub's
-compare result and is `3f2f25ea09941c8727daac1826e37badf0730d72`. An earlier draft of this work order
-listed its first parent `eb5824ff533b2569fbe0a1d53617e7a3a6e06f7f`; that value was corrected before
-qualification so the work order now records the actual branch merge base.
+The branch merge base was independently re-read using GitHub compare and is
+`3f2f25ea09941c8727daac1826e37badf0730d72`. An earlier draft listed its first parent
+`eb5824ff533b2569fbe0a1d53617e7a3a6e06f7f`; that value was corrected before final
+qualification.
 
 ## Explicit non-claims
 
@@ -155,7 +177,7 @@ Before promotion to `runtime-0.1`:
 
 - [ ] final branch head passes regression CI on Ubuntu/macOS × Python 3.11/3.13;
 - [ ] final branch head passes encrypted-backup/full-suite CI on the same matrix;
-- [ ] exact diff is reviewed for transcript authority, provenance, privacy, and fail-soft behavior;
+- [ ] exact diff is reviewed for transcript authority, provenance, privacy, crash/resume consistency, and fail-soft behavior;
 - [ ] no PRE-LN-1 workstream is overwritten or falsely marked complete;
 - [ ] owner explicitly approves promotion.
 
