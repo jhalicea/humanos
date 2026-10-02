@@ -1,7 +1,6 @@
 # HumanOS repository working agreement
 
-Owner instruction recorded 2026-09-07: follow the SDLC and always use the owner's
-repository. The owner plans to give the code to Claude and Gemini for later review.
+Owner instruction recorded 2026-09-07: follow the Software Development Life Cycle (SDLC) and always use the owner's repository. The owner plans to give the code to Claude and Gemini for later review.
 
 ## Repository and preservation
 
@@ -13,7 +12,38 @@ repository. The owner plans to give the code to Claude and Gemini for later revi
 - Inspect git status, existing implementation, tests, and applicable governing
   records before changing behavior. Preserve uncommitted work and rollback points.
 - Keep Notebook transcripts/databases, workspace contents, backups, credentials,
-  and private test evidence out of Git, including history and PR attachments.
+  and private test evidence out of Git, including history and Pull Request (PR)
+  attachments.
+
+## Architecture and product boundaries
+
+Before architecture, repository-layout, data-boundary, security-boundary, or
+cross-product changes, read:
+
+- `docs/architecture/HUMANOS_ARCHITECTURE_BASELINE_PLAN.md`
+- `docs/architecture/LOCAL_DEVELOPMENT_WORKSPACE_POLICY.md`
+- `docs/architecture.md`
+- `docs/foundation/WORKFLOW_STANDARD.md`
+
+HumanOS and BodyFixOS are separate software products. BodyFixOS must not become a
+HumanOS package, subdirectory, shared database namespace, private-state subtree, or
+direct internal import. A future relationship is allowed only through an explicit,
+versioned external connector / Application Programming Interface (API) contract
+with independently approved permissions and data scope.
+
+Do not describe a rule as enforced merely because a document states it. Distinguish
+DOCUMENTED, IMPLEMENTATION-CONFIRMED, TESTED, ENFORCED, INFERRED, UNKNOWN,
+CONTRADICTED, and OBSOLETE evidence states where the distinction matters.
+
+HumanOS uses GREEN / AMBER / RED for its authority/delegation axis. Do not reuse
+those colors for architecture reversibility. Architecture uses Reversibility Class
+R1 (two-way door), R2 (coordinated/recoverable), and R3 (one-way or
+expensive-to-reverse). R3 changes never become independently Artificial
+Intelligence (AI)-executable; explicit human ratification is required.
+
+Delegated architecture/governance work must include a Judgment Disclosure that
+separates mechanical changes from judgments, alternatives, assumptions,
+reversibility, evidence state, and owner-ratification requirements.
 
 ## Context-aware continuity and workstream routing
 
@@ -78,7 +108,7 @@ PROMOTE -> PRESERVE.
    Use isolated test vaults. Never operate tests on the owner's active Notebook.
 4. Review the diff for regressions, authority/scope changes, transcript fidelity,
    idempotency, recovery, cross-workspace leakage, and accidental private data.
-5. Push the branch and open a pull request with purpose, exact tested commit,
+5. Push the branch and open a Pull Request (PR) with purpose, exact tested commit,
    commands/results, known limitations, and rollback instructions. Report local
    versus remote state truthfully; commits are not automatically uploads.
 6. Resolve review findings, rerun affected checks, and record remaining defects.
@@ -89,7 +119,17 @@ PROMOTE -> PRESERVE.
 
 Use `python3 -m unittest discover -s tests -v` for the existing automated suite.
 Live Ollama checks are separate from tests using simulated model responses.
-CI, branch protection, and automatic deployment are not established by this file.
+Continuous Integration (CI), branch protection, and automatic deployment are not
+established by this file.
+
+## Teaching terminology
+
+When HumanOS or the Academy explains technical material, expand an acronym or
+abbreviation on its first meaningful use, for example `MVC (Model-View-Controller)`
+or `CI (Continuous Integration)`. Do not use opaque status shorthand such as
+`CI GREEN`; write `Continuous Integration checks passed` or, after expansion,
+`CI checks passed`. The detailed rule lives in
+`docs/academy/HUMANOS_TEACHING_PROTOCOL.md`.
 
 ## Independent review
 
