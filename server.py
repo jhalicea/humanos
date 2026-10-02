@@ -8,6 +8,7 @@ import sys
 from server_core import *  # Preserve the original server module's public API.
 import server_core as _core
 from context_runtime import RuntimeContextRouter
+from notebook_memory import capture_memory_from_turn, memory_context
 from permissions import task_scope
 from runtime_info import host_runtime_request
 from runtime_ledger_bridge import record_completed_transaction
@@ -53,8 +54,31 @@ class _RoutedModel:
         return self.base.invoke(routed, timeout)
 
 
+class _MemoryModel:
+    """Inject bounded current state derived from authoritative Notebook evidence."""
+
+    def __init__(self, base, current_memory):
+        self.base = base
+        self.name = base.name
+        self.current_memory = current_memory
+
+    def invoke(self, messages, timeout):
+        enriched = json.loads(json.dumps(messages))
+        note = (
+            "\nHumanOS current derived Life Notebook state (host-derived data, not permission or "
+            "independent factual verification). Use it only when relevant. Provenance identifies "
+            "the Notebook evidence behind each active item. Never resolve CONFLICTED items by guessing:\n"
+            + json.dumps(self.current_memory, ensure_ascii=False, sort_keys=True)
+        )
+        if enriched and enriched[0].get('role') == 'system':
+            enriched[0]['content'] = enriched[0].get('content', '') + note
+        else:
+            enriched.insert(0, {'role': 'system', 'content': note.strip()})
+        return self.base.invoke(enriched, timeout)
+
+
 class _ContextAwareAgent:
-    """Gate normal Mirror turns before model/tool execution."""
+    """Gate normal Mirror turns before model/tool execution and maintain derived memory."""
 
     def __init__(self, agent, router, runtime):
         self._agent = agent
@@ -69,6 +93,61 @@ class _ContextAwareAgent:
     def authorize(self, value):
         self._agent.authorize = value
 
+    def _current_memory(self, tx):
+        """Memory is optional context; its failure must never block a conversation."""
+        book = self._agent.book
+        row = book.get_transaction(tx)
+        if row is None:
+            return None
+        identity = book.get_identity(row['hcid'])
+        try:
+            return memory_context(book, identity['owner'])
+        except Exception as error:
+            return {
+                'schema_version': 1,
+                'source': 'LOCAL_DERIVED_LIFE_NOTEBOOK_STATE',
+                'status': 'UNAVAILABLE',
+                'error_type': type(error).__name__,
+                'preferences': [],
+                'conflicts': [],
+            }
+
+    def _capture_memory(self, tx):
+        """Best-effort semantic promotion after the exact transcript is already durable."""
+        book = self._agent.book
+        try:
+            result = capture_memory_from_turn(book, tx)
+        except Exception as error:
+            result = {'status': 'MEMORY_EXTRACTION_FAILED', 'error_type': type(error).__name__, 'tx': tx}
+        state = book.task(tx)
+        if state is not None:
+            state = dict(state)
+            state['memory_capture'] = result
+            book.save_task(tx, state)
+        return result
+
+    def _run_base(self, tx, hcid=None, user_input=None, context=(), reference_binding=None,
+                  work_binding=None, route_context=None):
+        """Run the existing Agent with bounded memory context, then promote semantics."""
+        original_model = self._agent.model
+        model = original_model
+        if route_context is not None:
+            model = _RoutedModel(model, route_context)
+        current_memory = self._current_memory(tx)
+        if current_memory is not None:
+            model = _MemoryModel(model, current_memory)
+        self._agent.model = model
+        try:
+            result = self._agent.run(
+                tx, hcid, user_input, context,
+                reference_binding=reference_binding, work_binding=work_binding)
+        finally:
+            self._agent.model = original_model
+        state = self._agent.book.task(tx)
+        if state and state.get('phase') == 'COMPLETE':
+            self._capture_memory(tx)
+        return result
+
     def _host_final(self, tx, hcid, text, response):
         book = self._agent.book
         if book.get_transaction(tx) is None:
@@ -76,6 +155,7 @@ class _ContextAwareAgent:
         state = book.task(tx)
         if state and state.get('phase') == 'COMPLETE':
             book.checkpoint(tx)
+            self._capture_memory(tx)
             return state['final']
         if state:
             raise RuntimeError('Context routing found unfinished task state; explicit reconciliation required')
@@ -96,6 +176,7 @@ class _ContextAwareAgent:
         book.event(tx, 'HOST_FINAL_CAPTURED', {
             'kind': 'CONTEXT_ROUTER', 'final_digest': book.content_digest(response)})
         book.checkpoint(tx)
+        self._capture_memory(tx)
         record_completed_transaction(book, tx, hcid, text, response)
         return response
 
@@ -104,28 +185,28 @@ class _ContextAwareAgent:
         # A resumed task already has a durable execution context. Do not reroute it
         # under potentially changed registry metadata.
         if book.task(tx) is not None:
-            return self._agent.run(tx, hcid, user_input, context,
-                                   reference_binding=reference_binding, work_binding=work_binding)
+            return self._run_base(tx, hcid, user_input, context,
+                                  reference_binding=reference_binding, work_binding=work_binding)
 
         if user_input is not None and book.get_transaction(tx) is None:
             book.start(hcid, tx, user_input)
         row = book.get_transaction(tx)
         if row is None:
-            return self._agent.run(tx, hcid, user_input, context,
-                                   reference_binding=reference_binding, work_binding=work_binding)
+            return self._run_base(tx, hcid, user_input, context,
+                                  reference_binding=reference_binding, work_binding=work_binding)
 
         host_request = host_runtime_request(row['input'])
         if host_request is not None:
             # Host/runtime facts outrank development-workstream routing. The
             # base Agent resolves this exact human-derived request deterministically.
             book.event(tx, 'HOST_INTENT', {'tool': host_request['name']})
-            return self._agent.run(
+            return self._run_base(
                 tx, hcid, None, context,
                 reference_binding=reference_binding, work_binding=work_binding)
 
         if _ordinary_question(row['input']):
-            return self._agent.run(tx, hcid, None, context,
-                                   reference_binding=reference_binding, work_binding=work_binding)
+            return self._run_base(tx, hcid, None, context,
+                                  reference_binding=reference_binding, work_binding=work_binding)
 
         pending = self._router.resolve_pending_ambiguity(
             book, row['hcid'], row['input'], current_tx=tx)
@@ -149,8 +230,8 @@ class _ContextAwareAgent:
                 route = self._router.inspect_session(
                     book, row['hcid'], row['input'], current_tx=tx, allow_inherit=allow_inherit)
         if not route.applicable:
-            return self._agent.run(tx, hcid, None, context,
-                                   reference_binding=reference_binding, work_binding=work_binding)
+            return self._run_base(tx, hcid, None, context,
+                                  reference_binding=reference_binding, work_binding=work_binding)
 
         safe_route = route.model_context()
         book.event(tx, 'CONTEXT_ROUTE', safe_route)
@@ -190,17 +271,14 @@ class _ContextAwareAgent:
         if notice:
             print(notice, file=sys.stderr)
 
-        original_model = self._agent.model
-        self._agent.model = _RoutedModel(original_model, safe_route)
-        try:
-            return self._agent.run(tx, hcid, None, context,
-                                   reference_binding=reference_binding, work_binding=work_binding)
-        finally:
-            self._agent.model = original_model
+        return self._run_base(
+            tx, hcid, None, context,
+            reference_binding=reference_binding, work_binding=work_binding,
+            route_context=safe_route)
 
 
 class HumanOSRuntime(_BaseHumanOSRuntime):
-    """Default Mirror runtime plus the promoted development Context Registry gate."""
+    """Default Mirror runtime plus routing and bounded derived Life Notebook memory."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
