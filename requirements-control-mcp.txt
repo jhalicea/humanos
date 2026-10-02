@@ -1,0 +1,3 @@
+# HumanOS Control Room MCP transport dependency.
+# Official Model Context Protocol Python SDK; current stable checked 2026-09-18.
+mcp==2.2.0
