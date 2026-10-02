@@ -240,7 +240,9 @@ def capture_memory_from_turn(book, tx):
     if resolved is None:
         return {"status": "AMBIGUOUS_MEMORY_CORRECTION", "tx": tx}
     subject, value, supersedes = resolved
-    idempotency_key = f"PREFERENCE:{source['seq']}:{subject}:{value}:{supersedes or ''}"
+    # Identity is derived only from opaque source identity + event type. Semantic
+    # content is deliberately excluded from stable IDs and idempotency metadata.
+    idempotency_key = f"PREFERENCE:{tx}:{source['seq']}"
     event_id = _event_id(idempotency_key)
     existing = book.db.execute(
         "SELECT event_id FROM memory_events WHERE idempotency_key=?", (idempotency_key,)
