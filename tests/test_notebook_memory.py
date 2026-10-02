@@ -221,6 +221,13 @@ class NotebookMemoryTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'synthetic model outage'):
             agent.run('tx-interrupted', self.binding['hcid'], 'Tell me something.')
 
+        # Model failure marks the transaction for recovery and leaves projections
+        # intentionally stale until the normal startup recovery pass. Simulate that
+        # real process boundary before allowing any later turn.
+        self.book.close()
+        self.book = Notebook(self.vault)
+        self.book.recover()
+
         binding_row = self.book.db.execute(
             "SELECT payload FROM events WHERE tx=? AND kind='MEMORY_CONTEXT_BOUND' ORDER BY seq LIMIT 1",
             ('tx-interrupted',),
@@ -237,7 +244,7 @@ class NotebookMemoryTests(unittest.TestCase):
         self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['value'], 'detailed')
 
         resume_model = _ResumeMemoryModel()
-        agent._agent.model = resume_model
+        agent = self._live_agent(resume_model)
         answer = agent.run('tx-interrupted', self.binding['hcid'])
         self.assertEqual(answer, 'frozen concise')
         system = resume_model.calls[-1][0]['content']
