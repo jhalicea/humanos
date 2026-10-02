@@ -56,6 +56,28 @@ class _MemoryAwareModel:
         return {'final': 'acknowledged'}
 
 
+class _OutageModel:
+    name = 'resume-memory-model'
+
+    def invoke(self, messages, timeout):
+        raise RuntimeError('synthetic model outage')
+
+
+class _ResumeMemoryModel:
+    name = 'resume-memory-model'
+
+    def __init__(self):
+        self.calls = []
+
+    def invoke(self, messages, timeout):
+        copied = json.loads(json.dumps(messages))
+        self.calls.append(copied)
+        system = copied[0]['content'] if copied else ''
+        if '"value": "concise"' in system.casefold() and '"value": "detailed"' not in system.casefold():
+            return {'final': 'frozen concise'}
+        return {'final': 'wrong memory snapshot'}
+
+
 class NotebookMemoryTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -93,6 +115,7 @@ class NotebookMemoryTests(unittest.TestCase):
         second = capture_memory_from_turn(self.book, 'tx-pref-1')
         self.assertEqual(first['status'], 'CAPTURED')
         self.assertEqual(second['status'], 'ALREADY_CAPTURED')
+        self.assertEqual(second['event_id'], first['event_id'])
         remembered = get_preference(self.book, 'Jon', 'morning summaries')
         self.assertEqual(remembered['status'], 'ACTIVE')
         self.assertEqual(remembered['value'], 'concise')
@@ -121,6 +144,9 @@ class NotebookMemoryTests(unittest.TestCase):
         self._complete('tx-new', 'Actually, make them detailed.')
         new = capture_memory_from_turn(self.book, 'tx-new')
         self.assertEqual(new['supersedes'], old['event_id'])
+        replay = capture_memory_from_turn(self.book, 'tx-new')
+        self.assertEqual(replay['status'], 'ALREADY_CAPTURED')
+        self.assertEqual(replay['event_id'], new['event_id'])
         events = list(self.book.db.execute(
             'SELECT event_id,value,supersedes FROM memory_events ORDER BY seq'))
         self.assertEqual(len(events), 2)
@@ -187,16 +213,41 @@ class NotebookMemoryTests(unittest.TestCase):
         self.assertEqual(remembered['provenance']['tx'], 'tx-live-4')
         self.assertEqual(self.book.db.execute('SELECT COUNT(*) FROM memory_events').fetchone()[0], 2)
 
-    def test_existing_transaction_resume_does_not_inject_new_memory_context(self):
-        model = _MemoryAwareModel()
-        agent = self._live_agent(model)
-        first = agent.run('tx-resume', self.binding['hcid'], 'Hello there.')
-        self.assertEqual(first, 'acknowledged')
-        calls_before = len(model.calls)
-        with patch('server.memory_context', side_effect=AssertionError('resume must not compile new memory')):
-            again = agent.run('tx-resume', self.binding['hcid'])
-        self.assertEqual(again, 'acknowledged')
-        self.assertEqual(len(model.calls), calls_before)
+    def test_interrupted_task_resumes_with_exact_bound_memory_snapshot(self):
+        self._complete('tx-pref-base', 'I prefer concise morning summaries.')
+        first = capture_memory_from_turn(self.book, 'tx-pref-base')
+        agent = self._live_agent(_OutageModel())
+
+        with self.assertRaisesRegex(RuntimeError, 'synthetic model outage'):
+            agent.run('tx-interrupted', self.binding['hcid'], 'Tell me something.')
+
+        binding_row = self.book.db.execute(
+            "SELECT payload FROM events WHERE tx=? AND kind='MEMORY_CONTEXT_BOUND' ORDER BY seq LIMIT 1",
+            ('tx-interrupted',),
+        ).fetchone()
+        self.assertIsNotNone(binding_row)
+        binding = json.loads(binding_row['payload'])
+        self.assertEqual(binding['status'], 'READY')
+        self.assertEqual(binding['event_ids'], [first['event_id']])
+        self.assertNotIn('concise', binding_row['payload'].casefold())
+        self.assertNotIn('morning summaries', binding_row['payload'].casefold())
+
+        self._complete('tx-pref-change', 'Actually, make them detailed.')
+        capture_memory_from_turn(self.book, 'tx-pref-change')
+        self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['value'], 'detailed')
+
+        resume_model = _ResumeMemoryModel()
+        agent._agent.model = resume_model
+        answer = agent.run('tx-interrupted', self.binding['hcid'])
+        self.assertEqual(answer, 'frozen concise')
+        system = resume_model.calls[-1][0]['content']
+        self.assertIn('"value": "concise"', system.casefold())
+        self.assertNotIn('"value": "detailed"', system.casefold())
+        binding_count = self.book.db.execute(
+            "SELECT COUNT(*) FROM events WHERE tx=? AND kind='MEMORY_CONTEXT_BOUND'",
+            ('tx-interrupted',),
+        ).fetchone()[0]
+        self.assertEqual(binding_count, 1)
 
     def test_memory_failure_cannot_erase_or_block_completed_conversation(self):
         model = _MemoryAwareModel()
