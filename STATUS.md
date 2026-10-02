@@ -6,7 +6,7 @@ Workspace: `WS-HUMANOS`
 Project: Life Notebook  
 Workstream: `HOS-LN-002 — Usable Life Notebook Memory Vertical Slice`  
 Branch: `feature/life-notebook-usable-memory-v1`  
-Baseline: `runtime-0.1` @ `eb5824ff533b2569fbe0a1d53617e7a3a6e06f7f`  
+Baseline / merge base: `runtime-0.1` @ `3f2f25ea09941c8727daac1826e37badf0730d72`  
 Work order: `docs/work-orders/HOS-LN-002.md`
 
 ## Current outcome
@@ -74,8 +74,14 @@ At commit `846338877a99e3aa0e014ef76888f089df3042f9`:
 
 Privacy refinement commit `059e02c4edd82506afee3d599e441a5a94e13440`
 changed the durable task memory-processing receipt to status/IDs only. Work-order and
-status preservation commits followed, so fresh CI on the final branch head is required
-before any promotion claim.
+status preservation/provenance corrections followed, so fresh CI on the final branch
+head is required before any promotion claim.
+
+## Provenance correction
+
+The actual branch merge base is
+`3f2f25ea09941c8727daac1826e37badf0730d72`. An earlier draft status listed the first
+parent of that merge instead; the documentation was corrected before final qualification.
 
 ## Relationship to PRE-LN-1
 
