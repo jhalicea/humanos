@@ -14,6 +14,7 @@ SCHEMA_VERSION = 1
 GENESIS = "GENESIS"
 MAX_CONTEXT_PREFERENCES = 32
 MAX_CONTEXT_EVENTS = 128
+MAX_MEMORY_SCAN_EVENTS = 20000
 
 
 def _now():
@@ -126,25 +127,6 @@ def _extract_preference(text):
     return None
 
 
-def _active_rows(book, owner):
-    return list(
-        book.db.execute(
-            """SELECT owner,subject,status,event_id,value,updated
-               FROM memory_state WHERE owner=? ORDER BY updated DESC,subject""",
-            (owner,),
-        )
-    )
-
-
-def _resolve_candidate(book, source, candidate):
-    if candidate["mode"] == "DECLARE":
-        return candidate["subject"], candidate["value"], None
-    active = [row for row in _active_rows(book, source["owner"]) if row["status"] == "ACTIVE"]
-    if len(active) != 1:
-        return None
-    return active[0]["subject"], candidate["value"], active[0]["event_id"]
-
-
 def _event_payload(row):
     return {
         "event_id": row["event_id"],
@@ -164,6 +146,7 @@ def _event_payload(row):
 
 
 def _derive_subject_state(book, owner, subject):
+    """Raw rebuildable state; privacy is enforced separately on every read surface."""
     rows = list(
         book.db.execute(
             """
@@ -212,6 +195,143 @@ def _write_derived_state(book, owner, subject):
             ),
         )
     return state
+
+
+def _semantic_rows(book, owner, event_ids=None):
+    """Read semantic events with current transcript privacy and exact provenance."""
+    ensure_memory_schema(book)
+    params = [owner]
+    where = "e.owner=?"
+    if event_ids is not None:
+        if not event_ids:
+            return []
+        marks = ",".join("?" for _ in event_ids)
+        where += f" AND e.event_id IN ({marks})"
+        params.extend(event_ids)
+    rows = list(
+        book.db.execute(
+            f"""
+            SELECT e.*,i.page,i.hcid,s.ordinal AS source_ordinal,
+                   s.created AS source_created,s.text AS source_text,
+                   COALESCE(p.state,'VISIBLE') AS privacy_state
+            FROM memory_events e
+            JOIN transactions t ON t.tx=e.source_tx
+            JOIN identities i ON i.hcid=t.hcid
+            JOIN transcript s ON s.seq=e.source_seq
+            LEFT JOIN privacy_state p
+              ON p.tx=s.tx AND p.ordinal=s.ordinal
+            WHERE {where}
+            ORDER BY e.seq
+            LIMIT ?
+            """,
+            (*params, MAX_MEMORY_SCAN_EVENTS + 1),
+        )
+    )
+    if len(rows) > MAX_MEMORY_SCAN_EVENTS:
+        raise RuntimeError("Semantic memory scan exceeds the bounded event limit")
+    return [dict(row) for row in rows]
+
+
+def _visible_groups(book, owner):
+    """Return privacy-safe surviving events grouped by subject.
+
+    A correction depends on the event it supersedes because its subject may have been
+    inferred from that earlier statement. Therefore a hidden ancestor makes the derived
+    correction ineligible too. Hiding only the newer correction lets the prior visible
+    state re-emerge; unhiding restores the newer state.
+    """
+    rows = _semantic_rows(book, owner)
+    by_id = {row["event_id"]: row for row in rows}
+    memo = {}
+    visiting = set()
+
+    def eligible(event_id):
+        if event_id in memo:
+            return memo[event_id]
+        if event_id in visiting:
+            raise RuntimeError("Semantic memory supersession cycle detected")
+        row = by_id.get(event_id)
+        if row is None:
+            raise RuntimeError("Semantic memory supersession ancestry is missing")
+        visiting.add(event_id)
+        allowed = row["privacy_state"] != "HIDDEN"
+        parent = row.get("supersedes")
+        if allowed and parent:
+            if parent not in by_id:
+                raise RuntimeError("Semantic memory supersession ancestry is missing")
+            allowed = eligible(parent)
+        visiting.remove(event_id)
+        memo[event_id] = allowed
+        return allowed
+
+    eligible_rows = [row for row in rows if eligible(row["event_id"])]
+    superseded = {
+        row["supersedes"] for row in eligible_rows if row.get("supersedes")
+    }
+    survivors = [row for row in eligible_rows if row["event_id"] not in superseded]
+    groups = {}
+    for row in survivors:
+        groups.setdefault(row["subject"], []).append(row)
+    return groups, by_id
+
+
+def _visible_state_rows(book, owner, limit=MAX_CONTEXT_PREFERENCES):
+    groups, _ = _visible_groups(book, owner)
+    ordered = sorted(
+        groups.items(),
+        key=lambda item: (max(row["seq"] for row in item[1]), item[0]),
+        reverse=True,
+    )[: int(limit)]
+    result = []
+    for subject, rows in ordered:
+        if len(rows) == 1:
+            row = rows[0]
+            result.append(
+                {
+                    "owner": owner,
+                    "subject": subject,
+                    "status": "ACTIVE",
+                    "event_id": row["event_id"],
+                    "value": row["value"],
+                    "updated": row["created"],
+                    "source_tx": row["source_tx"],
+                    "source_seq": row["source_seq"],
+                    "page": row["page"],
+                    "hcid": row["hcid"],
+                    "source_created": row["source_created"],
+                    "source_text": row["source_text"],
+                }
+            )
+        else:
+            result.append(
+                {
+                    "owner": owner,
+                    "subject": subject,
+                    "status": "CONFLICTED",
+                    "event_id": None,
+                    "value": None,
+                    "updated": max(row["created"] for row in rows),
+                    "source_tx": None,
+                    "source_seq": None,
+                    "page": None,
+                    "hcid": None,
+                    "source_created": None,
+                    "source_text": None,
+                }
+            )
+    return result
+
+
+def _resolve_candidate(book, source, candidate):
+    if candidate["mode"] == "DECLARE":
+        return candidate["subject"], candidate["value"], None
+    active = [
+        row for row in _visible_state_rows(book, source["owner"])
+        if row["status"] == "ACTIVE"
+    ]
+    if len(active) != 1:
+        return None
+    return active[0]["subject"], candidate["value"], active[0]["event_id"]
 
 
 def capture_memory_from_turn(book, tx):
@@ -288,26 +408,9 @@ def rebuild_memory_state(book):
 
 
 def active_preferences(book, owner, limit=MAX_CONTEXT_PREFERENCES):
+    """Privacy-aware current preference surface used by humans and model context."""
     ensure_memory_schema(book)
-    rows = list(
-        book.db.execute(
-            """
-            SELECT ms.owner,ms.subject,ms.status,ms.event_id,ms.value,ms.updated,
-                   me.source_tx,me.source_seq,i.page,i.hcid,
-                   s.created AS source_created,s.text AS source_text
-            FROM memory_state ms
-            LEFT JOIN memory_events me ON me.event_id=ms.event_id
-            LEFT JOIN transactions t ON t.tx=me.source_tx
-            LEFT JOIN identities i ON i.hcid=t.hcid
-            LEFT JOIN transcript s ON s.seq=me.source_seq
-            WHERE ms.owner=?
-            ORDER BY ms.updated DESC,ms.subject
-            LIMIT ?
-            """,
-            (owner, int(limit)),
-        )
-    )
-    return [dict(row) for row in rows]
+    return _visible_state_rows(book, owner, limit=limit)
 
 
 def get_preference(book, owner, subject):
@@ -334,44 +437,60 @@ def get_preference(book, owner, subject):
     }
 
 
+def _ancestor_ids(event_id, by_id):
+    ancestors = []
+    seen = set()
+    current = by_id[event_id].get("supersedes")
+    while current:
+        if current in seen:
+            raise RuntimeError("Semantic memory supersession cycle detected")
+        seen.add(current)
+        row = by_id.get(current)
+        if row is None:
+            raise RuntimeError("Semantic memory supersession ancestry is missing")
+        ancestors.append(current)
+        current = row.get("supersedes")
+    return ancestors
+
+
 def memory_binding(book, owner, limit=MAX_CONTEXT_PREFERENCES):
-    """Return content-free immutable event IDs needed to reconstruct this context."""
+    """Bind privacy-safe current memory using only immutable content-free event IDs."""
     ensure_memory_schema(book)
-    states = list(
-        book.db.execute(
-            """SELECT subject FROM memory_state
-               WHERE owner=? ORDER BY updated DESC,subject LIMIT ?""",
-            (owner, int(limit)),
-        )
-    )
-    if not states:
-        return {"schema_version": SCHEMA_VERSION, "status": "READY", "event_ids": []}
-    subjects = [row["subject"] for row in states]
-    marks = ",".join("?" for _ in subjects)
-    rows = list(
-        book.db.execute(
-            f"""
-            SELECT e.event_id FROM memory_events e
-            WHERE e.owner=? AND e.subject IN ({marks})
-              AND NOT EXISTS (
-                SELECT 1 FROM memory_events newer WHERE newer.supersedes=e.event_id
-              )
-            ORDER BY e.seq
-            """,
-            (owner, *subjects),
-        )
-    )
-    if len(rows) > MAX_CONTEXT_EVENTS:
+    groups, by_id = _visible_groups(book, owner)
+    ordered = sorted(
+        groups.items(),
+        key=lambda item: (max(row["seq"] for row in item[1]), item[0]),
+        reverse=True,
+    )[: int(limit)]
+    direct = []
+    dependencies = []
+    for _, rows in ordered:
+        for row in rows:
+            direct.append(row["event_id"])
+            dependencies.extend(_ancestor_ids(row["event_id"], by_id))
+    dependency_set = set(dependencies) - set(direct)
+    all_ids = set(direct) | dependency_set
+    if len(all_ids) > MAX_CONTEXT_EVENTS:
         raise RuntimeError("Current semantic memory exceeds the bounded context-event limit")
+    sequence = {event_id: by_id[event_id]["seq"] for event_id in all_ids}
     return {
         "schema_version": SCHEMA_VERSION,
         "status": "READY",
-        "event_ids": [row["event_id"] for row in rows],
+        "event_ids": sorted(set(direct), key=lambda event_id: sequence[event_id]),
+        "dependency_event_ids": sorted(dependency_set, key=lambda event_id: sequence[event_id]),
     }
 
 
+def _validate_id_list(value, label):
+    if not isinstance(value, list) or len(value) > MAX_CONTEXT_EVENTS or len(value) != len(set(value)):
+        raise RuntimeError(f"Invalid memory context {label} binding")
+    if any(not isinstance(item, str) or not item.startswith("HOS-MEM-") for item in value):
+        raise RuntimeError(f"Invalid memory context {label} identity")
+    return value
+
+
 def memory_context_from_binding(book, owner, binding):
-    """Reconstruct exactly the immutable memory-event snapshot bound to a task."""
+    """Reconstruct exactly the immutable, privacy-authorized snapshot bound to a task."""
     ensure_memory_schema(book)
     if not isinstance(binding, dict) or binding.get("schema_version") != SCHEMA_VERSION:
         raise RuntimeError("Invalid memory context binding")
@@ -386,12 +505,14 @@ def memory_context_from_binding(book, owner, binding):
         }
     if binding.get("status") != "READY":
         raise RuntimeError("Unknown memory context binding status")
-    ids = binding.get("event_ids")
-    if not isinstance(ids, list) or len(ids) > MAX_CONTEXT_EVENTS or len(ids) != len(set(ids)):
-        raise RuntimeError("Invalid memory context event binding")
-    if any(not isinstance(item, str) or not item.startswith("HOS-MEM-") for item in ids):
-        raise RuntimeError("Invalid memory context event identity")
-    if not ids:
+    ids = _validate_id_list(binding.get("event_ids"), "event")
+    dependencies = _validate_id_list(binding.get("dependency_event_ids", []), "dependency")
+    if set(ids) & set(dependencies):
+        raise RuntimeError("Memory context direct and dependency identities overlap")
+    all_ids = ids + dependencies
+    if len(all_ids) > MAX_CONTEXT_EVENTS:
+        raise RuntimeError("Bound semantic memory exceeds the context-event limit")
+    if not all_ids:
         return {
             "schema_version": SCHEMA_VERSION,
             "source": "LOCAL_DERIVED_LIFE_NOTEBOOK_STATE",
@@ -399,31 +520,36 @@ def memory_context_from_binding(book, owner, binding):
             "conflicts": [],
         }
 
-    marks = ",".join("?" for _ in ids)
-    rows = list(
-        book.db.execute(
-            f"""
-            SELECT e.*,i.page,i.hcid,s.created AS source_created
-            FROM memory_events e
-            JOIN transactions t ON t.tx=e.source_tx
-            JOIN identities i ON i.hcid=t.hcid
-            JOIN transcript s ON s.seq=e.source_seq
-            WHERE e.owner=? AND e.event_id IN ({marks})
-            ORDER BY e.seq
-            """,
-            (owner, *ids),
-        )
-    )
-    if len(rows) != len(ids) or {row["event_id"] for row in rows} != set(ids):
+    rows = _semantic_rows(book, owner, event_ids=all_ids)
+    if len(rows) != len(all_ids) or {row["event_id"] for row in rows} != set(all_ids):
         raise RuntimeError("Bound semantic memory evidence is missing or belongs to another owner")
+    if any(row["privacy_state"] == "HIDDEN" for row in rows):
+        raise PermissionError("Bound semantic memory source is hidden by the human")
+    by_id = {row["event_id"]: row for row in rows}
+    dependency_set = set(dependencies)
+    direct_set = set(ids)
+    for event_id in ids:
+        row = by_id[event_id]
+        parent = row.get("supersedes")
+        seen = set()
+        while parent:
+            if parent in seen:
+                raise RuntimeError("Semantic memory supersession cycle detected")
+            seen.add(parent)
+            if parent in direct_set:
+                raise RuntimeError("Bound semantic memory includes a superseded event as current")
+            if parent not in dependency_set or parent not in by_id:
+                raise RuntimeError("Bound semantic memory ancestry is incomplete")
+            parent = by_id[parent].get("supersedes")
 
-    by_subject = {}
-    for row in rows:
-        by_subject.setdefault(row["subject"], []).append(row)
+    groups = {}
+    for event_id in ids:
+        row = by_id[event_id]
+        groups.setdefault(row["subject"], []).append(row)
     preferences, conflicts = [], []
-    for subject, group in by_subject.items():
-        if len(group) == 1:
-            row = group[0]
+    for subject, rows_for_subject in groups.items():
+        if len(rows_for_subject) == 1:
+            row = rows_for_subject[0]
             preferences.append(
                 {
                     "subject": subject,
