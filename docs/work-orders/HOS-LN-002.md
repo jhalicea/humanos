@@ -5,7 +5,7 @@ Project: Life Notebook
 Workspace: `WS-HUMANOS`  
 Repository: `jhalicea/humanos`  
 Branch: `feature/life-notebook-usable-memory-v1`  
-Baseline: `runtime-0.1` @ `eb5824ff533b2569fbe0a1d53617e7a3a6e06f7f`  
+Baseline / merge base: `runtime-0.1` @ `3f2f25ea09941c8727daac1826e37badf0730d72`  
 Created: 2026-10-01
 
 ## Classification
@@ -127,6 +127,13 @@ passed. The encrypted-backup full-suite matrix passed on Ubuntu/macOS and Python
 A later privacy refinement at
 `059e02c4edd82506afee3d599e441a5a94e13440` made the task receipt content-light. Fresh
 final-head CI is required before promotion.
+
+## Provenance correction
+
+The branch merge base was independently re-read after implementation using GitHub's
+compare result and is `3f2f25ea09941c8727daac1826e37badf0730d72`. An earlier draft of this work order
+listed its first parent `eb5824ff533b2569fbe0a1d53617e7a3a6e06f7f`; that value was corrected before
+qualification so the work order now records the actual branch merge base.
 
 ## Explicit non-claims
 
