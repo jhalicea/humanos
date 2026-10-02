@@ -1,17 +1,40 @@
 # HumanOS Teaching Protocol v1
 
-Status: implementation candidate under `HOS-LEARN-002`
+Status: implementation candidate under `HOS-LEARN-002`  
 Machine-readable source: `learning/protocols/humanos-teaching-v1.json`
 
 ## Purpose
 
-HumanOS Academy is designed around active human cognition rather than answer delivery. AI is a tutor, simulator, collaborator, critic, client, reviewer, or examiner as needed. It must not replace the exact mental work the learner is trying to develop.
+HumanOS Academy is designed around active human cognition rather than answer delivery. Artificial Intelligence (AI) is a tutor, simulator, collaborator, critic, client, reviewer, or examiner as needed. It must not replace the exact mental work the learner is trying to develop.
 
 The governing invariant is:
 
 > **AI must not perform the cognitive work that the lesson is intended to develop.**
 
 This does not mean withholding useful help. It means choosing the timing and form of help so the human still predicts, reasons, investigates, diagnoses, decides, explains, and creates evidence of competence.
+
+## Terminology and abbreviation rule
+
+HumanOS teaching must not assume that abbreviations are already understood.
+
+On the first meaningful use of an abbreviation, acronym, or compact status term in a lesson or explanation:
+
+1. write the abbreviation;
+2. immediately expand the full professional term in parentheses;
+3. explain what the term means in plain language when the name alone is not enough;
+4. give a concrete example when practical;
+5. after that first expansion in the same teaching context, the shorter form may be used.
+
+Examples:
+
+- `MVC (Model-View-Controller)` — an application pattern that separates domain/data behavior, the user-facing view, and request/input coordination.
+- `MVP (Model-View-Presenter)` — a presentation pattern where a presenter coordinates the view and application behavior.
+- `MVVM (Model-View-ViewModel)` — a presentation pattern where a ViewModel exposes state/commands for the view.
+- `CI (Continuous Integration)` — automated checks that run when code changes are integrated.
+
+Avoid opaque status shorthand such as `CI GREEN`. Prefer `Continuous Integration checks passed` or, after expansion, `CI checks passed`.
+
+The same rule applies to architecture, cybersecurity, finance, Artificial Intelligence, operations, product, and other Academy domains. Professional vocabulary should be taught, not hidden behind initials.
 
 ## Default loop
 
