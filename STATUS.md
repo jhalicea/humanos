@@ -18,12 +18,15 @@ The slice now provides:
 
 - exact human/assistant transcript evidence preserved by the existing Notebook runtime;
 - deterministic preference extraction after transcript completion;
-- append-only `HOS-MEM-*` semantic events with idempotency and source provenance;
-- chained event integrity using the Notebook content-integrity function;
+- append-only `HOS-MEM-*` semantic events with content-free idempotency identity and exact source provenance;
+- keyed chained event integrity;
 - rebuildable current state with `ACTIVE` / `CONFLICTED` semantics;
 - explicit correction through a new event with `supersedes` lineage;
-- bounded current memory + provenance supplied to later Mirror turns;
+- replay detection before current-state resolution;
 - persistence across Notebook close/reopen;
+- bounded current memory + provenance supplied to later Mirror turns;
+- content-light `MEMORY_CONTEXT_BOUND` event-ID snapshots written before first model execution;
+- exact bound-memory reconstruction on interrupted-task resume, preventing later state from silently changing an in-flight task;
 - fail-soft semantic extraction: memory failure cannot erase or block a completed chat;
 - content-light memory-processing receipts in task state.
 
@@ -33,7 +36,7 @@ restart -> context/provenance -> supersession loop before broader memory types a
 
 ## Acceptance scenario
 
-The automated acceptance test proves:
+The automated acceptance tests cover both ordinary restart and interrupted execution:
 
 ```text
 I prefer concise morning summaries.
@@ -59,23 +62,26 @@ new event supersedes old event
 old history retained; current state = detailed
 ```
 
-A separate test forces semantic extraction to raise an exception after the conversation
-has completed and verifies that the exact human and assistant transcript remains intact
-and the task remains complete.
+The crash/resume test additionally begins a task while memory is `concise`, persists a
+content-light binding before model execution, forces a model outage, changes current
+memory to `detailed`, and then resumes the interrupted task. The resumed task must still
+receive the originally bound `concise` snapshot, and only one binding event may exist.
+
+A separate failure test forces semantic extraction to raise after a completed
+conversation and verifies that the exact human/assistant transcript remains intact and
+the task remains complete.
 
 ## Verification evidence
 
-At commit `846338877a99e3aa0e014ef76888f089df3042f9`:
+An earlier intermediate candidate at commit
+`846338877a99e3aa0e014ef76888f089df3042f9` passed its seven then-existing memory tests,
+ran **613 regression tests** successfully on macOS/Python 3.13 with 8 optional-dependency
+skips, and passed the encrypted-backup/full-suite matrix on Ubuntu/macOS × Python
+3.11/3.13.
 
-- all 7 HOS-LN-002 memory tests passed;
-- macOS/Python 3.13 regression execution ran **613 tests** and returned **OK** with 8
-  optional-dependency skips;
-- encrypted-backup/full-suite CI passed on Ubuntu/macOS × Python 3.11/3.13.
-
-Privacy refinement commit `059e02c4edd82506afee3d599e441a5a94e13440`
-changed the durable task memory-processing receipt to status/IDs only. Work-order and
-status preservation/provenance corrections followed, so fresh CI on the final branch
-head is required before any promotion claim.
+That evidence is historical only. Privacy, idempotency, and crash-safe context-binding
+refinements were added afterward. The current suite contains eight HOS-LN-002 acceptance
+areas, and fresh CI on the final branch head is mandatory before promotion.
 
 ## Provenance correction
 
@@ -99,6 +105,7 @@ current state                       deletion fan-out
 restart + recall                    migration/cutover
 provenance                          production qualification
 supersession
+crash-safe context binding
         \                              /
          \                            /
           ------ hardened runtime ----
@@ -110,16 +117,16 @@ Usability is no longer blocked on completing every future hardening gate first.
 
 - HOS-LN-002 is not yet promoted to `runtime-0.1`.
 - No owner production Notebook data was committed or migrated.
-- Full semantic coverage for decisions/tasks/open questions/entities is not implemented
-  in this v1 slice.
+- Full semantic coverage for decisions/tasks/open questions/entities is not implemented in this v1 slice.
 - PRE-LN-1 cryptographic/storage/deletion requirements are not claimed complete.
-- Passing the bounded acceptance test does not itself qualify the future LN-1 kernel.
+- Passing the bounded acceptance tests does not itself qualify the future LN-1 kernel.
 
 ## Promotion gates
 
 - [ ] final-head regression CI passes Ubuntu/macOS × Python 3.11/3.13;
 - [ ] final-head encrypted-backup/full-suite CI passes the same matrix;
-- [ ] final diff review finds no transcript-authority, provenance, privacy, or fail-soft blocker;
+- [ ] final diff review finds no transcript-authority, provenance, privacy, crash/resume, or fail-soft blocker;
+- [ ] no PRE-LN-1 workstream is overwritten or falsely marked complete;
 - [ ] owner explicitly approves promotion.
 
 ## Next authorized action
