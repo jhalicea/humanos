@@ -216,9 +216,11 @@ class NotebookMemoryTests(unittest.TestCase):
         capture_memory_from_turn(self.book, 'tx-rebuild')
         with self.book.db:
             self.book.db.execute('DELETE FROM memory_state')
-        self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['status'], 'NOT_FOUND')
+        self.assertEqual(self.book.db.execute('SELECT COUNT(*) FROM memory_state').fetchone()[0], 0)
+        self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['value'], 'concise')
         rebuilt = rebuild_memory_state(self.book)
         self.assertEqual(rebuilt, {'status': 'REBUILT', 'records': 1})
+        self.assertEqual(self.book.db.execute('SELECT COUNT(*) FROM memory_state').fetchone()[0], 1)
         self.assertEqual(get_preference(self.book, 'Jon', 'morning summaries')['value'], 'concise')
         self.assertEqual(verify_memory(self.book)['status'], 'VERIFIED')
 
