@@ -1,65 +1,136 @@
-# HumanOS Status Snapshot — Historical Record
+# HumanOS Status Snapshot
 
-> **Snapshot date: 2026-09-19.** This document records the state and local
-> verification steps known on that date. It is historical evidence, not the
-> current project status. See the root README, current branch history, CI, and
-> linked work orders for current implementation and verification.
+Status: **HOS-LN-002 IMPLEMENTED CANDIDATE / FINAL-HEAD CI REQUIRED / NOT PROMOTED**  
+Date: 2026-10-01  
+Workspace: `WS-HUMANOS`  
+Project: Life Notebook  
+Workstream: `HOS-LN-002 — Usable Life Notebook Memory Vertical Slice`  
+Branch: `feature/life-notebook-usable-memory-v1`  
+Baseline / merge base: `runtime-0.1` @ `3f2f25ea09941c8727daac1826e37badf0730d72`  
+Work order: `docs/work-orders/HOS-LN-002.md`
 
-Status: HOS-BROWSER-001 PROMOTED / LOCAL MAC READBACK PENDING
-Date: 2026-09-19
-Workspace: `WS-HUMANOS`
-Workstream: `HOS-BROWSER-001 — Browser Broker and Tools`
-Canonical branch: `runtime-0.1`
-Canonical promotion: `7c21306aa3dac28cf274e39360d600a7ca7e8abf`
-Parent activation: PR #91 / `02869089cd336ffac17751a771bd61adcf21229d`
-R1 correction: PR #93 / `7c21306aa3dac28cf274e39360d600a7ca7e8abf`
-Work order: `docs/work-orders/HOS-BROWSER-001-R1.md`
+## Current outcome
 
-## Canonical outcome
+A bounded usable-memory vertical slice is implemented on this feature branch using the
+existing HumanOS Notebook rather than a competing memory store.
 
-HumanOS now has the governed Browser Bridge activation path in the canonical runtime:
+The slice now provides:
 
-- owner-local pairing/config outside Git;
-- stable unpacked extension identity and native messaging;
-- generated native-host launcher/manifest;
-- governed browser search/inspect/navigation/click/type;
-- selected-tab control;
-- truthful extension failure propagation;
-- exact task-scope and interactive approval gates;
-- permission-scope v7 only for browser-intent turns, preserving legacy v1-v6 semantics;
-- corrected Brave/macOS native-messaging lookup.
+- exact human/assistant transcript evidence preserved by the existing Notebook runtime;
+- deterministic preference extraction after transcript completion;
+- append-only `HOS-MEM-*` semantic events with content-free idempotency identity and exact source provenance;
+- keyed chained event integrity;
+- rebuildable current state with `ACTIVE` / `CONFLICTED` semantics;
+- explicit correction through a new event with `supersedes` lineage;
+- replay detection before current-state resolution;
+- persistence across Notebook close/reopen;
+- bounded current memory + provenance supplied to later Mirror turns;
+- content-light `MEMORY_CONTEXT_BOUND` event-ID snapshots written before first model execution;
+- exact bound-memory reconstruction on interrupted-task resume, preventing later state from silently changing an in-flight task;
+- fail-soft semantic extraction: memory failure cannot erase or block a completed chat;
+- content-light memory-processing receipts in task state.
 
-## SDLC / router evidence
+The current semantic taxonomy is intentionally small: preference memory only. This is a
+working vertical slice proving the conversation -> semantic ledger -> derived state ->
+restart -> context/provenance -> supersession loop before broader memory types are added.
 
-Route: `OWNER -> WS-HUMANOS -> HOS-BROWSER-001 -> HOS-BROWSER-001-R1 -> branch -> evidence`.
+## Acceptance scenario
 
-- R1 candidate: `9b6050c3aaccca0032e843652743cb2caf3d470b`.
-- Regression workflow `35456032309`: SUCCESS across macOS/Ubuntu × Python 3.11/3.13.
-- Encrypted-backup workflow `35456032318`: SUCCESS across the same matrix.
-- Exact diff reviewed; no Notebook content, credentials, owner-local paths, secret bytes,
-  cross-workspace data, or model-authority widening were introduced.
-- Chrome native-messaging behavior was checked against current official Chrome docs;
-  Brave/macOS lookup was checked against current Brave source.
-- Promotion was performed only after the exact candidate was green.
+The automated acceptance tests cover both ordinary restart and interrupted execution:
 
-## Evidence gap recorded on 2026-09-19
+```text
+I prefer concise morning summaries.
+        ↓
+exact transcript persisted
+        ↓
+preference event + provenance
+        ↓
+current state = concise
+        ↓
+Notebook close/reopen
+        ↓
+How do I like my morning summaries?
+        ↓
+concise (from persisted derived state)
+        ↓
+provenance points to original page / tx / transcript seq
+        ↓
+Actually, make them detailed.
+        ↓
+new event supersedes old event
+        ↓
+old history retained; current state = detailed
+```
 
-Repository/CI proof cannot establish that Jon's local Brave extension/native host is
-paired and the selected-tab bridge is live. That requires local post-promotion readback.
+The crash/resume test additionally begins a task while memory is `concise`, persists a
+content-light binding before model execution, forces a model outage, changes current
+memory to `detailed`, and then resumes the interrupted task. The resumed task must still
+receive the originally bound `concise` snapshot, and only one binding event may exist.
 
-## Rollback
+A separate failure test forces semantic extraction to raise after a completed
+conversation and verifies that the exact human/assistant transcript remains intact and
+the task remains complete.
 
-Revert `7c21306aa3dac28cf274e39360d600a7ca7e8abf` for the R1 correction and, if needed,
-`02869089cd336ffac17751a771bd61adcf21229d` for the parent activation. No Life
-Notebook migration was performed.
+## Verification evidence
 
-## Next action recorded on 2026-09-19
+An earlier intermediate candidate at commit
+`846338877a99e3aa0e014ef76888f089df3042f9` passed its seven then-existing memory tests,
+ran **613 regression tests** successfully on macOS/Python 3.13 with 8 optional-dependency
+skips, and passed the encrypted-backup/full-suite matrix on Ubuntu/macOS × Python
+3.11/3.13.
 
-On Jon's Mac:
+That evidence is historical only. Privacy, idempotency, and crash-safe context-binding
+refinements were added afterward. The current suite contains eight HOS-LN-002 acceptance
+areas, and fresh CI on the final branch head is mandatory before promotion.
 
-1. pull canonical `runtime-0.1`;
-2. run `humanos --browser-setup`;
-3. load `browser-extension/` once as an unpacked extension in Brave/Chrome;
-4. click the HumanOS extension on the tab Jon wants Mirror to operate;
-5. run `humanos --browser-status`;
-6. run one bounded browser search/inspect through Mirror and verify the result.
+## Provenance correction
+
+The actual branch merge base is
+`3f2f25ea09941c8727daac1826e37badf0730d72`. An earlier draft status listed the first
+parent of that merge instead; the documentation was corrected before final qualification.
+
+## Relationship to PRE-LN-1
+
+HOS-LN-002 does not cancel or overwrite PRE-LN-1. The separate schema/integrity,
+SQLCipher/key-custody, migration/cutover, deletion, and production-qualification work
+remains necessary for the hardened Life Notebook target.
+
+The project direction is now explicitly two-track:
+
+```text
+USABLE LIFE NOTEBOOK                HARDENING
+working transcript                  schema/integrity
+semantic ledger                     SQLCipher / key custody
+current state                       deletion fan-out
+restart + recall                    migration/cutover
+provenance                          production qualification
+supersession
+crash-safe context binding
+        \                              /
+         \                            /
+          ------ hardened runtime ----
+```
+
+Usability is no longer blocked on completing every future hardening gate first.
+
+## Explicit non-claims
+
+- HOS-LN-002 is not yet promoted to `runtime-0.1`.
+- No owner production Notebook data was committed or migrated.
+- Full semantic coverage for decisions/tasks/open questions/entities is not implemented in this v1 slice.
+- PRE-LN-1 cryptographic/storage/deletion requirements are not claimed complete.
+- Passing the bounded acceptance tests does not itself qualify the future LN-1 kernel.
+
+## Promotion gates
+
+- [ ] final-head regression CI passes Ubuntu/macOS × Python 3.11/3.13;
+- [ ] final-head encrypted-backup/full-suite CI passes the same matrix;
+- [ ] final diff review finds no transcript-authority, provenance, privacy, crash/resume, or fail-soft blocker;
+- [ ] no PRE-LN-1 workstream is overwritten or falsely marked complete;
+- [ ] owner explicitly approves promotion.
+
+## Next authorized action
+
+Finish final-head CI and bounded review. If clean, present the exact candidate evidence
+to the owner for promotion approval. Do not merge this branch merely because earlier
+intermediate commits were green.
