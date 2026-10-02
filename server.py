@@ -8,7 +8,11 @@ import sys
 from server_core import *  # Preserve the original server module's public API.
 import server_core as _core
 from context_runtime import RuntimeContextRouter
-from notebook_memory import capture_memory_from_turn, memory_context
+from notebook_memory import (
+    capture_memory_from_turn,
+    memory_binding,
+    memory_context_from_binding,
+)
 from permissions import task_scope
 from runtime_info import host_runtime_request
 from runtime_ledger_bridge import record_completed_transaction
@@ -55,7 +59,7 @@ class _RoutedModel:
 
 
 class _MemoryModel:
-    """Inject bounded current state derived from authoritative Notebook evidence."""
+    """Inject one already-bound Life Notebook memory snapshot into model context."""
 
     def __init__(self, base, current_memory):
         self.base = base
@@ -78,7 +82,9 @@ class _MemoryModel:
 
 
 class _ContextAwareAgent:
-    """Gate normal Mirror turns before model/tool execution and maintain derived memory."""
+    """Gate normal Mirror turns and maintain derived Life Notebook memory."""
+
+    MEMORY_BIND_KIND = 'MEMORY_CONTEXT_BOUND'
 
     def __init__(self, agent, router, runtime):
         self._agent = agent
@@ -93,34 +99,55 @@ class _ContextAwareAgent:
     def authorize(self, value):
         self._agent.authorize = value
 
-    def _current_memory(self, tx):
-        """Memory is optional context; its failure must never block a conversation."""
+    def _existing_memory_binding(self, tx):
+        row = self._agent.book.db.execute(
+            "SELECT payload FROM events WHERE tx=? AND kind=? ORDER BY seq LIMIT 1",
+            (tx, self.MEMORY_BIND_KIND),
+        ).fetchone()
+        return json.loads(row['payload']) if row else None
+
+    def _memory_snapshot(self, tx, *, create_if_missing):
+        """Return the exact memory snapshot bound before first model execution.
+
+        New tasks bind only immutable semantic event IDs in the content-light audit
+        ledger. Resumes reconstruct from those same IDs, so later preference changes
+        cannot alter an interrupted task's context. Legacy tasks with no binding simply
+        resume without semantic memory rather than inheriting new state retroactively.
+        """
         book = self._agent.book
         row = book.get_transaction(tx)
         if row is None:
             return None
         identity = book.get_identity(row['hcid'])
-        try:
-            return memory_context(book, identity['owner'])
-        except Exception as error:
-            return {
-                'schema_version': 1,
-                'source': 'LOCAL_DERIVED_LIFE_NOTEBOOK_STATE',
-                'status': 'UNAVAILABLE',
-                'error_type': type(error).__name__,
-                'preferences': [],
-                'conflicts': [],
-            }
+        binding = self._existing_memory_binding(tx)
+        if binding is None and not create_if_missing:
+            return None
+        if binding is None:
+            try:
+                binding = memory_binding(book, identity['owner'])
+                snapshot = memory_context_from_binding(book, identity['owner'], binding)
+            except Exception as error:
+                binding = {
+                    'schema_version': 1,
+                    'status': 'UNAVAILABLE',
+                    'event_ids': [],
+                    'error_type': type(error).__name__,
+                }
+                snapshot = memory_context_from_binding(book, identity['owner'], binding)
+            # This content-light binding is durable before Agent.run can invoke a model.
+            book.event(tx, self.MEMORY_BIND_KIND, binding)
+            return snapshot
+        # A persisted binding is execution evidence. If it can no longer be
+        # reconstructed, do not silently substitute latest memory or an empty packet.
+        return memory_context_from_binding(book, identity['owner'], binding)
 
     def _capture_memory(self, tx):
-        """Best-effort semantic promotion after the exact transcript is already durable."""
+        """Best-effort semantic promotion after the exact transcript is durable."""
         book = self._agent.book
         try:
             result = capture_memory_from_turn(book, tx)
         except Exception as error:
             result = {'status': 'MEMORY_EXTRACTION_FAILED', 'error_type': type(error).__name__, 'tx': tx}
-        # Task state stores only a content-light processing receipt. Semantic
-        # content remains in the authoritative transcript and memory ledger/state.
         receipt = {
             key: result[key]
             for key in ('status', 'event_id', 'supersedes', 'error_type', 'tx')
@@ -134,18 +161,15 @@ class _ContextAwareAgent:
         return result
 
     def _run_base(self, tx, hcid=None, user_input=None, context=(), reference_binding=None,
-                  work_binding=None, route_context=None, include_memory=True):
-        """Run the existing Agent, optionally adding bounded memory for a new turn."""
+                  work_binding=None, route_context=None, new_task=True):
+        """Run the existing Agent with a crash-safe bound semantic-memory snapshot."""
         original_model = self._agent.model
         model = original_model
         if route_context is not None:
             model = _RoutedModel(model, route_context)
-        # Resumed unfinished tasks keep the context saved when they started. A new
-        # later preference must not silently rewrite an interrupted task's model input.
-        if include_memory:
-            current_memory = self._current_memory(tx)
-            if current_memory is not None:
-                model = _MemoryModel(model, current_memory)
+        current_memory = self._memory_snapshot(tx, create_if_missing=new_task)
+        if current_memory is not None:
+            model = _MemoryModel(model, current_memory)
         self._agent.model = model
         try:
             result = self._agent.run(
@@ -192,13 +216,13 @@ class _ContextAwareAgent:
 
     def run(self, tx, hcid=None, user_input=None, context=(), reference_binding=None, work_binding=None):
         book = self._agent.book
-        # A resumed task already has a durable execution context. Do not reroute it
-        # or inject newly changed semantic memory under a previously saved task.
+        # A resumed task keeps its original semantic-memory binding. No rerouting or
+        # latest-memory substitution is allowed beneath previously saved execution.
         if book.task(tx) is not None:
             return self._run_base(
                 tx, hcid, user_input, context,
                 reference_binding=reference_binding, work_binding=work_binding,
-                include_memory=False)
+                new_task=False)
 
         if user_input is not None and book.get_transaction(tx) is None:
             book.start(hcid, tx, user_input)
@@ -209,8 +233,6 @@ class _ContextAwareAgent:
 
         host_request = host_runtime_request(row['input'])
         if host_request is not None:
-            # Host/runtime facts outrank development-workstream routing. The
-            # base Agent resolves this exact human-derived request deterministically.
             book.event(tx, 'HOST_INTENT', {'tool': host_request['name']})
             return self._run_base(
                 tx, hcid, None, context,
@@ -226,13 +248,7 @@ class _ContextAwareAgent:
         if pending is not None:
             route = pending
         else:
-            # File/plan reference bindings and delegated-work bindings are more
-            # specific authorities than generic conversational continuity. They may
-            # still receive an explicit fresh route, but cannot cause a short phrase
-            # such as "do it" to inherit an unrelated prior workstream implicitly.
             allow_inherit = reference_binding is None and work_binding is None
-            # Mirror accepts timezone only from an explicit owner/runtime setting.
-            # It never derives timezone from IP, device location, model output, or request text.
             timezone_name = os.environ.get('HUMANOS_TIMEZONE', 'UTC')
             historical = self._router.inspect_history(
                 book, row['input'], current_tx=tx, timezone_name=timezone_name)
@@ -273,11 +289,7 @@ class _ContextAwareAgent:
                 if isinstance(item.get('workstream_id'), str)
             ]
             if candidate_ids:
-                book.event(tx, 'CONTEXT_AMBIGUITY_PENDING', {
-                    'candidate_ids': candidate_ids,
-                })
-            # This notice is the durable final response. Do not also print it to
-            # stderr, which previously duplicated ambiguity prompts in the terminal.
+                book.event(tx, 'CONTEXT_AMBIGUITY_PENDING', {'candidate_ids': candidate_ids})
             return self._host_final(tx, row['hcid'], row['input'], notice)
 
         if notice:
@@ -299,9 +311,6 @@ class HumanOSRuntime(_BaseHumanOSRuntime):
 
 
 def main():
-    # server_core.main resolves HumanOSRuntime from its module globals. Patch only
-    # that constructor; all existing CLI/recovery behavior stays in the preserved
-    # runtime implementation copied at this commit.
     _core.HumanOSRuntime = HumanOSRuntime
     return _core.main()
 
