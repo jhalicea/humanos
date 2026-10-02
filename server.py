@@ -134,15 +134,18 @@ class _ContextAwareAgent:
         return result
 
     def _run_base(self, tx, hcid=None, user_input=None, context=(), reference_binding=None,
-                  work_binding=None, route_context=None):
-        """Run the existing Agent with bounded memory context, then promote semantics."""
+                  work_binding=None, route_context=None, include_memory=True):
+        """Run the existing Agent, optionally adding bounded memory for a new turn."""
         original_model = self._agent.model
         model = original_model
         if route_context is not None:
             model = _RoutedModel(model, route_context)
-        current_memory = self._current_memory(tx)
-        if current_memory is not None:
-            model = _MemoryModel(model, current_memory)
+        # Resumed unfinished tasks keep the context saved when they started. A new
+        # later preference must not silently rewrite an interrupted task's model input.
+        if include_memory:
+            current_memory = self._current_memory(tx)
+            if current_memory is not None:
+                model = _MemoryModel(model, current_memory)
         self._agent.model = model
         try:
             result = self._agent.run(
@@ -190,10 +193,12 @@ class _ContextAwareAgent:
     def run(self, tx, hcid=None, user_input=None, context=(), reference_binding=None, work_binding=None):
         book = self._agent.book
         # A resumed task already has a durable execution context. Do not reroute it
-        # under potentially changed registry metadata.
+        # or inject newly changed semantic memory under a previously saved task.
         if book.task(tx) is not None:
-            return self._run_base(tx, hcid, user_input, context,
-                                  reference_binding=reference_binding, work_binding=work_binding)
+            return self._run_base(
+                tx, hcid, user_input, context,
+                reference_binding=reference_binding, work_binding=work_binding,
+                include_memory=False)
 
         if user_input is not None and book.get_transaction(tx) is None:
             book.start(hcid, tx, user_input)
