@@ -8,8 +8,10 @@ import stat
 import sys
 import tempfile
 import time
+import tomllib
 
 MAX_TURNS, MAX_TOOLS, MAX_SECONDS = 4, 24, 900
+# Strict per-session ceilings: no automatic resets or escalation.
 SCHEMA = "humanos.codex.hook-budget.v1"
 
 def scoped(cwd, home=None):
@@ -23,7 +25,9 @@ def scoped(cwd, home=None):
         location != work and work in location.parents)
 
 def denied(kind, reason):
-    reason = "HUMANOS REPLAN_REQUIRED: " + reason + "; checkpoint evidence."
+    reason = ("HUMANOS REPLAN_REQUIRED: " + reason +
+              "; preserve verified findings; no automatic budget increase. "
+              "A new authorized bounded work slice is required.")
     if kind == "PreToolUse":
         return {"hookSpecificOutput": {"hookEventName": "PreToolUse",
             "permissionDecision": "deny", "permissionDecisionReason": reason}}
@@ -31,10 +35,49 @@ def denied(kind, reason):
         return {"continue": False, "stopReason": reason}
     return {"decision": "block", "reason": reason}
 
+def low_configuration_problem(home):
+    """Inspect persistent Codex defaults. Explicit session overrides remain unobservable."""
+    config = home / ".codex" / "config.toml"
+    if config.is_symlink() or not config.is_file():
+        return "LOW_EFFORT_DEFAULTS_MISSING"
+    try:
+        with config.open("rb") as source:
+            settings = tomllib.load(source)
+        agents = settings.get("agents", {})
+        if (settings.get("model_reasoning_effort") != "low" or
+                settings.get("plan_mode_reasoning_effort") != "low" or
+                not isinstance(agents, dict) or
+                agents.get("default_subagent_reasoning_effort") != "low" or
+                agents.get("max_concurrent_threads_per_session") != 1):
+            return "LOW_EFFORT_DEFAULTS_DRIFTED"
+        root = home / ".codex" / "agents"
+        if root.is_symlink():
+            return "CUSTOM_AGENT_DIRECTORY_UNSAFE"
+        if root.exists():
+            for agent in root.glob("*.toml"):
+                if agent.is_symlink() or not agent.is_file():
+                    return "CUSTOM_AGENT_CONFIG_UNSAFE"
+                with agent.open("rb") as source:
+                    data = tomllib.load(source)
+                effort = data.get("model_reasoning_effort")
+                if effort is not None and effort != "low":
+                    return "CUSTOM_AGENT_EFFORT_NOT_LOW"
+    except (OSError, ValueError, TypeError):
+        return "LOW_EFFORT_CONFIG_UNREADABLE"
+    return None
+
+
 def assess(event, state, now):
     kind = event.get("hook_event_name")
     if kind not in ("UserPromptSubmit", "PreToolUse", "PreCompact"):
         return {}, False
+    if type(now) not in (int, float) or now < 0:
+        return denied(kind, "INVALID_CLOCK"), False
+    # Codex does not currently expose an authoritative effective effort field.
+    # If one is present and contradicts LOW, fail closed.
+    effective_effort = event.get("model_reasoning_effort")
+    if effective_effort is not None and effective_effort != "low":
+        return denied(kind, "EFFECTIVE_EFFORT_NOT_LOW"), False
     sid = event.get("session_id")
     if not isinstance(sid, str) or not 0 < len(sid) <= 250:
         return denied(kind, "session identifier missing"), False
@@ -72,12 +115,16 @@ def run(event, home=None, now=None):
     kind = event.get("hook_event_name")
     if kind not in ("UserPromptSubmit", "PreToolUse", "PreCompact") or not scoped(event.get("cwd"), home):
         return {}
-    directory = (home or Path.home()) / ".codex" / "humanos-budget"
+    resolved_home = home or Path.home()
+    problem = low_configuration_problem(resolved_home)
+    if problem:
+        return denied(kind, problem)
+    directory = resolved_home / ".codex" / "humanos-budget"
     if directory.is_symlink():
         raise PermissionError("state symlink")
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     info = directory.stat()
-    if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
         raise PermissionError("state not private")
     fd = os.open(directory / "state.lock", os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600)
     with os.fdopen(fd, "rb") as lock:
