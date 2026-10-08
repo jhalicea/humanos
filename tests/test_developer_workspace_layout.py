@@ -103,6 +103,8 @@ class DeveloperWorkspaceLayoutTests(unittest.TestCase):
             outside = top / "Documents"
             outside.mkdir()
             (outside / "private_note.txt").write_text("Never put in inventory")
+            # Even an in-root symlink must not broaden the default scope.
+            (root / "outside-link").symlink_to(outside / "private_note.txt")
             out = root / "40_Artifacts" / "humanos" / "workspace-audit"
             self.assertEqual(self._run_with_args(["--developer-root", str(root), "--output-dir", str(out)]), 0)
             manifests = list(out.glob("WORKSPACE_INVENTORY_*.json"))
