@@ -20,6 +20,7 @@ def main(argv=None):
     capture.add_argument('--hcid', help='Binding returned by an earlier capture')
     read = sub.add_parser('read', help='Read exact original transcript and source by transaction ID')
     read.add_argument('--tx', required=True)
+    read.add_argument('--owner', required=True)
     recall = sub.add_parser('recall', help='Bounded lexical search of original evidence')
     recall.add_argument('--owner', required=True)
     recall.add_argument('--query', required=True)
@@ -29,7 +30,7 @@ def main(argv=None):
     if args.command != 'capture' and not (args.vault / 'runtime' / 'notebook.sqlite3').is_file():
         parser.error('Notebook vault does not exist')
     if args.command == 'capture':
-        for flag in ('owner', 'source', 'conversation_id', 'turn_id'):
+        for flag in ('owner', 'source', 'conversation_id', 'turn_id', 'human', 'assistant'):
             if not getattr(args, flag).strip():
                 parser.error('--' + flag.replace('_', '-') + ' must be nonempty')
         for flag, limit in (('source', 64), ('conversation_id', 512), ('turn_id', 512)):
@@ -37,6 +38,10 @@ def main(argv=None):
                 parser.error('--' + flag.replace('_', '-') + ' is too long')
         if args.hcid and not (args.vault / 'runtime' / 'notebook.sqlite3').is_file():
             parser.error('--hcid requires an existing Notebook vault')
+    elif args.command == 'read' and (not args.owner.strip() or not args.tx.strip()):
+        parser.error('read requires nonempty --owner and --tx')
+    elif args.command == 'recall' and (not args.owner.strip() or not args.query.strip()):
+        parser.error('recall requires nonempty --owner and --query')
     book = None
     try:
         book = Notebook(args.vault)
@@ -57,11 +62,17 @@ def main(argv=None):
             transaction = book.get_transaction(args.tx)
             if transaction is None:
                 raise ValueError('Unknown transaction ID')
-            rows = list(book.db.execute(
-                'SELECT role,text FROM transcript WHERE tx=? ORDER BY ordinal', (args.tx,)))
+            identity = book.get_identity(transaction['hcid'])
+            if identity is None or identity['owner'] != args.owner or identity['binding'] != 'VERIFIED':
+                raise ValueError('Transaction is unavailable for this owner')
+            # Notebook projections apply the existing HIDE/UNHIDE privacy rule.
+            page = json.loads(book.projections()['pages/' + identity['page'] + '.json'])
+            rows = [row for row in page['transcript'] if row['tx'] == args.tx]
+            if not rows or any(row['text'] == '[HIDDEN — content withheld]' for row in rows):
+                raise ValueError('Transaction contains unavailable transcript evidence')
             result = {'tx': args.tx, 'status': transaction['status'],
                       'source': (book.task(args.tx) or {}).get('source'),
-                      'transcript': [dict(row) for row in rows]}
+                      'transcript': [{'role': row['role'], 'text': row['text']} for row in rows]}
         else:
             report = search_notebook(book, args.owner, 'LOCAL-RECALL', args.query)
             for item in report['results']:
