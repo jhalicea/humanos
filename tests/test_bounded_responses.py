@@ -45,7 +45,7 @@ class BoundedTransportTests(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.ledger = self.home / ".humanos" / "private" / "budgets" / "test.json"
-        self.limits = BudgetLimits(max_calls=2, max_total_tokens=1000,
+        self.limits = BudgetLimits(max_calls=2, max_total_tokens=600,
                                    max_context_tokens=500, max_output_tokens=200)
 
     def go(self, fake, **kw):
