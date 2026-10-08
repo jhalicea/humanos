@@ -303,6 +303,10 @@ def main() -> int:
             return 2
         for candidate in iter_candidates(root, args.max_depth) or []:
             resolved = candidate.resolve()
+            # A symlink inside Developer must not silently expand the default
+            # scan into private files outside the development headquarters.
+            if args.roots is None and not resolved.is_relative_to(developer_root):
+                continue
             if resolved in seen:
                 continue
             seen.add(resolved)
