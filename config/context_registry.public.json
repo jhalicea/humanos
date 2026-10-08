@@ -923,6 +923,148 @@
       "last_verified_commit": null,
       "resume_point": "Multiple file/document branches exist; inspect them before creating another file-context stream.",
       "next_action": "Reconcile contextual-file-intelligence, document-context-extraction, and file-organization branches."
+    },
+    {
+      "workstream_id": "HOS-ARCH-001",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Architecture Recovery and Engineering Baseline",
+      "project": "Software Architecture",
+      "repository": "jhalicea/humanos",
+      "branch": "architecture/independent-review-reconciliation-v1",
+      "work_order": "docs/work-orders/HOS-ARCH-001.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "architecture",
+        "as built",
+        "engineering baseline",
+        "reconciliation",
+        "status drift",
+        "foundation"
+      ],
+      "components": [
+        "docs/architecture/HUMANOS_ARCHITECTURE_BASELINE_PLAN.md",
+        "docs/architecture/HOS_ARCH_RECONCILIATION_2026-10-07.md",
+        "docs/foundation/ARTIFACT_REGISTER.md",
+        "config/context_registry.public.json"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-FND-001"
+        }
+      ],
+      "last_verified_commit": "3f2f25ea09941c8727daac1826e37badf0730d72",
+      "resume_point": "PR #120 merged an architecture baseline. Draft PR #121 remains an independent governance/architecture proposal awaiting owner disposition. October 7 status reconciliation is review-only.",
+      "next_action": "Review metadata PR separately from PR #121. Preserve authority conflict and verify as-built architecture."
+    },
+    {
+      "workstream_id": "HOS-LN-001",
+      "workspace_id": "WS-HUMANOS",
+      "title": "PRE-LN-1 Schema and Integrity ADR",
+      "project": "Life Notebook",
+      "repository": "jhalicea/humanos",
+      "branch": "life-notebook-ln1-schema-integrity",
+      "work_order": "docs/work-orders/HOS-LN-001.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "life notebook",
+        "ln1",
+        "schema",
+        "integrity",
+        "sqlcipher",
+        "migration",
+        "adr"
+      ],
+      "components": [
+        "docs/life-notebook/ADR-LN-014_SCHEMA_INTEGRITY.md",
+        "docs/work-orders/HOS-LN-001.md",
+        "STATUS.md"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-NB-CAPTURE-001"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Draft PR #117 targets life-notebook-ln0 rather than runtime-0.1; ADR candidate is not owner accepted. LN-1 implementation not started.",
+      "next_action": "Obtain owner acceptance after independent ADR review before any LN-1 implementation."
+    },
+    {
+      "workstream_id": "HOS-LN-002",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Usable Life Notebook Semantic Preference Memory",
+      "project": "Life Notebook",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/life-notebook-usable-memory-v1",
+      "work_order": "docs/work-orders/HOS-LN-002.md",
+      "status": "PROMOTED",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "life notebook",
+        "memory",
+        "preference",
+        "transcript",
+        "provenance",
+        "restart",
+        "correction"
+      ],
+      "components": [
+        "notebook_memory.py",
+        "server.py",
+        "tests/test_notebook_memory.py",
+        "docs/work-orders/HOS-LN-002.md"
+      ],
+      "relations": [
+        {
+          "relation": "EXTENDS",
+          "target_workstream_id": "HOS-CTX-004"
+        },
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-LN-001"
+        }
+      ],
+      "last_verified_commit": "0fe4ea5751bb17be30656a5c95809b79d6718636",
+      "resume_point": "PR #122 merged into runtime-0.1 October 2 after passing bounded CI; explicit preference-memory only, not universal ChatGPT capture, privacy-complete LN-1, or production qualification.",
+      "next_action": "Demonstrate owner-local Mirror conversation, restart, recall and correction with provenance while preserving PRE-LN-1 hardening."
+    },
+    {
+      "workstream_id": "HOS-MCP-001",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Bounded Control Room MCP Bridge",
+      "project": "Control Room",
+      "repository": "jhalicea/humanos",
+      "branch": "feature/control-room-mcp-v1",
+      "work_order": "docs/work-orders/HOS-MCP-001.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "control room",
+        "mcp",
+        "external bridge",
+        "approval",
+        "host pairing",
+        "automation"
+      ],
+      "components": [
+        "control_room.py",
+        "control_mcp_server.py",
+        "control_room_cli.py",
+        "config/context_registry.public.json",
+        "docs/control-room-mcp.md"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-FND-001"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Draft PR #87 has bounded integration tests but remains unpromoted; local host, security and owner-promotion gates remain. It edits the same registry path.",
+      "next_action": "Reconcile registry changes with metadata cleanup before merge; complete owner-host acceptance and separate R3 security review."
     }
   ]
 }
