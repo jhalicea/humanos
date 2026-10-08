@@ -9,6 +9,9 @@ import os
 from pathlib import Path
 import sys
 
+# CLI lives in scripts/; resolve the existing repository modules explicitly.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from bounded_responses import ReplanRequired, ResponsesTransport, execute
 from budget_governor import BudgetLimits
 
