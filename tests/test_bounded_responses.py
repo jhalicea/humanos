@@ -168,6 +168,7 @@ class BoundedTransportTests(unittest.TestCase):
                 "--context-cap", "500",
                 "--output-cap", "200"]
         env = dict(os.environ)
+        env["HOME"] = str(self.home)
         env.pop("OPENAI_API_KEY", None)
         offline = subprocess.run(args + ["--dry-run"], env=env,
                                  text=True, capture_output=True, check=False)
