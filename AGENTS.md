@@ -102,3 +102,29 @@ The owner will arrange planned hosted-model reviews; do not transmit code or
 personal records to those services based only on a statement of future intent,
 and never send credentials, secrets, private Notebook paths, client/employer data,
 or unnecessary personal information.
+
+## LOW-effort routing and budget hard-stop (2026-10-08)
+
+Owner directive for all HumanOS Codex/agent development sessions:
+
+- Every primary worker, spawned worker, reviewer, advisor, and planner uses LOW
+  reasoning effort by default, including Sol and Astra. Never silently raise
+  reasoning effort, switch to a more expensive model, or spawn parallel review
+  workers because a task is difficult. Model choice and effort are distinct.
+- Use one worker by default. Prefer exact scripts, tests, parsers, hashes, diffs,
+  targeted reads and smaller models before larger-model interpretation.
+- Before each expensive task or audit, define a bounded scope and explicit
+  call/token/context budget. The model does not get authority to expand its budget.
+- At warning threshold, finish/checkpoint the current bounded slice. If the
+  projected next call exceeds the budget or the task becomes costly, STOP and
+  return REPLAN_REQUIRED with current evidence, usage/uncertainty, reason, and
+  a cheaper proposed decomposition. No unbounded retry, self-review loops, or
+  automatic HIGH/XHIGH/MAX reasoning. Explicit owner approval is required for
+  any exceptional higher-effort proposal; budget and permission boundaries
+  remain in force, and absence of a control requires fail-closed disclosure.
+- Persist verified findings after each audit slice; do not restart whole-system
+  review from history or resend large context dumps. Keep high-risk findings
+  unresolved rather than manufacturing certainty under a low budget.
+- Do not claim a token/billing limit is technically enforced merely because it
+  is written here. Actual runtime enforcement must be integrated and verified
+  in a trusted dispatcher; project configuration is a default, not a hard cap.
