@@ -6,6 +6,10 @@ It records filesystem/Git evidence so cleanup decisions can be made safely.
 
 The output directory is mandatory: the tool will not dump reports into the current
 working directory or home-directory root by accident.
+
+Inventory output can include private full paths, remotes and local state metadata.
+Keep the resulting reports local; do not commit/upload them into public Git.
+A proposed destination is never an instruction to move or delete an item.
 """
 
 from __future__ import annotations
@@ -126,19 +130,23 @@ def classify(path: pathlib.Path, git: dict[str, Any]) -> tuple[str, str, str | N
 
     if git.get("is_git"):
         if git.get("is_worktree"):
-            return "ACTIVE_WORKTREE", "HIGH", "~/Developer/worktrees/<product>/<workstream>/"
-        return "CANONICAL_REPO", "MEDIUM", "~/Developer/repos/<repository>/"
+            return "ACTIVE_WORKTREE", "HIGH", "~/Developer/20_Worktrees/<product>/<workstream>/"
+        return "CANONICAL_REPO", "MEDIUM", "~/Developer/10_Repos/<repository>/"
 
     if "/.humanos/" in text or text.endswith("/.humanos"):
+        # Never silently relocate the live private runtime to fit the developer layout.
         return "PRIVATE_RUNTIME_STATE", "HIGH", "~/.humanos/private/"
-    if "backup" in name or "archive" in name:
-        return "BACKUP_ARCHIVE", "MEDIUM", "~/Archives/<product>/"
+    if "backup" in name:
+        # A same-volume archive is NOT a verified disaster-recovery destination.
+        return "BACKUP_ARCHIVE", "MEDIUM", None
+    if "archive" in name:
+        return "LEGACY_CANDIDATE", "MEDIUM", "~/Developer/90_Archive/<product>/"
     if "migration" in name or "import" in name:
-        return "IMPORT_MIGRATION", "MEDIUM", "~/Developer/imports/<product>/"
+        return "IMPORT_MIGRATION", "MEDIUM", "~/Developer/50_Imports/<product>/"
     if "tmp" == name or name.startswith("tmp-") or name.endswith("-tmp"):
         return "TEMP_CACHE", "MEDIUM", None
     if any(token in name for token in ("audit", "snapshot", "results", "manifest", "evidence")):
-        return "GENERATED_EVIDENCE_ARTIFACT", "MEDIUM", "~/Developer/artifacts/<product>/"
+        return "GENERATED_EVIDENCE_ARTIFACT", "MEDIUM", "~/Developer/40_Artifacts/<product>/"
 
     return "UNKNOWN", "LOW", None
 
