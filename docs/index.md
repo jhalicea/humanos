@@ -28,6 +28,7 @@ HumanOS is a local-first AI runtime and engineering project focused on continuit
 ### Runtime and data lifecycle
 
 - [Architecture](architecture.md)
+- [Dated HumanOS as-built reconciliation](architecture/HOS_ARCH_RECONCILIATION_2026-10-07.md)
 - [Mirror responsibilities](mirror-runtime.md)
 - [Life Notebook](life-notebook.md)
 - [Security and privacy](security-and-privacy.md)
