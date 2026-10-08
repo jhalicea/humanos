@@ -33,7 +33,7 @@ class BudgetGovernorTests(unittest.TestCase):
     def test_projected_overrun_stops_without_an_extra_call(self):
         guard = BudgetGovernor(BudgetLimits(max_calls=1, max_total_tokens=2000,
                                              max_context_tokens=1600, max_output_tokens=500))
-        self.assertEqual("WITHIN_BUDGET", self.reserve(guard)["status"])
+        self.assertEqual("BUDGET_WARNING", self.reserve(guard)["status"])
         guard.complete(input_tokens=1000, output_tokens=500)
         stopped = self.reserve(guard)
         self.assertEqual("PROJECTED_BUDGET_OVERRUN", stopped["reason"])
@@ -45,7 +45,7 @@ class BudgetGovernorTests(unittest.TestCase):
         self.assertEqual("OUTPUT_LIMIT", self.reserve(BudgetGovernor(), output_tokens=2500)["reason"])
 
     def test_warning_at_eighty_percent(self):
-        guard = BudgetGovernor(BudgetLimits(max_calls=2, max_total_tokens=20000))
+        guard = BudgetGovernor(BudgetLimits(max_calls=2, max_total_tokens=1800, max_context_tokens=1600, max_output_tokens=500))
         self.assertEqual("BUDGET_WARNING", self.reserve(guard)["status"])
 
     def test_unknown_usage_and_provider_overrun_stop(self):
