@@ -213,7 +213,7 @@ def execute(*, ledger_path: Path, model: str, prompt: str, instructions: str,
             raise ReplanRequired(gov.halted_reason)
         if gov.pending:
             raise ReplanRequired("UNCERTAIN_INFLIGHT_CALL_ON_RESTART")
-        count_body = {"model": model, "input": prompt}
+        count_body = {"model": model, "input": prompt, "reasoning": {"effort": "low"}, "tools": []}
         if instructions:
             count_body["instructions"] = instructions
         counted = transport.post("/responses/input_tokens", count_body)
@@ -233,9 +233,8 @@ def execute(*, ledger_path: Path, model: str, prompt: str, instructions: str,
         # response. Do not record prompt or key in the ledger.
         _write_ledger(ledger_path, state)
         request_body = dict(count_body)
-        request_body.update({"reasoning": {"effort": "low"},
-                             "max_output_tokens": output_cap, "store": False,
-                             "tools": [], "tool_choice": "none",
+        request_body.update({"max_output_tokens": output_cap, "store": False,
+                             "tool_choice": "none",
                              "parallel_tool_calls": False,
                              "truncation": "disabled"})
         # Text-only, single response, no delegated tools or background work.
@@ -267,8 +266,6 @@ def execute(*, ledger_path: Path, model: str, prompt: str, instructions: str,
         _write_ledger(ledger_path, state)
         if result["status"] == "REPLAN_REQUIRED":
             raise ReplanRequired(result["reason"])
-        if response.get("status") not in ("completed", "incomplete"):
-            raise ReplanRequired("PROVIDER_RESPONSE_UNEXPECTED_STATUS")
         if response.get("status") not in ("completed", "incomplete"):
             gov._stop("PROVIDER_RESPONSE_UNEXPECTED_STATUS")
             state["checkpoint"] = gov.checkpoint()
