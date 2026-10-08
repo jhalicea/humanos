@@ -48,6 +48,7 @@ def low_configuration_problem(home):
                 settings.get("plan_mode_reasoning_effort") != "low" or
                 not isinstance(agents, dict) or
                 agents.get("default_subagent_reasoning_effort") != "low" or
+                agents.get("default_subagent_model") != "gpt-6-luna" or
                 agents.get("max_concurrent_threads_per_session") != 1):
             return "LOW_EFFORT_DEFAULTS_DRIFTED"
         root = home / ".codex" / "agents"
