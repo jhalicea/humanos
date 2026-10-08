@@ -26,7 +26,7 @@ It is a target policy. Applying it to an existing machine requires a read-only i
 
 ```text
 ~/Developer/                         # SINGLE DEVELOPMENT HEADQUARTERS
-  00_Map.md                          # human-readable machine-local location index
+  00_Map.md                          # target navigation index: existence NOT verified
   10_Repos/
     humanos/                         # only canonical checkout of public HumanOS
     humanos-academy-private/         # separate private repository
@@ -68,7 +68,16 @@ The Developer headquarters is where human and AI workers discover engineering wo
 
 ### Evidence of previous Mac cleanup (reported, not host-verified here)
 
-The October 2 conversation history reports a Batch A that moved **three canonical repositories and 12 registered HumanOS worktrees** into `~/Developer` in approved small batches. It also left **10 stale Git worktree registrations** and a **V-05 staging discrepancy** unresolved. An external/disaster backup was unavailable; local recovery packets protected against certain migration mistakes but **not disk loss**. These numbers require fresh owner-Mac inspection before they are promoted to `HOST VERIFIED` or used as an excuse to remove historical registrations/files.
+The October 2 conversation history describes a sequence of small approved batches, **not a single all-at-once cleanup**:
+
+- **Batch A:** created the numbered folder structure.
+- **Batch B:** reportedly relocated **three canonical repositories and 12 registered HumanOS Git worktrees** under `~/Developer`; **10 stale worktree registrations** were preserved, not silently pruned.
+- **Later batches C–G:** organized additional verified human documents and artifacts, including a separate BodyFix navigation index. They do not establish that BodyFixOS and HumanOS share a repository or data authority.
+- **Batch H:** reportedly added AI/virtual-machine navigation indexes under `30_Labs`; **18 Ollama models, 4 UTM VMs and 1 VirtualBox VM remained in managed app storage**, not copied into the source tree.
+- **Batch I / `00_Map.md`:** a completed authoritative developer-root index is **not evidenced** by the recovered history. Verify whether it exists; if absent, propose it as a separate tiny owner-approved local creation, not a Git-tracked personal path map.
+- **V-05 Git staging:** ended with `INSUFFICIENT_EVIDENCE`; do not declare staged data restored or safe to discard without a new inspection.
+
+An external/disaster backup was unavailable at that time. Same-Mac recovery packets mitigate some move mistakes, **not disk loss**. These are prior-session reports, not independent current inspection of the owner's Mac.
 
 **Next step is verification, not a second migration.** Compare the actual current folders, Git worktree registry, ignored files/stashes/unpushed changes, project tests, and application data paths against this proposed map. Do not drag, delete, prune, rewrite history, relocate private databases, or create a new root automatically.
 
