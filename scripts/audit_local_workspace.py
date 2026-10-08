@@ -214,6 +214,15 @@ def record_for(path: pathlib.Path, developer_root: pathlib.Path | None = None) -
     }
 
 
+def open_private_report(path: pathlib.Path):
+    """Create a new local audit report readable only by its owner."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags, 0o600)
+    return os.fdopen(fd, "w", encoding="utf-8", newline="")
+
+
 def write_csv(path: pathlib.Path, records: list[dict[str, Any]]) -> None:
     fieldnames = [
         "path",
@@ -235,7 +244,7 @@ def write_csv(path: pathlib.Path, records: list[dict[str, Any]]) -> None:
         "modified_utc",
         "error",
     ]
-    with path.open("w", encoding="utf-8", newline="") as handle:
+    with open_private_report(path) as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(records)
@@ -306,11 +315,16 @@ def main() -> int:
     records.sort(key=lambda record: record.get("path", ""))
     # No destination gets to claim a duplicate is canonical without human review.
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if output_dir.stat().st_mode & 0o077:
+        print("Refusing audit output directory accessible to group/others.", file=sys.stderr)
+        return 2
     json_path = output_dir / f"WORKSPACE_INVENTORY_{timestamp}.json"
     csv_path = output_dir / f"WORKSPACE_INVENTORY_{timestamp}.csv"
 
-    json_path.write_text(json.dumps(records, indent=2, sort_keys=True), encoding="utf-8")
+    with open_private_report(json_path) as handle:
+        json.dump(records, handle, indent=2, sort_keys=True)
+        handle.write("\n")
     write_csv(csv_path, records)
     print(f"Read-only inventory complete: {len(records)} items; all classifications provisional")
     print(f"JSON: {json_path}")
