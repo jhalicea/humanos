@@ -9,6 +9,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import tomllib
 
 EVENTS = ("UserPromptSubmit", "PreToolUse", "PreCompact")
 
@@ -65,6 +66,15 @@ def prepare(repo, sha, home):
         text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=True).stdout
     if "humanos.codex.hook-budget.v1" not in source:
         raise ValueError("unknown hook source")
+    codex = home / ".codex"
+    if codex.is_symlink() or (codex / "hooks").is_symlink():
+        raise PermissionError("Codex configuration path has an unsafe symlink")
+    config_toml = codex / "config.toml"
+    if config_toml.is_file():
+        with config_toml.open("rb") as stream:
+            settings = tomllib.load(stream)
+        if settings.get("features", {}).get("hooks") is False:
+            raise ValueError("Codex hooks are explicitly disabled; no installation")
     script = home / ".codex" / "hooks" / "humanos_budget_hook.py"
     hooks = home / ".codex" / "hooks.json"
     for path in (script, hooks):
