@@ -3,8 +3,10 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 from scripts.codex_budget_hook import MAX_TURNS, MAX_TOOLS, SCHEMA, assess, run, scoped, low_configuration_problem
-from scripts.codex_budget_setup import merge
+from scripts.codex_budget_setup import merge, prepare
 
 class BudgetTests(unittest.TestCase):
     def setUp(self):
@@ -99,6 +101,43 @@ class BudgetTests(unittest.TestCase):
         self.assertFalse(changed)
         self.assertEqual("block", response["decision"])
         self.assertIn("EFFECTIVE_EFFORT_NOT_LOW", response["reason"])
+
+    def test_safe_upgrade_of_exact_previous_hook(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = root / "humanos"
+            (repo / ".git").mkdir(parents=True)
+            home = root / "owner"
+            hook = home / ".codex" / "hooks" / "humanos_budget_hook.py"
+            hook.parent.mkdir(parents=True)
+            hook.write_text("exact-previous-source")
+            replacement = 'SCHEMA = "humanos.codex.hook-budget.v1"\n'
+            with patch("scripts.codex_budget_setup.subprocess.run",
+                       side_effect=[
+                           SimpleNamespace(stdout=replacement),
+                           SimpleNamespace(stdout="exact-previous-source")]):
+                script, code, hooks, newconfig = prepare(repo, "a" * 40, home)
+            self.assertEqual(hook, script)
+            self.assertEqual(replacement, code)
+            self.assertIn("UserPromptSubmit", newconfig)
+
+    def test_refuse_upgrading_modified_installed_hook(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = root / "humanos"
+            (repo / ".git").mkdir(parents=True)
+            home = root / "owner"
+            hook = home / ".codex" / "hooks" / "humanos_budget_hook.py"
+            hook.parent.mkdir(parents=True)
+            hook.write_text("unrecognized-custom-hook")
+            replacement = 'SCHEMA = "humanos.codex.hook-budget.v1"\n'
+            with patch("scripts.codex_budget_setup.subprocess.run",
+                       side_effect=[
+                           SimpleNamespace(stdout=replacement),
+                           SimpleNamespace(stdout="exact-previous-source")]):
+                with self.assertRaisesRegex(ValueError, "manual reconciliation"):
+                    prepare(repo, "a" * 40, home)
+            self.assertEqual("unrecognized-custom-hook", hook.read_text())
 
     def test_merge_existing_hooks(self):
         original=json.dumps({"hooks":{"SessionStart":[{"hooks":[{"command":"existing"}]}]}})
