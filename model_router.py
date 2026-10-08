@@ -12,7 +12,11 @@ VALID_LANES = {"GREEN", "AMBER", "RED"}
 VALID_MODELS = {"luna", "terra", "sol", "astra"}
 VALID_EFFORTS = {"light", "low", "medium", "high", "xhigh", "max"}
 
-POLICY_VERSION = "v1-candidate"
+POLICY_VERSION = "v1-budget-candidate"
+DEFAULT_EFFORT = "low"
+DEFAULT_BUDGET = {"max_calls": 4, "max_total_tokens": 16000,
+                  "max_context_tokens": 8000, "max_output_tokens": 2000,
+                  "warning_percent": 80}
 ROUTER_MODE = "learning"
 
 
@@ -48,6 +52,9 @@ class TaskProfile:
     important_artifact: bool = False
     owner_override: Optional[str] = None
     experiment_workflow: Optional[ExperimentWorkflow] = None
+    estimated_context_tokens: Optional[int] = None
+    estimated_total_tokens: Optional[int] = None
+    estimated_model_calls: Optional[int] = None
 
 
 def _risk_lane(task: TaskProfile) -> str:
@@ -74,7 +81,8 @@ def _automatic_route(task: TaskProfile, risk_lane: str) -> tuple[str, str, Optio
     """Return route, primary, worker, reviewer, behavior overlay."""
     if risk_lane == "RED":
         if task.broad_parallel_work or task.expensive_to_miss_failures or task.cross_system:
-            return "ESCALATE", "astra", None, "sol", "SENIOR_CHALLENGER"
+            # Broad RED work requires decomposition before any expensive reviewer or lead.
+            return "ESCALATE", "sol", None, "astra", "SENIOR_CHALLENGER"
         return "DECIDE", "sol", None, "astra", "COLLABORATIVE_REFRAMER"
 
     if task.well_defined:
@@ -131,6 +139,22 @@ def route_task(task: TaskProfile) -> dict:
         if lane == "RED" and primary != "astra" and reviewer is None:
             reviewer = "astra"
 
+    # Fail closed at the recommendation gate when an estimate is known to exceed
+    # a bounded single-slice budget. Missing estimates are UNVERIFIED, never clearance.
+    estimates = ((task.estimated_context_tokens, "max_context_tokens"),
+                 (task.estimated_total_tokens, "max_total_tokens"),
+                 (task.estimated_model_calls, "max_calls"))
+    for estimate, key in estimates:
+        if estimate is not None and (type(estimate) is not int or estimate < 0):
+            raise ValueError("budget estimates must be nonnegative integers")
+    over_budget = any(value is not None and value > DEFAULT_BUDGET[key]
+                      for value, key in estimates)
+    replan = over_budget or (lane == "RED" and task.broad_parallel_work)
+    if over_budget:
+        reason_codes.append("PROJECTED_BUDGET_OVERRUN")
+    if lane == "RED" and task.broad_parallel_work:
+        reason_codes.append("DECOMPOSE_BROAD_HIGH_RISK_WORK")
+
     experimental_workflow = None
     if task.experiment_workflow is not None:
         exp = task.experiment_workflow
@@ -159,6 +183,18 @@ def route_task(task: TaskProfile) -> dict:
         "route_source": route_source,
         "reason_codes": reason_codes,
         "policy_version": POLICY_VERSION,
+        "status": "REPLAN_REQUIRED" if replan else "PROPOSED",
+        "effort_policy": DEFAULT_EFFORT,
+        "primary_effort": DEFAULT_EFFORT,
+        "worker_effort": DEFAULT_EFFORT if worker else None,
+        "reviewer_effort": DEFAULT_EFFORT if reviewer else None,
+        "automatic_effort_escalation": False,
+        "automatic_budget_escalation": False,
+        "max_one_worker_by_default": True,
+        "budget_limits": dict(DEFAULT_BUDGET),
+        "budget_estimate_status": "UNVERIFIED" if any(value is None for value, _ in estimates) else ("OVER_LIMIT" if over_budget else "WITHIN_LIMIT"),
+        "budget_execution_clearance": False,
+        "replan_actions": ["narrow scope", "reduce context", "reuse evidence", "use deterministic checks", "split into bounded slices"] if replan else [],
         "router_mode": ROUTER_MODE,
         "recommendation_only": True,
         "policy_locked": False,

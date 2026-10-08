@@ -86,3 +86,31 @@ Before merge:
 - record known limitations and defects;
 - perform independent review against the same immutable commit;
 - obtain owner approval for merge/release.
+
+## 2026-10-08 bounded budget/effort correction (candidate)
+
+Owner direction: all workers default to LOW reasoning effort. Expensive/broad work
+requires STOP -> REPLAN instead of automatic effort escalation, automatic Astra
+promotion, unlimited retries, or larger contexts. The recommendation now records
+LOW for primary/worker/reviewer, provisional single-slice ceilings (4 calls,
+16,000 conservatively reserved tokens, 8,000 input-context tokens, 2,000 output
+tokens), and REPLAN_REQUIRED for known estimated overruns or broad RED work.
+Historical higher-effort Model Lab experiments remain provenance only.
+
+The new `budget_governor.py` is a deterministic gate for a future trusted executor:
+reserve a worst-case call bound before dispatch; require explicit provider confirmation
+of LOW effort and hard output caps; accept metered completion; warn at 80%; fail
+closed on missing usage, limit violations, concurrent calls, or uncertain restart.
+Its small JSON-safe checkpoint MUST be durably persisted before dispatch by any
+future integrating executor. Budget clearance is not tool/permission authority.
+
+**Boundary / non-claim:** PR #63 remains recommendation-only. Codex Desktop,
+ChatGPT Work, hosted Astra, and external worker dispatch are NOT wired to this
+governor; this PR cannot enforce their reasoning settings or actual billing.
+Never mark the provider/integration layer fixed without a real dispatch test.
+The follow-on integration must select supported LOW effort explicitly, enforce
+caps at the provider, persist checkpoints in the governed execution ledger,
+run truthful provider-usage tests, and emit REPLAN_REQUIRED instead of retrying.
+
+Acceptance: focused router + governor tests, existing suite, diff review, no
+dispatch and no authority granted; owner approval required before promotion.

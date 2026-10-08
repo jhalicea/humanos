@@ -44,8 +44,9 @@ class ModelRouterTests(unittest.TestCase):
             cross_system=True,
         ))
         self.assertEqual("ESCALATE", result["task_class"])
-        self.assertEqual("astra", result["primary_model"])
-        self.assertEqual("sol", result["reviewer_model"])
+        self.assertEqual("sol", result["primary_model"])
+        self.assertEqual("astra", result["reviewer_model"])
+        self.assertEqual("REPLAN_REQUIRED", result["status"])
         self.assertIn("PARALLEL_BREADTH", result["reason_codes"])
 
     def test_amber_bounded_work_gets_sol_review(self):
@@ -78,7 +79,7 @@ class ModelRouterTests(unittest.TestCase):
 
     def test_router_explicitly_remains_learning_and_unlocked(self):
         result = route_task(TaskProfile(task_id="T9", well_defined=False))
-        self.assertEqual("v1-candidate", result["policy_version"])
+        self.assertEqual("v1-budget-candidate", result["policy_version"])
         self.assertEqual("learning", result["router_mode"])
         self.assertTrue(result["recommendation_only"])
         self.assertFalse(result["policy_locked"])
@@ -107,6 +108,35 @@ class ModelRouterTests(unittest.TestCase):
         self.assertFalse(workflow["promoted_to_policy"])
         self.assertIn("EXPERIMENTAL_WORKFLOW_RECORDED", result["reason_codes"])
         self.assertIn("OWNER_ACCEPTED_EXPERIMENT", result["reason_codes"])
+
+    def test_all_routes_including_astra_override_use_low_effort(self):
+        for name in ("luna", "terra", "sol", "astra"):
+            result = route_task(TaskProfile(task_id=name, well_defined=True, owner_override=name))
+            self.assertEqual("low", result["primary_effort"])
+            self.assertFalse(result["automatic_effort_escalation"])
+            self.assertFalse(result["automatic_budget_escalation"])
+            self.assertFalse(result["budget_execution_clearance"])
+
+    def test_expensive_estimate_requires_replan_without_dispatch(self):
+        result = route_task(TaskProfile(task_id="costly", well_defined=True,
+            estimated_context_tokens=9000, estimated_total_tokens=18000,
+            estimated_model_calls=8))
+        self.assertEqual("REPLAN_REQUIRED", result["status"])
+        self.assertIn("PROJECTED_BUDGET_OVERRUN", result["reason_codes"])
+        self.assertFalse(result["budget_execution_clearance"])
+
+    def test_historical_high_effort_experiment_does_not_change_low_policy(self):
+        result = route_task(TaskProfile(task_id="historic", well_defined=True,
+            experiment_workflow=ExperimentWorkflow(advisor_model="astra",
+                worker_model="terra", worker_effort="high", owner_accepted=True)))
+        self.assertEqual("high", result["experimental_workflow"]["worker_effort"])
+        self.assertEqual("low", result["primary_effort"])
+        self.assertFalse(result["experimental_workflow"]["promoted_to_policy"])
+
+    def test_invalid_budget_estimate_is_rejected(self):
+        with self.assertRaises(ValueError):
+            route_task(TaskProfile(task_id="bad", well_defined=True,
+                estimated_total_tokens=-1))
 
     def test_invalid_experiment_effort_is_rejected(self):
         with self.assertRaises(ValueError):
