@@ -5,5 +5,5 @@ model_reasoning_effort = "low"
 plan_mode_reasoning_effort = "low"
 
 [agents]
-default_subagent_reasoning_effort = "low"
+default_subagent_model = "gpt-6-luna"\ndefault_subagent_reasoning_effort = "low"
 max_concurrent_threads_per_session = 1
