@@ -2,7 +2,7 @@
 
 Status: **CANDIDATE / HOS-ARCH-001 — OWNER RATIFICATION REQUIRED FOR GOVERNANCE CHANGES**  
 Baseline: `runtime-0.1` @ `3f2f25ea09941c8727daac1826e37badf0730d72`  
-Date: 2026-10-01
+Baseline date: 2026-10-01; workspace/team reconciliation candidate: 2026-10-08
 
 This document is a public-safe architecture baseline plan. It does not contain private filesystem roots, learner state, Notebook content, credentials, employer/client data, or personal workspace details.
 
@@ -107,24 +107,69 @@ The architecture baseline must strengthen these properties, not create a paralle
 - release-time architecture drift review;
 - no architecture claim promoted solely because multiple models agree.
 
-## 6. Roles before agents
+## 6. One human, AI-assisted software company — roles before agents
 
-HumanOS engineering defines responsibilities before deciding whether any responsibility deserves a specialist agent.
+### Operating model and accountability
+
+HumanOS is designed and developed as **one human owner/founder with a governed AI-assisted engineering team**, not a fiction that every AI is an independently employed or authorized person. The owner is accountable for product value, architecture tradeoffs, meaningful external actions, risk acceptance, security policy, cost ceilings, releases and ratifications. A model, coding agent, search tool, or deterministic script can **perform an assigned task** but cannot become the human authority by capability, confidence or successful tests.
 
 ```text
-Human owner / accountable engineer
-        |
-        +-- product / requirements
-        +-- architecture
-        +-- research
-        +-- implementation
-        +-- test / Quality Assurance (QA)
-        +-- security
-        +-- independent review
-        +-- release / operations
+                      HUMAN FOUNDER / PRODUCT OWNER
+                Vision · priorities · consent · release/ratification
+                                  |
+                   HUMANOS ENGINEERING CONTROL
+              Workstream → work order → branch/worktree → checks
+                                  |
+           +----------------------+----------------------+
+           |                      |                      |
+      AI researcher         AI implementer          AI reviewer/QA
+      evidence/options      bounded code diff       tests/adversarial review
+           |                      |                      |
+           +----------------------+----------------------+
+                                  |
+                       CI + DETERMINISTIC GATES
+                                  |
+                          HUMAN REVIEW / PROMOTE
+                                  |
+                       RELEASE · OBSERVE · RECOVER
+                         Notebook/source evidence
 ```
 
-A responsibility may be performed by the human, deterministic automation, one model, a workflow, or a specialist agent. If agents are used, identity, scoped capabilities, permission enforcement, resource/spend limits, evidence, evaluations, and approval gates remain external controls.
+### Responsibilities; no speculative autonomous staff
+
+| Engineering function | Typical accountable role | Suitable support | Deliverable / decision limit |
+|---|---|---|---|
+| Founder / Product Manager | Human owner | Mirror summarizes needs and tradeoffs | Chooses why/what matters, priority, acceptance and scope |
+| Architect / Technical Lead | Human owner accountable; AI may draft | One or more models compare patterns, trace code, draft ADR | Significant one-way decisions require human ratification |
+| Research and requirements | Owner validates claims | Search/research worker with cited sources | Provenance and uncertainty; retrieved text cannot become instructions |
+| Software developer | Owner delegates bounded task | Codex/Claude/GitHub tooling or selected capable model | Patch only to granted worktree/files; never direct unreviewed production |
+| QA and evaluation | Owner sets acceptance | Deterministic tests, CI, separate reviewer/model when useful | Evidence of covered behavior; not a blanket production guarantee |
+| Security/privacy | Owner retains risk acceptance | Threat model, secrets scan, independent hypothesis tests | Can block unsafe promotion; model never grants privileges |
+| Release/operations | Owner authorizes release | Deterministic scripts/CI and bounded automation | Verify merge, install/host behavior, backup/rollback and checkpoint |
+| Librarian/records | Owner controls retention | Notebook importer, indexer and Mirror | Exact evidence before derived summary; cannot silently ratify output |
+
+Each job is a **role**, which may be completed by one tool, one model, multiple independent reviews, or human work. Do not create a persistent autonomous agent, service, queue, account or infrastructure simply because a role appears in the diagram. Today's actual runtime provides bounded capabilities; a general autonomous AI staff is a **target operating pattern, not a verified current capability**.
+
+### How a real software team works: the repeatable HumanOS cycle
+
+1. **Intake and prioritize:** Human identifies problem and desired human outcome; Mirror finds the existing workspace/workstream. If there is no suitable stream, record a bounded proposal instead of silently creating a new product.
+2. **Specify:** A work order describes scope, affected files, acceptance criteria, privacy classification, dependencies, owner, authority lane, reversibility class, spend/time budget, and exact next action.
+3. **Baseline:** Read the current code, latest branch `HEAD`, dirty/untracked/stash state, and relevant design/decision records. Choose the one canonical repository, then an isolated feature branch/worktree in the established `~/Developer` headquarters.
+4. **Assign/delegate:** Research, implementation, QA and review are separate **functions** with scoped work packets, tools and outputs. Use the least expensive capable resource unless the owner requests stronger reasoning or risk/failures justify escalation. Workers get only needed context, never blanket private Notebook/credentials.
+5. **Build:** Developer makes a small diff in the assigned worktree. Code and data may be tested locally, but the model cannot approve its own permission or silently alter the Constitution.
+6. **Verify:** Run targeted deterministic tests, regression, security/privacy checks and independent review as proportional to risk. Differentiate unit test, GitHub CI, live owner-host acceptance and production qualification.
+7. **Propose promotion:** Open a draft PR containing changed files, reason, evidence, risks, rollback and Judgment Disclosure. Passing CI is necessary when required, but not owner ratification.
+8. **Decide/release:** Human reviews consequential changes and ratifies architecture/authority/release decisions as required. An approved merge is followed by deployment/install verification and rollback readiness, not treated as proof of a working app on the Mac.
+9. **Preserve/recover:** Update existing work order, dated status, Context Registry and Issue #67 pointers as appropriate. Capture **verified** Notebook evidence/checkpoint or explicitly declare `CHECKPOINT LAG`. Never invent a write receipt.
+10. **Continue:** Next conversation/work session recovers from checked-in state, the current owner decisions and the last verified checkpoint, rather than trusting a model's remembered completion claim.
+
+**Illustrative separation of duties:** One model proposes a patch; deterministic tests test it; another reviewer critiques risk where worthwhile; only the owner can authorize an R3 architectural decision. Running multiple models without disjoint roles or evidence does not establish independent verification.
+
+### Human experience and worker economy
+
+Mirror is the single simple front door. Ordinary user sees: **Now · Continue · Notebook · Academy · System**. Work orders, PRs, hashes, model choice, and audit receipts sit underneath, with progressive depth `S0 Direct → S1 Guided → S2 Deep → S3 Audit`; the human can inspect details when desired. The engineering team runs behind this interface **only when genuinely necessary**, not to generate paperwork or consume tokens.
+
+Keep separate (a) **authority lane** GREEN/AMBER/RED, (b) **architecture reversibility** R1/R2/R3, and (c) **resource routing/cost**. Cost optimization never silently overrides the owner's explicit model choice or security requirements.
 
 ## 7. Separate decision axes — do not collapse authority and reversibility
 
@@ -213,15 +258,19 @@ Each product owns its own architecture, storage, releases, tests, documentation 
 
 A future automated architecture fitness rule should fail source-code changes that introduce a direct BodyFixOS internal import into HumanOS. The repository must label this rule **not enforced** until a concrete test or Continuous Integration check exists.
 
-## 11. Local development-workspace rule
+## 11. One developer headquarters: canonical workstation layout
 
-HumanOS should not use the user's home directory or Documents root as a default artifact sink. The target policy separates canonical repositories, worktrees, private runtime state, generated evidence, backups, imports/migrations, temporary files, and personal documents.
+**Target and ratification boundary:** Work from the numbered `~/Developer` structure already reported from the October 2 cleanup, **not a newly invented `HumanOS` root or the earlier generic `~/Developer/repos` proposal**. The detailed single-source candidate is [Local Development Workspace Policy](LOCAL_DEVELOPMENT_WORKSPACE_POLICY.md).
 
-Before any cleanup, the actual machine must be inventoried in a read-only pass. Git repositories, worktrees, dirty state, stashes, unpushed commits, ignored/private files, virtual environments, and backups must be identified before anything moves.
+- **One navigation headquarters:** `~/Developer/00_Map.md` points to `10_Repos/` (canonical checkouts), `20_Worktrees/` (Git-registered isolated branches), `30_Labs/`, `40_Artifacts/`, `50_Imports/`, and `90_Archive/`. The local map is a non-authoritative locator, not another task ledger.
+- **One canonical HumanOS source checkout:** target `~/Developer/10_Repos/humanos/`. Workstreams use registered folders under `~/Developer/20_Worktrees/humanos/`; branches/worktrees are not new or competing HumanOS projects.
+- **Separate ownership and security:** HumanOS public source, HumanOS private state, personal/iCloud documents, managed model/VM caches, independent BodyFixOS resources, and backups need distinct classifications and policies. A visible pointer from `~/Developer` does **not** authorize mixing these bytes into one Git repository. Keep private `~/.humanos/` state in place unless an approved migration with restore verification occurs.
+- **Backup exception:** independent restore copies cannot be only on the same internal volume as the live project. When external backup is unavailable, mark **DISASTER RECOVERY UNQUALIFIED**, preserve local recovery packets, and forbid destructive cleanup.
+- **No more moves by assumption:** October 2 historical conversation reports three repositories and 12 registered HumanOS worktrees moved, while stale registrations and a V-05 discrepancy remained. Verify on the owner's actual Mac; a chat assistant cannot certify filesystem cleanup by reading GitHub or chat history.
+- **Deterministic worker destinations:** code → selected worktree, approved reports → scoped `40_Artifacts`, incoming untrusted data → `50_Imports`, scratch → scoped temp/lab, retained old work → `90_Archive`; no silent output to home, Desktop, Documents or arbitrary current directory. Enforce this in executor/tool configuration when available; otherwise label **DOCUMENTED, NOT ENFORCED**.
+- **Protection for Git:** inventory dirty files, unpushed commits, stashes, ignored/private files, worktree registrations and virtual environments before any move; move registered worktrees using Git-aware commands and re-verify paths afterward.
 
-Cleanup is staged:
-
-`backup/snapshot → inventory → manifest/checksums → proposed destination → quarantine/move → repair worktrees/recreate environments → verify repositories/tests/runtime → archive/delete only with explicit approval`
+Physical relocation of canonical code, worktrees, Notebook databases, keys or backups is **out of scope until an explicit owner-approved, recovery-safe cutover**. A permanent path convention is an architecture judgment requiring owner ratification. Standardize terminology and documentation now; do not claim host enforcement or cleanup completed from this document.
 
 ## 12. Definition of success
 
