@@ -64,7 +64,7 @@ The Developer headquarters is where human and AI workers discover engineering wo
 | Recovery backups | An independently recoverable copy, ideally on **another device/offsite**, with tested restore and distinct key custody | Recovery manifest pointer; never claim a same-disk recovery packet is a disaster backup |
 | BodyFixOS | Independent product checkout, runtime state, permission scope, and release process | Can share Developer *parent*, not HumanOS source, Notebook, or secrets |
 
-`00_Map.md` is a **local read-only navigation aid** (not a second registry or authority ledger): location class, owner/product, verified path, last checked date, source Git remote/worktree identification, and recovery/verification reference. Use relative paths within `~/Developer` and the smallest safe pointer to approved external locations. Never put credentials, full personal transcripts, private identifiers, or public-facing local roots into Git. Do not auto-create this map or mark it verified from a chat-only inspection.
+`00_Map.md` is a **local read-only navigation aid** (not a second registry or authority ledger): location class, owner/product, verified path, last checked date, source Git remote/worktree identification, and recovery/verification reference. Use relative paths within `~/Developer` and the smallest safe pointer to approved external locations. Never put credentials, full personal transcripts, private identifiers, or public-facing local roots into Git. Do not auto-create this map or mark it verified from a chat-only inspection. A source-controlled, non-sensitive [navigation-map template](DEVELOPER_ROOT_MAP_TEMPLATE.md) is available; the completed private local map remains outside public Git.
 
 ### Evidence of previous Mac cleanup (reported, not host-verified here)
 
@@ -80,6 +80,20 @@ The October 2 conversation history describes a sequence of small approved batche
 An external/disaster backup was unavailable at that time. Same-Mac recovery packets mitigate some move mistakes, **not disk loss**. These are prior-session reports, not independent current inspection of the owner's Mac.
 
 **Next step is verification, not a second migration.** Compare the actual current folders, Git worktree registry, ignored files/stashes/unpushed changes, project tests, and application data paths against this proposed map. Do not drag, delete, prune, rewrite history, relocate private databases, or create a new root automatically.
+
+## Tool qualification and bounded inventory defaults
+
+The proposed `scripts/audit_local_workspace.py` (contained in draft PR #121) must use **`~/Developer` as its only default scan root**, not the full home, Documents or Desktop. Any broader scope requires an explicit `--root` argument by the human operator; broad scans can expose more private metadata. The tool must:
+
+- Refuse to declare a Git clone `CANONICAL_REPO` solely because `git rev-parse` succeeded. Consider candidate canonical status only at a plausible `10_Repos/<repository>` location with a Git remote; owner and uniqueness verification remain necessary.
+- Treat any Git worktree outside the intended `20_Worktrees/<product>/<workstream>` area as an investigation candidate, not silently normal.
+- Require an explicit report subdirectory **inside `~/Developer/40_Artifacts/`**; refuse writes inside repositories, worktrees, or arbitrary home/cloud-synced folders.
+- Protect report files with owner-only permissions; refuse an overly broad existing report directory.
+- Keep reports **local/private** because they may contain full paths, status output, remotes and metadata; neither the map template nor public PRs should contain raw reports.
+- Continue to only **inspect**, never move, prune, delete, stash, commit, push, chmod existing owner project folders, or reconcile a private database automatically.
+- Mark `UNKNOWN` and unqualified independent recovery as unresolved rather than treating a clean-looking folder tree as a successful audit.
+
+The tool's restrictions are only **TESTED for the inventory tool itself**, not a universal file-output allowlist over every HumanOS runtime or AI worker. A future policy gate needs separate code and authorization.
 
 ## Canonical classification for every existing item
 
