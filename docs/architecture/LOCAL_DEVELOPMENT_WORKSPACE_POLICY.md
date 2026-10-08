@@ -1,11 +1,11 @@
 # Local Development Workspace Policy
 
-Status: **CANDIDATE — HOS-ARCH-001**  
-Date: 2026-10-01
+Status: **CANDIDATE v0.2 — HOS-ARCH-001 / OWNER RATIFICATION REQUIRED FOR PERMANENT LAYOUT**  
+Original: 2026-10-01; reconciliation: 2026-10-08
 
 This policy prevents HumanOS development artifacts from spreading across a developer's home directory and prevents independent products from being accidentally coupled by filesystem layout.
 
-It is a target policy. Applying it to an existing machine requires a read-only inventory and explicit approval before moves/deletions.
+It is a target policy. Applying it to an existing machine requires a read-only inventory, a verified backup/snapshot, and explicit approval before consequential moves or deletion.
 
 ## Principles
 
@@ -15,43 +15,85 @@ It is a target policy. Applying it to an existing machine requires a read-only i
 4. Private HumanOS runtime state remains outside the public repository.
 5. Generated evidence, exports and temporary files have designated locations.
 6. Backups are distinguishable from live repositories and worktrees.
-7. `~/Documents` and the home-directory root are not default build/artifact destinations.
-8. Nothing is deleted merely because a filename looks old; classify and verify first.
+7. `~/Documents`, `~/Desktop`, and the home-directory root are not default build/artifact destinations.
+8. Development repositories should not live in iCloud-synchronized Desktop/Documents locations.
+9. Nothing is deleted merely because a filename looks old; classify and verify first.
+10. Unknown destination means stop, not “write to the current directory.”
 
-## Proposed developer layout
+## Candidate canonical Developer headquarters — actual cleanup naming
+
+**Design decision candidate, not a command to move files:** Preserve the numbered `~/Developer` scheme used during the reported October 2 Mac cleanup. It supersedes the generic illustrative `~/Developer/repos`, `~/Developer/worktrees`, and `~/Developer/artifacts` examples in older proposals. These names are stable **targets** pending host-local verification and owner ratification; no local filesystem mutation is authorized by this document.
 
 ```text
-~/Developer/
-  repos/
+~/Developer/                         # SINGLE DEVELOPMENT HEADQUARTERS
+  00_Map.md                          # target navigation index: existence NOT verified
+  10_Repos/
+    humanos/                         # only canonical checkout of public HumanOS
+    humanos-academy-private/         # separate private repository
+    <other-independent-repo>/        # separate owner; NEVER nest in humanos/
+  20_Worktrees/
     humanos/
-    humanos-academy-private/
-    career-ops-private/
-    bodyfixos/                 # independent product, not inside HumanOS
-  worktrees/
-    humanos/
-      <workstream>/
-    bodyfixos/
-      <workstream>/
-  artifacts/
-    humanos/
-    bodyfixos/
-  imports/
-    humanos/
-    bodyfixos/
-
-~/.humanos/
-  private/
-    ...                        # HumanOS private runtime state; never BodyFixOS data
-
-~/Archives/
-  humanos/
-  bodyfixos/
-  other-projects/
+      <workstream-slug>/             # registered Git worktrees; not independent repos
+    <other-product>/
+      <workstream-slug>/
+  30_Labs/                           # disposable experiments, by owner/project
+  40_Artifacts/
+    humanos/<workstream>/<run-id>/   # generated reports, test evidence, exports
+    <other-product>/<workstream>/<run-id>/
+  50_Imports/
+    humanos/<intake-id>/             # untrusted inbound files; not automatically canonical
+    <other-product>/<intake-id>/
+  90_Archive/
+    humanos/<date-or-ticket>/        # classified retained legacy material
+    <other-product>/<date-or-ticket>/
 ```
 
-Exact paths may differ if the owner prefers another top-level root. The invariant is separation by purpose and product.
+Do not create additional `HumanOS/`, `HumanOS_New/`, `humanos-copy/`, `humanos-final/` or alternate repository roots. The **canonical public code** has one owner checkout: `~/Developer/10_Repos/humanos`. Each approved branch may have an isolated, registered worktree under `20_Worktrees/humanos/`; worktrees are **not duplicate projects**. Filenames that look like older releases are not a basis for deletion.
 
-BodyFixOS private operational state should use its own separately defined application-data location and must not be stored under `~/.humanos/`.
+### Exceptions: one *navigation root* is not one *security/storage boundary*
+
+The Developer headquarters is where human and AI workers discover engineering work. It is **not** a mandate to put every byte in a single directory or disk.
+
+| Kind | Canonical principle | Where to find it from Developer |
+|---|---|---|
+| Public HumanOS source and project docs | `10_Repos/humanos/`, governed Git repository | Map its exact current checkout in `00_Map.md` |
+| Active HumanOS branches/worktrees | `20_Worktrees/humanos/` as registered with Git | `git worktree list --porcelain`; map work order and branch |
+| HumanOS private runtime/Notebook, credentials | Outside public Git, access-controlled, encrypted as required; historic `~/.humanos/` location is **not to be moved silently** | `00_Map.md` contains only a safe pointer and classification, not secrets or personal data |
+| Human-visible personal documents | Existing approved iCloud Drive/Jon structure for phone access; **not Git and not worktree storage** | Optional safe pointer; avoid automatic iCloud synchronization of repo or live databases |
+| Ollama models / UTM / VMs / large managed assets | Managed by their actual host apps; no duplication into 10_Repos or 40_Artifacts | Safe pointers plus owner-approved capacity notes |
+| Recovery backups | An independently recoverable copy, ideally on **another device/offsite**, with tested restore and distinct key custody | Recovery manifest pointer; never claim a same-disk recovery packet is a disaster backup |
+| BodyFixOS | Independent product checkout, runtime state, permission scope, and release process | Can share Developer *parent*, not HumanOS source, Notebook, or secrets |
+
+`00_Map.md` is a **local read-only navigation aid** (not a second registry or authority ledger): location class, owner/product, verified path, last checked date, source Git remote/worktree identification, and recovery/verification reference. Use relative paths within `~/Developer` and the smallest safe pointer to approved external locations. Never put credentials, full personal transcripts, private identifiers, or public-facing local roots into Git. Do not auto-create this map or mark it verified from a chat-only inspection. A source-controlled, non-sensitive [navigation-map template](DEVELOPER_ROOT_MAP_TEMPLATE.md) is available; the completed private local map remains outside public Git.
+
+### Evidence of previous Mac cleanup (reported, not host-verified here)
+
+The October 2 conversation history describes a sequence of small approved batches, **not a single all-at-once cleanup**:
+
+- **Batch A:** created the numbered folder structure.
+- **Batch B:** reportedly relocated **three canonical repositories and 12 registered HumanOS Git worktrees** under `~/Developer`; **10 stale worktree registrations** were preserved, not silently pruned.
+- **Later batches C–G:** organized additional verified human documents and artifacts, including a separate BodyFix navigation index. They do not establish that BodyFixOS and HumanOS share a repository or data authority.
+- **Batch H:** reportedly added AI/virtual-machine navigation indexes under `30_Labs`; **18 Ollama models, 4 UTM VMs and 1 VirtualBox VM remained in managed app storage**, not copied into the source tree.
+- **Batch I / `00_Map.md`:** a completed authoritative developer-root index is **not evidenced** by the recovered history. Verify whether it exists; if absent, propose it as a separate tiny owner-approved local creation, not a Git-tracked personal path map.
+- **V-05 Git staging:** ended with `INSUFFICIENT_EVIDENCE`; do not declare staged data restored or safe to discard without a new inspection.
+
+An external/disaster backup was unavailable at that time. Same-Mac recovery packets mitigate some move mistakes, **not disk loss**. These are prior-session reports, not independent current inspection of the owner's Mac.
+
+**Next step is verification, not a second migration.** Compare the actual current folders, Git worktree registry, ignored files/stashes/unpushed changes, project tests, and application data paths against this proposed map. Do not drag, delete, prune, rewrite history, relocate private databases, or create a new root automatically.
+
+## Tool qualification and bounded inventory defaults
+
+The proposed `scripts/audit_local_workspace.py` (contained in draft PR #121) must use **`~/Developer` as its only default scan root**, not the full home, Documents or Desktop. Any broader scope requires an explicit `--root` argument by the human operator; broad scans can expose more private metadata. The tool must:
+
+- Refuse to declare a Git clone `CANONICAL_REPO` solely because `git rev-parse` succeeded. Consider candidate canonical status only at a plausible `10_Repos/<repository>` location with a Git remote; owner and uniqueness verification remain necessary.
+- Treat any Git worktree outside the intended `20_Worktrees/<product>/<workstream>` area as an investigation candidate, not silently normal.
+- Require an explicit report subdirectory **inside `~/Developer/40_Artifacts/`**; refuse writes inside repositories, worktrees, or arbitrary home/cloud-synced folders.
+- Protect report files with owner-only permissions; refuse an overly broad existing report directory.
+- Keep reports **local/private** because they may contain full paths, status output, remotes and metadata; neither the map template nor public PRs should contain raw reports.
+- Continue to only **inspect**, never move, prune, delete, stash, commit, push, chmod existing owner project folders, or reconcile a private database automatically.
+- Mark `UNKNOWN` and unqualified independent recovery as unresolved rather than treating a clean-looking folder tree as a successful audit.
+
+The tool's restrictions are only **TESTED for the inventory tool itself**, not a universal file-output allowlist over every HumanOS runtime or AI worker. A future policy gate needs separate code and authorization.
 
 ## Canonical classification for every existing item
 
@@ -68,74 +110,151 @@ Before cleanup, classify each item as exactly one of:
 - `LEGACY_CANDIDATE`
 - `UNKNOWN`
 
-`UNKNOWN` blocks deletion.
+`UNKNOWN` blocks deletion and automatic relocation.
 
-## Read-only inventory procedure
+## Phase 0 — backup and freeze destructive action
 
-For each repository-looking folder:
+Before moving repositories, worktrees, private state, or source-of-truth documents:
 
-1. determine whether it is a Git repository or worktree;
-2. capture remote URL;
-3. capture current branch/HEAD;
-4. capture `git status --porcelain`;
-5. capture worktree relationships with `git worktree list --porcelain` from the owning repository;
-6. identify untracked files;
-7. identify whether the folder contains private state that must not be pushed;
-8. classify the folder before proposing a destination.
+1. confirm a current full-machine or equivalent recoverable backup exists;
+2. take a separate snapshot/backup of `~/.humanos` private runtime state;
+3. preserve any BodyFixOS private-state/document root separately from HumanOS;
+4. record checksums for irreplaceable loose files before moving them;
+5. perform no deletion, history rewrite, worktree removal, or destructive cleanup during inventory.
 
-For loose files/artifact folders:
+A backup is not considered verified merely because a backup folder exists; record enough evidence to know it is readable/restorable.
+
+## Phase 1 — read-only repository and worktree inventory
+
+For every repository-looking directory, capture:
+
+- absolute path;
+- canonical repository or linked Git worktree status;
+- remote URL(s);
+- branch and exact `HEAD` commit;
+- `git status --porcelain`;
+- untracked files;
+- `git stash list`;
+- commits not present on the configured upstream branch;
+- `git worktree list --porcelain` from the owning repository;
+- ignored files that may contain important local state, using targeted inspection such as `git status --ignored` or `git check-ignore` rather than indiscriminately publishing paths;
+- `.env`/secret-bearing local configuration presence without copying secrets into reports;
+- local databases or private runtime state;
+- virtual environments and generated caches;
+- repository size and last-modified evidence as useful;
+- classification and proposed destination;
+- confidence and verification required.
+
+Do not move a repository or worktree merely because it appears duplicated.
+
+## Phase 2 — loose files, documents, artifacts and manuals
+
+For files outside canonical repositories:
 
 1. record path/name, size, modified time and type;
 2. calculate a checksum for files that may be preserved/moved;
 3. identify whether the item is referenced by a work order, migration, backup or audit record;
-4. classify it;
-5. propose destination or quarantine.
+4. identify source-of-truth versus generated copy/export where possible;
+5. classify it;
+6. propose a destination or dated quarantine/archive location.
 
-## Cleanup phases
+Private BodyFixOS manuals and operational documents are not automatically repository-safe. Client records, private operational data, credentials, protected information, or sensitive clinic material must remain outside public Git repositories.
 
-### Phase 0 — Freeze destructive action
-No deletes, repository moves, worktree removals or history rewrites.
+## Phase 3 — proposed mapping
 
-### Phase 1 — Inventory
-Generate a complete machine-local manifest and Git/worktree map.
-
-### Phase 2 — Proposed mapping
 For every item, record:
 
-`current location → classification → proposed location → reason → verification needed`
+`current location → classification → proposed location → reason → confidence → verification needed → authority required`
 
-### Phase 3 — Quarantine/move
-Move only approved items. Legacy/unknown material goes to a dated quarantine/archive area instead of Trash.
+No “miscellaneous” destination is permitted as a permanent solution.
 
-### Phase 4 — Verification
+## Phase 4 — safe move rules
+
+Move only items with high-confidence classification and an approved destination.
+
+### Git worktrees
+
+Use Git-aware movement rather than Finder drag-and-drop when a path is a registered worktree:
+
+```text
+git worktree move <old-path> <new-path>
+git worktree repair
+```
+
+Then verify `git worktree list --porcelain`, branch, `HEAD`, and dirty state.
+
+### Canonical repositories
+
+After moving a canonical checkout, verify:
+
+- remote(s);
+- branch/upstream;
+- `HEAD`;
+- dirty state;
+- project-specific build/test commands;
+- scripts/configuration that contain absolute paths.
+
+### Python virtual environments
+
+Python virtual environments may contain absolute paths and should normally be recreated after a repository/worktree move rather than trusted in place. Preserve dependency metadata, not the environment directory as canonical source.
+
+### Unknown / legacy material
+
+Unknown or legacy-candidate material moves only to a dated quarantine/archive location. It does not go to Trash during the cleanup project.
+
+## Phase 5 — verification
+
 After approved moves:
 
 - repository remotes/branches still resolve;
-- worktrees are correctly registered or intentionally recreated;
+- worktrees are correctly registered and repaired;
+- unpushed commits/stashes remain present;
+- ignored private files are still available where required and were not accidentally committed;
 - tests/builds run from canonical checkouts;
 - HumanOS private runtime state resolves correctly;
+- BodyFixOS private state remains independent from HumanOS;
 - no secrets/private data were introduced into Git;
-- backups remain restorable/readable;
-- scripts/docs no longer point at stale paths.
+- backups remain readable/restorable;
+- scripts/docs no longer point at stale paths;
+- virtual environments are recreated as required;
+- generated artifacts now land only in approved output roots.
 
-### Phase 5 — Archive/delete
-Only after an agreed retention period and successful verification may quarantined duplicates/temp artifacts be deleted.
+## Phase 6 — archive/delete
+
+Only after an agreed retention period, successful verification, and explicit owner approval may quarantined duplicates/temp artifacts be deleted.
+
+Deletion is a separate decision from organization.
 
 ## File-output rule for future automated work
 
-Automated tools/agents must never choose the home-directory root or `~/Documents` root as an implicit output directory.
+Automated tools and agents must never choose the home-directory root, `~/Documents`, or `~/Desktop` as an implicit output directory.
 
 Every generated file must have an explicit destination class:
 
-- repo source/doc → canonical repo/worktree;
-- test/runtime private state → designated app-private state;
+- repository source/doc → canonical repository/worktree;
+- private runtime state → designated application-private state;
 - evidence → project artifact directory;
-- temporary → system/project temp directory;
+- import/migration → project import directory;
+- temporary → system/project temporary directory;
 - backup → backup/archive directory;
 - user-facing document → explicitly selected user document location.
 
-If destination is ambiguous, stop and ask rather than dropping the artifact into the current directory.
+### Output allowlist
+
+This rule should be enforced in tool wrappers where practical, not only documented. A writer/executor should receive an allowlist of approved output roots. A proposed path outside those roots fails closed or requires explicit human approval.
+
+Until that enforcement exists, this rule is **DOCUMENTED, NOT ENFORCED**.
 
 ## Cross-product rule
 
-HumanOS and BodyFixOS may share engineering ideas, but not filesystem ownership. One project's worktrees, artifacts, private data, backups and generated files must not be stored inside the other project's repository or private runtime-state directory.
+HumanOS and BodyFixOS may share engineering ideas, but not filesystem ownership. One project's repositories, worktrees, artifacts, private data, backups and generated files must not be stored inside the other project's repository or private runtime-state directory.
+
+A future connector does not change this ownership rule.
+
+## Architecture acceptance checks — candidate
+
+Before certifying the standard, an owner-host audit must confirm: exactly one canonical `humanos` checkout; the intended remotes/HEAD/dirty state; all registered worktrees and any stale registrations without automatic pruning; approved output destinations; external state paths that still function; no private state inside public Git; representative build and Notebook reopen; and restore readiness (marked UNQUALIFIED until a genuine independent backup/restore exists). The numeric folders may already exist, but their *content and correctness* are not proven merely by the folder names.
+
+## Judgment Disclosure
+
+The exact permanent local folder layout is an architectural/operational judgment, not a mechanical fact. This document proposes a layout because the current home-directory sprawl needs explicit destinations, but the final paths require local inventory and owner ratification. The separation invariants are stronger than the illustrative directory names.

@@ -25,8 +25,16 @@
     "MASTERY_REQUIRES_EVIDENCE",
     "UNFINISHED_DOES_NOT_EQUAL_CURRENT",
     "HUMAN_CHOOSES_CURRENT_FOCUS",
-    "CURRICULUM_CHANGES_REQUIRE_GOVERNED_PROMOTION"
+    "CURRICULUM_CHANGES_REQUIRE_GOVERNED_PROMOTION",
+    "EXPAND_ABBREVIATIONS_ON_FIRST_MEANINGFUL_USE",
+    "TEACH_PROFESSIONAL_TERM_PLUS_PLAIN_LANGUAGE_MEANING",
+    "AVOID_OPAQUE_STATUS_SHORTHAND"
   ],
+  "terminology_policy": {
+    "first_use": "Write the abbreviation followed immediately by the full professional term in parentheses, then explain the plain-language meaning when needed.",
+    "example": "MVC (Model-View-Controller)",
+    "status_language": "Prefer explicit phrases such as 'Continuous Integration checks passed' instead of opaque shorthand such as 'CI GREEN'."
+  },
   "roles": [
     "COACH",
     "SOCRATIC_TUTOR",
