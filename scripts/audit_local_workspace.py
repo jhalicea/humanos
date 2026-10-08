@@ -76,7 +76,7 @@ def git_metadata(path: pathlib.Path) -> dict[str, Any]:
 
     code, git_dir = run_git(path, ["rev-parse", "--git-dir"])
     code2, common_dir = run_git(path, ["rev-parse", "--git-common-dir"])
-    is_worktree = code == 0 and code2 == 0 and pathlib.Path(git_dir).resolve() != pathlib.Path(common_dir).resolve()
+    is_worktree = code == 0 and code2 == 0 and (path / git_dir).resolve() != (path / common_dir).resolve()
 
     _, head = run_git(path, ["rev-parse", "HEAD"])
     _, branch = run_git(path, ["branch", "--show-current"])
