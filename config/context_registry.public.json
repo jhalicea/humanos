@@ -1034,37 +1034,46 @@
     {
       "workstream_id": "HOS-MCP-001",
       "workspace_id": "WS-HUMANOS",
-      "title": "Bounded Control Room MCP Bridge",
-      "project": "Control Room",
+      "title": "ChatGPT ↔ HumanOS Control Room MCP Boundary",
+      "project": "Control Plane and External Interfaces",
       "repository": "jhalicea/humanos",
       "branch": "feature/control-room-mcp-v1",
       "work_order": "docs/work-orders/HOS-MCP-001.md",
       "status": "REVIEW",
       "confidentiality": "INTERNAL",
       "topics": [
-        "control room",
         "mcp",
-        "external bridge",
+        "chatgpt",
+        "control room",
+        "work order",
         "approval",
-        "host pairing",
-        "automation"
+        "external interface",
+        "mailbox",
+        "delegation",
+        "routing"
       ],
       "components": [
         "control_room.py",
         "control_mcp_server.py",
         "control_room_cli.py",
-        "config/context_registry.public.json",
-        "docs/control-room-mcp.md"
+        "tests/test_control_room.py",
+        "docs/control-room-mcp.md",
+        "docs/work-orders/HOS-MCP-001.md",
+        "config/context_registry.public.json"
       ],
       "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-SWARM-001"
+        },
         {
           "relation": "RELATED_TO",
           "target_workstream_id": "HOS-FND-001"
         }
       ],
       "last_verified_commit": null,
-      "resume_point": "Draft PR #87 has bounded integration tests but remains unpromoted; local host, security and owner-promotion gates remain. It edits the same registry path.",
-      "next_action": "Reconcile registry changes with metadata cleanup before merge; complete owner-host acceptance and separate R3 security review."
+      "resume_point": "Draft PR #87 has passed reported regression, encrypted-backup and MCP SDK integration checks on reviewed candidate commits; latest owner-host operation, independent R3 review, and explicit promotion remain outstanding. PR #87's stale registry snapshot also omitted promoted HOS-LEARN-002 and must be rebased/reconciled.",
+      "next_action": "Reconcile the draft Control Room registry snapshot with promoted HOS-LEARN-002 and current records; verify latest candidate CI, finish independent R3/security and owner-host acceptance, then request promotion."
     }
   ]
 }
