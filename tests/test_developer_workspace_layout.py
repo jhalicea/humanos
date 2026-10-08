@@ -116,7 +116,7 @@ class DeveloperWorkspaceLayoutTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(csv_reports[0].stat().st_mode), 0o600)
             records = json.loads(manifests[0].read_text())
             self.assertTrue(records)
-            self.assertTrue(all(Path(record["path"]).is_relative_to(root) for record in records))
+            self.assertTrue(all(Path(record["path"]).resolve().is_relative_to(root.resolve()) for record in records))
             self.assertFalse(any("private_note" in record["path"] for record in records))
 
     def test_repo_output_directory_refused(self):
