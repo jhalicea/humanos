@@ -45,6 +45,38 @@ Delegated architecture/governance work must include a Judgment Disclosure that
 separates mechanical changes from judgments, alternatives, assumptions,
 reversibility, evidence state, and owner-ratification requirements.
 
+## Development headquarters and AI-assisted team (candidate rules)
+
+HOS-ARCH-001 proposes `~/Developer` as the single **developer navigation root** with
+`10_Repos` for canonical repositories, `20_Worktrees` for assigned Git worktrees,
+`30_Labs` for experiments, `40_Artifacts` for bounded reports, `50_Imports`
+for intake, and `90_Archive` for retained old material. Check the actual
+owner-machine path and current Git identity before assuming this target layout is
+already installed; the local `00_Map.md` is **unverified**. Use the public-safe
+`docs/architecture/DEVELOPER_ROOT_MAP_TEMPLATE.md` only as a template.
+
+This one human + AI-assisted engineering model defines *functions before agents*:
+owner/product/architecture approval, scoped research, implementation, tests,
+security review, and release verification. One model may fill multiple functions
+when appropriate, but must not self-grant capability, self-ratify governance,
+or claim an independent reviewer or live AI staff exists without evidence.
+
+Before an expensive model/tool/artifact operation, route and budget the work:
+reuse local/deterministic operations for simple verification, choose the least
+expensive capable model **only when model selection is actually exposed**, and
+escalate complexity or resource use when evidence, failed attempts, or the
+owner's explicit choice justifies it. Do not spawn speculative workers or
+request needless parallel model consensus. Keep granted data, tool scope, costs,
+risk lane, reversibility and next action clear in the selected work order.
+
+The inventory script is *not* an authority to clean the Mac. Its default scan
+must stay within `~/Developer` and its private reports in scoped
+`40_Artifacts`. Never move or prune worktrees, delete historical folders,
+alter runtime databases, or assume disaster recovery is qualified without
+explicit human approval plus real owner-host/restore evidence. Private
+Notebook, secrets, and application-managed model/VM assets remain outside
+the public source repository.
+
 ## Context-aware continuity and workstream routing
 
 HumanOS does not assume one global ACTIVE task. Multiple workstreams may coexist.
