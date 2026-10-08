@@ -5,6 +5,8 @@ Status: **CANDIDATE / REVIEW REQUIRED**
 Source baseline: `runtime-0.1` at `0fe4ea5751bb17be30656a5c95809b79d6718636`  
 Change type: public-safe project metadata and documentation only.
 
+**Runtime-consumed data caveat:** `context_registry.public.json` is consumed by the deterministic Context Router. Adding workstream records can change which existing workstream a new request matches, even though no Python source, permission broker, Notebook schema, or model adapter is edited. Registry validation and topic-routing regression checks remain mandatory.
+
 ## Intent
 
 This is an **as-observed evidence map**, not a new Foundation, runtime, Notebook, work router, or independent governing document. A user can find what was built, approved, tested and still blocked without pretending that chat memory or a mutable status note is source-of-truth. Neither these sources nor this audit provide direct enumeration of every ChatGPT Project conversation.
@@ -61,4 +63,4 @@ This is an **as-observed evidence map**, not a new Foundation, runtime, Notebook
 4. Test one complete owner-local conversation → exact evidence → restart → semantic recall → correction → provenance path. Log evidence and bring Drive Notebook checkpoints forward or explicitly mark lag.
 5. Separately triage open PRs based on verified code/evidence and present an approval-ready set; do not bulk merge or bulk close.
 
-**Non-changes:** No production code, local Mac files, personal/private information, Notebook data, credentials, permissions, schemas, backups, release artifacts, or destructive history actions are changed by this documentation slice.
+**Non-changes:** No executable Python source, local Mac files, private Notebook payloads, credentials, authorization rules, database schemas, backups, release artifacts, or destructive history actions are changed. **Public registry input does change and may affect deterministic routing; treat it as bounded behavior-bearing configuration, not only prose.**
