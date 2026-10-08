@@ -1,0 +1,9 @@
+# HumanOS project-scoped Codex defaults. Loaded for trusted projects only.
+# Explicit session/CLI/spawn settings may override these defaults; AGENTS.md
+# and the future trusted dispatch budget gate supply the policy boundary.
+model_reasoning_effort = "low"
+plan_mode_reasoning_effort = "low"
+
+[agents]
+default_subagent_reasoning_effort = "low"
+max_concurrent_threads_per_session = 1
