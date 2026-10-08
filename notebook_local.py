@@ -61,15 +61,15 @@ def main(argv=None):
         elif args.command == 'read':
             transaction = book.get_transaction(args.tx)
             if transaction is None:
-                raise ValueError('Unknown transaction ID')
+                raise ValueError('Transaction unavailable')
             identity = book.get_identity(transaction['hcid'])
             if identity is None or identity['owner'] != args.owner or identity['binding'] != 'VERIFIED':
-                raise ValueError('Transaction is unavailable for this owner')
+                raise ValueError('Transaction unavailable')
             # Notebook projections apply the existing HIDE/UNHIDE privacy rule.
             page = json.loads(book.projections()['pages/' + identity['page'] + '.json'])
             rows = [row for row in page['transcript'] if row['tx'] == args.tx]
             if not rows or any(row['text'] == '[HIDDEN — content withheld]' for row in rows):
-                raise ValueError('Transaction contains unavailable transcript evidence')
+                raise ValueError('Transaction unavailable')
             result = {'tx': args.tx, 'status': transaction['status'],
                       'source': (book.task(args.tx) or {}).get('source'),
                       'transcript': [{'role': row['role'], 'text': row['text']} for row in rows]}

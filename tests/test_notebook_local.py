@@ -56,6 +56,10 @@ class NotebookLocalTests(unittest.TestCase):
             other_owner = run('read', '--owner', 'Different Owner', '--tx', receipt['tx'])
             self.assertEqual(other_owner.returncode, 1)
             self.assertNotIn('Original morning summary', other_owner.stderr + other_owner.stdout)
+            self.assertEqual(absent.stderr, other_owner.stderr)
+            recall_other_owner = run('recall', '--owner', 'Different Owner', '--query', 'morning summary')
+            self.assertEqual(recall_other_owner.returncode, 0, recall_other_owner.stderr)
+            self.assertEqual(json.loads(recall_other_owner.stdout)['results'], [])
             book = Notebook(vault)
             try:
                 book.set_privacy(receipt['tx'], 0, 'HIDE', confirmation='HIDE')
@@ -64,6 +68,10 @@ class NotebookLocalTests(unittest.TestCase):
             hidden = run('read', '--owner', 'Synthetic Owner', '--tx', receipt['tx'])
             self.assertEqual(hidden.returncode, 1)
             self.assertNotIn('Original morning summary', hidden.stderr + hidden.stdout)
+            self.assertEqual(absent.stderr, hidden.stderr)
+            hidden_recall = run('recall', '--owner', 'Synthetic Owner', '--query', 'Original morning')
+            self.assertEqual(hidden_recall.returncode, 0, hidden_recall.stderr)
+            self.assertEqual(json.loads(hidden_recall.stdout)['results'], [])
             wrong_binding = run('capture', '--owner', 'Synthetic Owner', '--source', 'synthetic-host',
                                 '--conversation-id', 'c1', '--turn-id', 't3', '--hcid', 'wrong',
                                 '--human', 'Must not append.', '--assistant', 'Must not append.')
