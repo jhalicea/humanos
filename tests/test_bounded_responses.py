@@ -3,6 +3,9 @@
 No network, credentials, user data, model invocation or paid API calls.
 """
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -152,6 +155,29 @@ class BoundedTransportTests(unittest.TestCase):
                     model="gpt-6-luna", prompt="hello",
                     instructions="", output_cap=200,
                     limits=self.limits, transport=FakeAPI())
+
+    def test_cli_requires_explicit_charge_consent(self):
+        prompt = self.home / "prompt.txt"
+        prompt.write_text("Explain one thing.")
+        cli = Path(__file__).resolve().parents[1] / "scripts" / "bounded_api_run.py"
+        args = [sys.executable, str(cli),
+                "--model", "gpt-6-luna",
+                "--prompt-file", str(prompt),
+                "--ledger", str(self.ledger),
+                "--budget-total", "1000",
+                "--context-cap", "500",
+                "--output-cap", "200"]
+        env = dict(os.environ)
+        env.pop("OPENAI_API_KEY", None)
+        offline = subprocess.run(args + ["--dry-run"], env=env,
+                                 text=True, capture_output=True, check=False)
+        self.assertEqual(0, offline.returncode, offline.stderr)
+        self.assertIn("no API calls", offline.stdout)
+        denied = subprocess.run(args, env=env, text=True,
+                                capture_output=True, check=False)
+        self.assertEqual(2, denied.returncode)
+        self.assertIn("API_CHARGES_NOT_AUTHORIZED", denied.stderr)
+        self.assertFalse(self.ledger.exists())
 
 
 if __name__ == "__main__":
