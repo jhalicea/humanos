@@ -12,6 +12,9 @@ import tempfile
 import tomllib
 
 EVENTS = ("UserPromptSubmit", "PreToolUse", "PreCompact")
+# Exact already-installed release identified by the owner's Oct 8 Terminal output.
+# Only this reviewed predecessor may be automatically backed up and replaced.
+PRIOR_INSTALLED_COMMIT = "20d601e29c3d74e92daba24d7310d8e401d9aded"
 
 def check(path):
     if path.is_symlink():
@@ -80,7 +83,13 @@ def prepare(repo, sha, home):
     for path in (script, hooks):
         check(path)
     if script.exists() and script.read_text() != source:
-        raise ValueError("existing customized budget hook; manual reconciliation needed")
+        prior = subprocess.run(
+            ["git", "-C", str(repo), "show",
+             PRIOR_INSTALLED_COMMIT + ":scripts/codex_budget_hook.py"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, check=True).stdout
+        if script.read_text() != prior:
+            raise ValueError("installed hook differs from the reviewed prior version; STOP for manual reconciliation")
     original = hooks.read_text() if hooks.exists() else ""
     command = shlex.quote(sys.executable) + " " + shlex.quote(str(script))
     return script, source, hooks, merge(original, command)
@@ -94,7 +103,7 @@ def main():
     args = parser.parse_args()
     try:
         script, source, hooks, config = prepare(args.repo, args.commit, args.home)
-        change_script = not script.exists()
+        change_script = not script.exists() or script.read_text() != source
         change_config = not hooks.exists() or hooks.read_text() != config
         if not args.dry_run:
             if change_script:
