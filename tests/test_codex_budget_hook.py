@@ -43,6 +43,7 @@ class BudgetTests(unittest.TestCase):
                 'model_reasoning_effort = "low"\n'
                 'plan_mode_reasoning_effort = "low"\n'
                 '[agents]\n'
+                'default_subagent_model = "gpt-6-luna"\n'
                 'default_subagent_reasoning_effort = "low"\n'
                 'max_concurrent_threads_per_session = 1\n')
             event={"cwd":str(root),"session_id":"s","hook_event_name":"UserPromptSubmit","turn_id":"t"}
@@ -59,6 +60,7 @@ class BudgetTests(unittest.TestCase):
                 'model_reasoning_effort = "high"\n'
                 'plan_mode_reasoning_effort = "low"\n'
                 '[agents]\n'
+                'default_subagent_model = "gpt-6-luna"\n'
                 'default_subagent_reasoning_effort = "low"\n'
                 'max_concurrent_threads_per_session = 1\n')
             self.assertEqual("LOW_EFFORT_DEFAULTS_DRIFTED",
@@ -79,6 +81,7 @@ class BudgetTests(unittest.TestCase):
                 'model_reasoning_effort = "low"\n'
                 'plan_mode_reasoning_effort = "low"\n'
                 '[agents]\n'
+                'default_subagent_model = "gpt-6-luna"\n'
                 'default_subagent_reasoning_effort = "low"\n'
                 'max_concurrent_threads_per_session = 1\n')
             agent = codex / "agents" / "astra.toml"
