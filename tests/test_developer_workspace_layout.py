@@ -3,6 +3,7 @@
 import contextlib
 import io
 import json
+import stat
 from pathlib import Path
 import sys
 import tempfile
@@ -105,7 +106,12 @@ class DeveloperWorkspaceLayoutTests(unittest.TestCase):
             out = root / "40_Artifacts" / "humanos" / "workspace-audit"
             self.assertEqual(self._run_with_args(["--developer-root", str(root), "--output-dir", str(out)]), 0)
             manifests = list(out.glob("WORKSPACE_INVENTORY_*.json"))
+            csv_reports = list(out.glob("WORKSPACE_INVENTORY_*.csv"))
             self.assertEqual(len(manifests), 1)
+            self.assertEqual(len(csv_reports), 1)
+            self.assertEqual(stat.S_IMODE(out.stat().st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(manifests[0].stat().st_mode), 0o600)
+            self.assertEqual(stat.S_IMODE(csv_reports[0].stat().st_mode), 0o600)
             records = json.loads(manifests[0].read_text())
             self.assertTrue(records)
             self.assertTrue(all(Path(record["path"]).is_relative_to(root) for record in records))
@@ -118,6 +124,16 @@ class DeveloperWorkspaceLayoutTests(unittest.TestCase):
             bad = root / "10_Repos" / "humanos" / "audit-output"
             self.assertEqual(self._run_with_args(["--developer-root", str(root), "--output-dir", str(bad)]), 2)
             self.assertFalse(bad.exists())
+
+    def test_group_readable_existing_report_folder_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "Developer"
+            (root / "10_Repos").mkdir(parents=True)
+            out = root / "40_Artifacts" / "humanos" / "audit"
+            out.mkdir(parents=True)
+            out.chmod(0o755)
+            self.assertEqual(self._run_with_args(["--developer-root", str(root), "--output-dir", str(out)]), 2)
+            self.assertEqual(list(out.glob("WORKSPACE_INVENTORY_*")), [])
 
     def test_missing_developer_root_refused(self):
         with tempfile.TemporaryDirectory() as temp:
