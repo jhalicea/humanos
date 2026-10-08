@@ -103,7 +103,12 @@ def _validate_private_path(path: Path) -> None:
 def _private_directory(path: Path) -> None:
     # Create only the approved private state tree, never folders in repo or Documents.
     private = Path.home() / ".humanos" / "private"
-    for item in (Path.home() / ".humanos", private, path):
+    elements = [Path.home() / ".humanos", private]
+    current = private
+    for name in path.relative_to(private).parts:
+        current = current / name
+        elements.append(current)
+    for item in elements:
         if item.is_symlink():
             raise PermissionError("private state path contains symlink")
         item.mkdir(mode=0o700, exist_ok=True)
@@ -263,6 +268,11 @@ def execute(*, ledger_path: Path, model: str, prompt: str, instructions: str,
         if result["status"] == "REPLAN_REQUIRED":
             raise ReplanRequired(result["reason"])
         if response.get("status") not in ("completed", "incomplete"):
+            raise ReplanRequired("PROVIDER_RESPONSE_UNEXPECTED_STATUS")
+        if response.get("status") not in ("completed", "incomplete"):
+            gov._stop("PROVIDER_RESPONSE_UNEXPECTED_STATUS")
+            state["checkpoint"] = gov.checkpoint()
+            _write_ledger(ledger_path, state)
             raise ReplanRequired("PROVIDER_RESPONSE_UNEXPECTED_STATUS")
         text = _get_output(response)
         return {"status": response["status"], "text": text, "usage": usage,
