@@ -3,6 +3,7 @@
 
 This tool does not move, rename, delete, checkout, stash, commit, or push anything.
 It records filesystem/Git evidence so cleanup decisions can be made safely.
+By default only ~/Developer is scanned; broader roots require explicit --root.
 
 The output directory is mandatory: the tool will not dump reports into the current
 working directory or home-directory root by accident.
@@ -124,14 +125,28 @@ def git_metadata(path: pathlib.Path) -> dict[str, Any]:
     }
 
 
-def classify(path: pathlib.Path, git: dict[str, Any]) -> tuple[str, str, str | None]:
+def classify(
+    path: pathlib.Path, git: dict[str, Any], developer_root: pathlib.Path | None = None
+) -> tuple[str, str, str | None]:
+    """Suggest a location; never infer canonical Git identity from Git detection alone."""
     name = path.name.lower()
     text = str(path).lower()
+    root = (developer_root or pathlib.Path.home() / "Developer").expanduser().resolve()
+    location = path.expanduser().resolve()
+    try:
+        parts = location.relative_to(root).parts
+    except ValueError:
+        parts = ()
 
     if git.get("is_git"):
         if git.get("is_worktree"):
-            return "ACTIVE_WORKTREE", "HIGH", "~/Developer/20_Worktrees/<product>/<workstream>/"
-        return "CANONICAL_REPO", "MEDIUM", "~/Developer/10_Repos/<repository>/"
+            if len(parts) == 3 and parts[0] == "20_Worktrees":
+                return "ACTIVE_WORKTREE", "MEDIUM", "~/Developer/20_Worktrees/<product>/<workstream>/"
+            return "LEGACY_CANDIDATE", "LOW", "~/Developer/20_Worktrees/<product>/<workstream>/"
+        if len(parts) == 2 and parts[0] == "10_Repos" and git.get("remote_origin"):
+            # Location and remote are necessary but NOT sufficient for unique canonical ownership.
+            return "CANONICAL_REPO", "MEDIUM", "~/Developer/10_Repos/<repository>/"
+        return "LEGACY_CANDIDATE", "LOW", "~/Developer/10_Repos/<repository>/"
 
     if "/.humanos/" in text or text.endswith("/.humanos"):
         # Never silently relocate the live private runtime to fit the developer layout.
@@ -149,7 +164,6 @@ def classify(path: pathlib.Path, git: dict[str, Any]) -> tuple[str, str, str | N
         return "GENERATED_EVIDENCE_ARTIFACT", "MEDIUM", "~/Developer/40_Artifacts/<product>/"
 
     return "UNKNOWN", "LOW", None
-
 
 def iter_candidates(root: pathlib.Path, max_depth: int):
     root = root.expanduser().resolve()
@@ -174,7 +188,7 @@ def iter_candidates(root: pathlib.Path, max_depth: int):
             dirs[:] = []
 
 
-def record_for(path: pathlib.Path) -> dict[str, Any]:
+def record_for(path: pathlib.Path, developer_root: pathlib.Path | None = None) -> dict[str, Any]:
     try:
         stat = path.stat()
     except OSError as exc:
@@ -186,7 +200,7 @@ def record_for(path: pathlib.Path) -> dict[str, Any]:
         }
 
     git = git_metadata(path) if path.is_dir() else {"is_git": False}
-    classification, confidence, destination = classify(path, git)
+    classification, confidence, destination = classify(path, git, developer_root)
 
     return {
         "path": str(path),
@@ -235,6 +249,10 @@ def parse_args() -> argparse.Namespace:
         dest="roots",
         help="Root to inventory. Repeat for multiple roots.",
     )
+    parser.add_argument(
+        "--developer-root", default=str(pathlib.Path.home() / "Developer"),
+        help="The verified development headquarters; defaults to ~/Developer.",
+    )
     parser.add_argument("--max-depth", type=int, default=3)
     parser.add_argument(
         "--output-dir",
@@ -246,41 +264,60 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    roots = args.roots or [str(pathlib.Path.home()), str(pathlib.Path.home() / "Documents"), str(pathlib.Path.home() / "Developer")]
-    output_dir = pathlib.Path(args.output_dir).expanduser().resolve()
-
-    home = pathlib.Path.home().resolve()
-    if output_dir == home or output_dir == pathlib.Path.cwd().resolve():
-        print("Refusing ambiguous output directory. Choose a dedicated artifact subdirectory.", file=sys.stderr)
+    developer_root = pathlib.Path(args.developer_root).expanduser().resolve()
+    if not developer_root.is_dir():
+        print("Developer root is missing; inventory not performed.", file=sys.stderr)
         return 2
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Default scope is one headquarters. An explicitly supplied --root may broaden it.
+    roots = args.roots or [str(developer_root)]
+    if args.max_depth < 0 or args.max_depth > 8:
+        print("Invalid max depth (allowed: 0..8).", file=sys.stderr)
+        return 2
+
+    output_dir = pathlib.Path(args.output_dir).expanduser().resolve()
+    artifacts_root = developer_root / "40_Artifacts"
+    if output_dir == artifacts_root or not output_dir.is_relative_to(artifacts_root):
+        print(
+            "Audit reports must be placed in an explicit subfolder of "
+            "~/Developer/40_Artifacts; never inside a repository, worktree or home root.",
+            file=sys.stderr,
+        )
+        return 2
 
     seen: set[pathlib.Path] = set()
     records: list[dict[str, Any]] = []
     for root_text in roots:
         root = pathlib.Path(root_text).expanduser()
+        if not root.exists():
+            print(f"Requested inventory root not found: {root}", file=sys.stderr)
+            return 2
         for candidate in iter_candidates(root, args.max_depth) or []:
             resolved = candidate.resolve()
             if resolved in seen:
                 continue
             seen.add(resolved)
-            records.append(record_for(resolved))
+            records.append(record_for(resolved, developer_root))
+
+    if not records:
+        print("Inventory returned zero items; refusing a misleading success report.", file=sys.stderr)
+        return 2
 
     records.sort(key=lambda record: record.get("path", ""))
+    # No destination gets to claim a duplicate is canonical without human review.
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / f"WORKSPACE_INVENTORY_{timestamp}.json"
     csv_path = output_dir / f"WORKSPACE_INVENTORY_{timestamp}.csv"
 
     json_path.write_text(json.dumps(records, indent=2, sort_keys=True), encoding="utf-8")
     write_csv(csv_path, records)
-
-    print(f"Read-only inventory complete: {len(records)} items")
+    print(f"Read-only inventory complete: {len(records)} items; all classifications provisional")
     print(f"JSON: {json_path}")
     print(f"CSV:  {csv_path}")
+    print("Reports contain private machine metadata: keep local; never commit to Git.")
     print("No files were moved, renamed, deleted, committed, stashed, or pushed.")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
