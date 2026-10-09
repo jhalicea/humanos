@@ -1,4 +1,4 @@
-# HumanOS Lean Agile + SDLC Workflow Standard v1.1
+# HumanOS Lean Agile + SDLC Workflow Standard v1.2
 
 Status: FOUNDATION STANDARD CANDIDATE
 Scope: repository work, foundation documents, runtime changes, experiments, reviews, and promotions.
@@ -36,6 +36,28 @@ research. The development registry is a precursor to the future HumanOS Context 
 8. **Historical/personal record:** Life Notebook, outside the public code repository.
 
 Chat memory, model summaries, and informal todo lists do not establish implementation truth.
+
+
+## GitHub synchronization and publication gate
+
+- `https://github.com/jhalicea/humanos` is the shared public **code/documentation**
+  remote; local Git in that same repository and its worktrees is the valid isolated
+  execution workspace. A local commit is not a remote push, PR, merge, or release.
+- For a bounded, reviewable, public-safe change: commit on a focused branch, check
+  the entire proposed commit range and history for sensitive material, push the
+  exact candidate, verify the remote head SHA, and open a draft PR with evidence
+  and limits. Keep unrelated dirty/untracked data untouched; record what is still
+  local/unpushed. A PR and passing CI do not authorize merge or deployment.
+- Because the remote is public, **never push** Notebook transcripts, personal
+  records, client/employer data, credentials, private paths, backups, embeddings,
+  private prompts, or raw operational logs, including in commits, history, tests,
+  issues, or PR attachments. If classification is uncertain, stop publication,
+  keep the artifact local/protected, and obtain an explicit owner destination and
+  disclosure decision. A private GitHub repository is not by itself consent to
+  upload private HumanOS records.
+- Reuse existing registered status, work order, registry, and issue #67; do not
+  create a parallel sync log or project tracker.
+
 
 ## Topic-aware routing before implementation
 
@@ -131,6 +153,32 @@ Each selected implementation slice follows:
     global index when needed, and one next action for the selected stream.
 
 A model saying “done” never skips verification or promotion gates.
+
+
+## Drift recognition and controlled pause
+
+Check alignment at session resumption, before significant or external actions,
+and at checkpoints: (1) current owner goal and accepted scope; (2) selected
+workspace/workstream, canonical repository/base/head and actual local-vs-remote
+state; (3) data privacy and authority grants; (4) cost/time/tool budget; and
+(5) claimed results versus exact evidence and completion criteria.
+
+- **Correct small reversible drift in scope** using existing rules and evidence;
+  do not turn minor wording or formatting differences into new workstreams.
+- **STOP -> CHECKPOINT -> REPLAN_REQUIRED** for material divergence: wrong or
+  ambiguous workspace, unexpected branch/base, overlapping active edits,
+  sensitive/public push risk, stale or missing evidence for a consequential claim,
+  changed permissions, unapproved side effects, or exceeded resource budget.
+  Preserve verified state, name the mismatch and smallest safe option, and
+  request owner direction only where the existing authority cannot resolve it.
+- Never silently expand the task, invent successful verification, bypass a
+  privacy gate, escalate models/effort, or restart a costly investigation merely
+  to keep moving. Resume only within an evidenced and authorized scope.
+- Standardize recurring failures by extending an **existing** HumanOS control
+  document through a bounded reviewed change. Do not proliferate constitutions,
+  routers, registries, or approval ceremonies. Written guidance is not an
+  automatic runtime enforcement mechanism.
+
 
 ## Cross-chat continuation protocol
 
