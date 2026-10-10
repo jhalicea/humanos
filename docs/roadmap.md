@@ -17,6 +17,7 @@ The roadmap is directional. Each item must pass through a bounded implementation
 - Comparable model evaluation and usage records
 - Portable backup, restore, and migration workflows
 - Documentation website generated from the canonical docs directory
-- Domain applications such as BodyFixOS and Project Atlas
+- HumanOS domain experiences such as Project Atlas, within approved permissions and data boundaries
+- Optional, narrow versioned connection to independent BodyFixOS; no shared database, internal-module status, or implicit ownership
 
-HumanOS maintains one active implementation slice and one clearly identified next action to limit unfinished parallel work.
+HumanOS may preserve many workstreams while focusing on one bounded implementation slice per selected workstream/session. Each selected slice has one explicit next action; overlapping component edits require conflict review.
