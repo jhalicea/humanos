@@ -142,7 +142,7 @@ class NotebookLocalTests(unittest.TestCase):
                 denied = capture(attempted)
                 self.assertEqual(denied.returncode, 1)
                 self.assertEqual(denied.stdout, '')
-                self.assertEqual(denied.stderr, 'Notebook operation failed\\n')
+                self.assertEqual(denied.stderr, 'Notebook operation failed\n')
                 self.assertEqual(snapshot(), before)
             self.assertFalse((vault / 'runtime' / 'recovery.jsonl').exists())
 
