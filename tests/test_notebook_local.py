@@ -214,6 +214,51 @@ class NotebookLocalTests(unittest.TestCase):
             restored = recall('signal')
             self.assertIn(tx, {r['tx'] for r in restored['results']})
 
+    def test_visible_redaction_marker_is_original_text(self):
+        with tempfile.TemporaryDirectory() as folder:
+            vault = Path(folder) / 'vault'
+            marker = '[HIDDEN — content withheld]'
+
+            def run(command, payload):
+                return subprocess.run(
+                    [sys.executable, 'notebook_local.py', '--vault', str(vault), command],
+                    input=json.dumps(payload, ensure_ascii=False),
+                    cwd=ROOT, text=True, capture_output=True,
+                )
+
+            captured = run('capture', {
+                'owner': 'Synthetic Owner', 'source': 'synthetic-host',
+                'conversation_id': 'marker', 'turn_id': '1',
+                'human': marker, 'assistant': 'The marker is ordinary quoted text.',
+            })
+            self.assertEqual(captured.returncode, 0, captured.stderr)
+            tx = json.loads(captured.stdout)['tx']
+
+            # A visible original message matching a redaction placeholder
+            # must not be mistaken for an actual HIDE privacy operation.
+            before = run('read', {'owner': 'Synthetic Owner', 'tx': tx})
+            self.assertEqual(before.returncode, 0, before.stderr)
+            self.assertEqual(json.loads(before.stdout)['transcript'][0]['text'], marker)
+
+            book = Notebook(vault)
+            try:
+                book.set_privacy(tx, 0, 'HIDE', confirmation='HIDE')
+            finally:
+                book.close()
+            denied = run('read', {'owner': 'Synthetic Owner', 'tx': tx})
+            self.assertEqual(denied.returncode, 1)
+            self.assertEqual(denied.stdout, '')
+            self.assertEqual(denied.stderr, 'Notebook operation failed\\n')
+
+            book = Notebook(vault)
+            try:
+                book.set_privacy(tx, 0, 'UNHIDE', confirmation='UNHIDE')
+            finally:
+                book.close()
+            restored = run('read', {'owner': 'Synthetic Owner', 'tx': tx})
+            self.assertEqual(restored.returncode, 0, restored.stderr)
+            self.assertEqual(json.loads(restored.stdout)['transcript'][0]['text'], marker)
+
     def test_malformed_capture_creates_no_vault(self):
         with tempfile.TemporaryDirectory() as folder:
             vault = Path(folder) / 'vault'
