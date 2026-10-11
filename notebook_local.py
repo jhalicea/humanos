@@ -127,8 +127,21 @@ def main(argv=None):
                       'transcript': [{'role': row['role'], 'text': row['text']} for row in rows]}
         else:
             report = search_notebook(book, request['owner'], 'LOCAL-RECALL', request['query'])
+            # This CLI's exact-read boundary withholds an entire transaction
+            # when any transcript row is hidden. Apply the same conservative
+            # rule to recall: an unhidden ASSISTANT row may quote a hidden
+            # HUMAN row, so per-row recall privacy is insufficient here.
+            visible = []
             for item in report['results']:
+                if book.db.execute(
+                    "SELECT 1 FROM privacy_state WHERE tx=? AND state='HIDDEN' LIMIT 1",
+                    (item['tx'],)
+                ).fetchone():
+                    continue
                 item['source'] = (book.task(item['tx']) or {}).get('source')
+                visible.append(item)
+            report['results'] = visible
+            report['result_count'] = len(visible)
             result = report
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0
