@@ -203,13 +203,14 @@ class NotebookLocalTests(unittest.TestCase):
 
                 other = recall('Regular weather')
                 self.assertIn(visible_tx, {r['tx'] for r in other['results']})
-
-            book = Notebook(vault)
-            try:
-                for ordinal in (0, 1):
+                # Restore between iterations so HUMAN-only and ASSISTANT-only
+                # hiding are independently exercised.
+                book = Notebook(vault)
+                try:
                     book.set_privacy(tx, ordinal, 'UNHIDE', confirmation='UNHIDE')
-            finally:
-                book.close()
+                finally:
+                    book.close()
+
             restored = recall('signal')
             self.assertIn(tx, {r['tx'] for r in restored['results']})
 
