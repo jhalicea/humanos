@@ -1,0 +1,46 @@
+{
+  "schema": "humanos.academy.teaching-protocol.v1",
+  "protocol_id": "humanos-teaching-v1",
+  "title": "HumanOS Teaching Protocol v1",
+  "stages": [
+    "MAP",
+    "ASK_FIRST",
+    "TEACH_SMALLEST_USEFUL_CONCEPT",
+    "RETRIEVE_OR_PREDICT",
+    "TOUCH",
+    "BREAK",
+    "DIAGNOSE",
+    "REPAIR",
+    "APPLY",
+    "EXPLAIN",
+    "TRANSFER",
+    "EVIDENCE",
+    "REVISIT",
+    "INTEGRATE"
+  ],
+  "invariants": [
+    "AI_MUST_NOT_DO_TARGET_COGNITIVE_WORK",
+    "HINTS_ARE_GRADUATED_NOT_DEFAULT_ANSWERS",
+    "FAILURE_IS_ANALYZED_NOT_MERELY_MARKED_WRONG",
+    "MASTERY_REQUIRES_EVIDENCE",
+    "UNFINISHED_DOES_NOT_EQUAL_CURRENT",
+    "HUMAN_CHOOSES_CURRENT_FOCUS",
+    "CURRICULUM_CHANGES_REQUIRE_GOVERNED_PROMOTION"
+  ],
+  "roles": [
+    "COACH",
+    "SOCRATIC_TUTOR",
+    "COLLEAGUE",
+    "CLIENT",
+    "REVIEWER",
+    "RED_TEAM",
+    "EXAMINER",
+    "NOVICE"
+  ],
+  "grading": {
+    "knowledge": 0.25,
+    "practical": 0.30,
+    "diagnostic": 0.25,
+    "communication": 0.20
+  }
+}

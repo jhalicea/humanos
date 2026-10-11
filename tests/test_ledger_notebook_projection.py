@@ -68,5 +68,40 @@ class LedgerNotebookProjectionTests(unittest.TestCase):
                 book.close()
 
 
+    def test_verify_missing_ledger_is_pending_and_does_not_create_notebook(self):
+        # An empty Memory First source must remain PENDING: no fabricated
+        # checkpoint and no unwanted Notebook side effect.
+        import contextlib
+        import io
+        from humanos import main
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ledger = root / "missing-ledger.jsonl"
+            notebook = root / "notebook"
+            argv = ["verify", "--ledger", str(ledger), "--notebook", str(notebook)]
+
+            def verify():
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    main(argv)
+                return json.loads(output.getvalue())
+
+            first = verify()
+            self.assertEqual(first["ledger"], {"status": "PENDING", "rows": 0})
+            self.assertEqual(first["runtime_capture"], "PENDING")
+            self.assertNotIn("notebook", first)
+            self.assertFalse(ledger.exists())
+            self.assertFalse(notebook.exists())
+
+            # Orphan receipts without a source ledger cannot establish capture.
+            (root / "runtime-capture-receipts.jsonl").write_text("{}\\n", encoding="utf-8")
+            second = verify()
+            self.assertEqual(second["ledger"]["status"], "PENDING")
+            self.assertEqual(second["runtime_capture"], "PENDING")
+            self.assertNotIn("notebook", second)
+            self.assertFalse(notebook.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

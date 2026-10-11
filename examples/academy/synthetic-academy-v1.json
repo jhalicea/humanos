@@ -1,0 +1,137 @@
+{
+  "schema": "humanos.academy.package.v1",
+  "package_id": "synthetic-public-academy",
+  "title": "Synthetic Public Academy Fixture",
+  "version": "1.0.0",
+  "metadata": {
+    "synthetic": true,
+    "privacy": "PUBLIC_TEST_ONLY"
+  },
+  "skills": [
+    {
+      "skill_id": "sample.foundation",
+      "title": "Foundational workflow reasoning",
+      "domains": ["learning"],
+      "prerequisites": [],
+      "concepts": [
+        {
+          "concept_id": "sample.foundation.intent",
+          "title": "Intent before implementation",
+          "description": "Identify the actual outcome before choosing a tool."
+        }
+      ],
+      "exercises": [
+        {
+          "exercise_id": "sample.foundation.explain",
+          "title": "Explain the desired outcome",
+          "kind": "teach-back"
+        }
+      ],
+      "assessments": [
+        {
+          "assessment_id": "sample.foundation.check",
+          "title": "Foundation check",
+          "kind": "oral"
+        }
+      ]
+    },
+    {
+      "skill_id": "sample.security.evidence",
+      "title": "Synthetic evidence reasoning",
+      "domains": ["security"],
+      "prerequisites": ["sample.foundation"]
+    },
+    {
+      "skill_id": "sample.automation.reliability",
+      "title": "Synthetic automation reliability",
+      "domains": ["automation"],
+      "prerequisites": ["sample.foundation"]
+    }
+  ],
+  "courses": [
+    {
+      "course_id": "sample-security-course",
+      "title": "Sample Security Course",
+      "description": "Synthetic course used only to verify the public Academy machinery.",
+      "modules": [
+        {
+          "module_id": "sample-security-foundations",
+          "title": "Security Foundations",
+          "skill_ids": ["sample.foundation", "sample.security.evidence"]
+        }
+      ],
+      "labs": [
+        {
+          "lab_id": "sample-evidence-lab",
+          "title": "Synthetic Evidence Lab",
+          "skill_ids": ["sample.foundation", "sample.security.evidence"],
+          "estimated_minutes": 15
+        }
+      ],
+      "certifications": [
+        {
+          "certification_id": "sample-security-cert",
+          "title": "Synthetic Security Certification Overlay",
+          "branch": "core",
+          "notes": "This is an overlay, not a second course.",
+          "objectives": [
+            {
+              "objective_id": "sample-cert-objective-1",
+              "title": "Demonstrate evidence reasoning",
+              "skill_ids": ["sample.security.evidence"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "course_id": "sample-automation-course",
+      "title": "Sample Automation Course",
+      "description": "Synthetic automation course proving shared-skill reuse.",
+      "modules": [
+        {
+          "module_id": "sample-automation-foundations",
+          "title": "Automation Foundations",
+          "skill_ids": ["sample.foundation", "sample.automation.reliability"]
+        }
+      ],
+      "labs": [
+        {
+          "lab_id": "sample-reliability-lab",
+          "title": "Synthetic Reliability Lab",
+          "skill_ids": ["sample.foundation", "sample.automation.reliability"],
+          "estimated_minutes": 20
+        }
+      ],
+      "certifications": []
+    }
+  ],
+  "job_packs": [
+    {
+      "job_pack_id": "sample-solutions-role",
+      "title": "Synthetic Solutions Role",
+      "requirements": [
+        {
+          "requirement_id": "sample-role-reliability",
+          "title": "Reason about reliable automation",
+          "skill_ids": ["sample.automation.reliability"],
+          "employer_specific": false
+        },
+        {
+          "requirement_id": "sample-role-language",
+          "title": "Synthetic employer terminology drill",
+          "skill_ids": ["sample.foundation"],
+          "employer_specific": true
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "resource_id": "sample-resource",
+      "title": "Synthetic reference",
+      "resource_type": "internal-demo",
+      "locator": "synthetic://reference"
+    }
+  ]
+}
