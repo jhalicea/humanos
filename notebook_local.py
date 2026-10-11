@@ -51,6 +51,15 @@ def _request_from_stdin(command):
     return data
 
 
+
+def _transaction_hidden(book, tx):
+    """Use authoritative privacy state, not redaction placeholder text."""
+    return book.db.execute(
+        "SELECT 1 FROM privacy_state WHERE tx=? AND state='HIDDEN' LIMIT 1",
+        (tx,)
+    ).fetchone() is not None
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--vault', required=True, type=Path, help='Explicit local Notebook vault directory')
@@ -117,10 +126,13 @@ def main(argv=None):
             identity = book.get_identity(transaction['hcid'])
             if identity is None or identity['owner'] != request['owner'] or identity['binding'] != 'VERIFIED':
                 raise ValueError('Transaction unavailable')
-            # Notebook projections apply the existing HIDE/UNHIDE privacy rule.
+            # Privacy state is authoritative. A visible user message may
+            # legitimately contain text identical to the redaction marker.
+            if _transaction_hidden(book, request['tx']):
+                raise ValueError('Transaction unavailable')
             page = json.loads(book.projections()['pages/' + identity['page'] + '.json'])
             rows = [row for row in page['transcript'] if row['tx'] == request['tx']]
-            if not rows or any(row['text'] == '[HIDDEN — content withheld]' for row in rows):
+            if not rows:
                 raise ValueError('Transaction unavailable')
             result = {'tx': request['tx'], 'status': transaction['status'],
                       'source': (book.task(request['tx']) or {}).get('source'),
@@ -133,10 +145,7 @@ def main(argv=None):
             # HUMAN row, so per-row recall privacy is insufficient here.
             visible = []
             for item in report['results']:
-                if book.db.execute(
-                    "SELECT 1 FROM privacy_state WHERE tx=? AND state='HIDDEN' LIMIT 1",
-                    (item['tx'],)
-                ).fetchone():
+                if _transaction_hidden(book, item['tx']):
                     continue
                 item['source'] = (book.task(item['tx']) or {}).get('source')
                 visible.append(item)
