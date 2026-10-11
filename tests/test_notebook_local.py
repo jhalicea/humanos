@@ -89,6 +89,63 @@ class NotebookLocalTests(unittest.TestCase):
             self.assertEqual(wrong_binding.returncode, 1)
             self.assertFalse(wrong_binding.stdout)
 
+    def test_replay_without_hcid_is_idempotent_and_conflicts_have_no_side_effects(self):
+        with tempfile.TemporaryDirectory() as folder:
+            vault = Path(folder) / 'vault'
+            argv = [sys.executable, 'notebook_local.py', '--vault', str(vault), 'capture']
+            original = {
+                'owner': 'Synthetic Owner', 'source': 'synthetic-host',
+                'conversation_id': 'c-stable', 'turn_id': 't-stable',
+                'human': 'Exact original 🧭', 'assistant': 'Exact response.',
+            }
+
+            def capture(payload):
+                return subprocess.run(argv, input=json.dumps(payload, ensure_ascii=False),
+                                      cwd=ROOT, text=True, capture_output=True)
+
+            first = capture(original)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            receipt = json.loads(first.stdout)
+
+            def snapshot():
+                book = Notebook(vault)
+                try:
+                    self.assertTrue(book.verify())
+                    return {
+                        'identity_count': book.db.execute('SELECT COUNT(*) FROM identities').fetchone()[0],
+                        'transaction_count': book.db.execute('SELECT COUNT(*) FROM transactions').fetchone()[0],
+                        'transcript_count': book.db.execute('SELECT COUNT(*) FROM transcript').fetchone()[0],
+                        'recovery_count': book.db.execute('SELECT COUNT(*) FROM recovery').fetchone()[0],
+                        'event_count': book.db.execute('SELECT COUNT(*) FROM events').fetchone()[0],
+                    }
+                finally:
+                    book.close()
+
+            before = snapshot()
+            second = capture(original)  # no hcid on either request
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertEqual(json.loads(second.stdout), receipt)
+            retry_bound = capture(dict(original, hcid=receipt['hcid']))
+            self.assertEqual(retry_bound.returncode, 0, retry_bound.stderr)
+            self.assertEqual(json.loads(retry_bound.stdout), receipt)
+            self.assertEqual(snapshot(), before)
+
+            # A collision must not create a protected page, recovery record,
+            # or other mutable residue before it is rejected.
+            conflicts = (
+                dict(original, human='Conflicting secret input'),
+                dict(original, assistant='Conflicting secret response'),
+                dict(original, owner='Different Owner'),
+                dict(original, hcid='wrong-hcid'),
+            )
+            for attempted in conflicts:
+                denied = capture(attempted)
+                self.assertEqual(denied.returncode, 1)
+                self.assertEqual(denied.stdout, '')
+                self.assertEqual(denied.stderr, 'Notebook operation failed\\n')
+                self.assertEqual(snapshot(), before)
+            self.assertFalse((vault / 'runtime' / 'recovery.jsonl').exists())
+
     def test_malformed_capture_creates_no_vault(self):
         with tempfile.TemporaryDirectory() as folder:
             vault = Path(folder) / 'vault'
