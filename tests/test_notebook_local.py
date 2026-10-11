@@ -248,7 +248,7 @@ class NotebookLocalTests(unittest.TestCase):
             denied = run('read', {'owner': 'Synthetic Owner', 'tx': tx})
             self.assertEqual(denied.returncode, 1)
             self.assertEqual(denied.stdout, '')
-            self.assertEqual(denied.stderr, 'Notebook operation failed\\n')
+            self.assertEqual(denied.stderr, 'Notebook operation failed\n')
 
             book = Notebook(vault)
             try:
