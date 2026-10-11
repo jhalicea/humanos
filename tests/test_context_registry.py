@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -77,6 +80,41 @@ class ContextRegistryTests(unittest.TestCase):
                 result = route_request(registry, request)
                 self.assertEqual(result.decision, decision)
                 self.assertEqual(result.workstream_id, workstream)
+
+    def test_native_registry_cli_validation_and_routing_smoke(self):
+        # Execute the real public registry CLI on an isolated copy of this
+        # branch's fixture, without a private overlay or production paths.
+        script = Path(__file__).resolve().parents[1] / "context_registry.py"
+        env = os.environ.copy()
+        env.pop("HUMANOS_CONTEXT_PRIVATE_REGISTRY", None)
+
+        def run_cli(*args):
+            return subprocess.run(
+                [sys.executable, str(script), "--registry", str(self.public), *args],
+                capture_output=True, text=True, env=env, check=False,
+            )
+
+        validated = run_cli("validate")
+        self.assertEqual(validated.returncode, 0, validated.stderr)
+        self.assertEqual(
+            json.loads(validated.stdout),
+            {"ok": True, "workspaces": 1, "workstreams": len(self.load().workstreams)},
+        )
+
+        cases = {
+            "continue external ChatGPT capture": ("CONTINUE", "HOS-NB-CAPTURE-001"),
+            "continue life notebook restart and recall": ("CONTINUE", "HOS-NB-RECALL-001"),
+            "continue the Control Room MCP boundary": ("CONTINUE", "HOS-MCP-001"),
+            "review Foundation Constitution September 29 conflict": ("EXTEND", "HOS-FND-001"),
+        }
+        for request, (decision, workstream) in cases.items():
+            with self.subTest(request=request):
+                response = run_cli("route", request)
+                self.assertEqual(response.returncode, 0, response.stderr)
+                result = json.loads(response.stdout)
+                self.assertEqual(result["workspace_id"], "WS-HUMANOS")
+                self.assertEqual(result["decision"], decision)
+                self.assertEqual(result["workstream_id"], workstream)
 
     def test_cross_workspace_access_fails_closed_without_explicit_authorization(self):
         data = json.loads(self.public.read_text(encoding="utf-8"))
