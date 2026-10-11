@@ -1,5 +1,6 @@
 """One synthetic user journey across capture, restart, and encrypted restore."""
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -14,6 +15,10 @@ from vault_encryption import (EncryptedBackupError, create_encrypted_backup,
 
 
 class L1ContinuityRehearsal(unittest.TestCase):
+    # General regression is stdlib-only; encrypted-backup CI installs this
+    # optional package and must execute the complete rehearsal on every matrix.
+    @unittest.skipUnless(importlib.util.find_spec('cryptography') is not None,
+                         'encrypted restore rehearsal requires optional cryptography')
     def test_source_turns_survive_restart_and_encrypted_restore(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
