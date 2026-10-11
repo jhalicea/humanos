@@ -45,3 +45,13 @@ Focused negative cases explicitly assert that unknown transaction, wrong owner, 
 **Synthetic acceptance:** retry without `hcid` returns the same transaction, page and binding as the first capture; explicit matching-`hcid` retry does likewise. No additional identity, transaction, transcript, recovery or audit event is created. Conflicting text, owner and binding fail with indistinguishable generic CLI output and leave those record counts unchanged. These checks complement—not replace—the original source/read/recall/restore rehearsal.
 
 **Limit:** This candidate invokes the capture module's current internal vault-keyed derivation helpers to avoid duplicating transaction-ID logic. Review that coupling before promotion; if a stable public capture lookup API is later required, design it as a separate bounded change rather than adding a new store or routing subsystem now. Original vaults, provider observers, and real owner data remain out of scope.
+
+## October 11 whole-transaction recall privacy (candidate only)
+
+**Review finding:** The earlier exact-read CLI denied a transaction if **any** transcript row was hidden, while its recall command delegated to the reusable row-scoped `search_notebook()` and could still return an unhidden assistant answer quoting a hidden human message (or vice versa). PR #125 promises hidden transactions will be withheld in its local CLI, so this mismatch is a real disclosure path within that candidate.
+
+**Narrow protection:** After bounded source-backed recall, `notebook_local.py` suppresses every result whose transaction contains any `privacy_state.state='HIDDEN'` row, and recalculates `result_count`. Synthetic tests capture an assistant reply that repeats a human statement, hide the human row and the assistant row **independently**, verify no rows or quoted text for that transaction are returned from recall/read, verify an unrelated transaction remains retrievable, then unhide and recheck restoration.
+
+**Limit:** This is a CLI-specific conservative filter using existing privacy state, **not** a change to the global `notebook_recall.py` policy or the canonical source transcript. Filtering after bounded ranking can return fewer than the allowed maximum visible results; it does not claim exhaustive redaction of copied material in unrelated transactions or model outputs, owner authentication, or secure deletion. Those require separate permission/data-lifecycle design and tests.
+
+**Gate:** Run full regression and encrypted-backup suites on the exact changed candidate SHA; independent privacy review and explicit owner promotion remain required. No real Notebook data or keys are accessed.
