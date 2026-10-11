@@ -22,7 +22,10 @@ REQUIRED_FIELDS = {
 
 def _request_from_stdin(command):
     """Validate a bounded JSON request before opening or creating any vault."""
-    raw = sys.stdin.read(MAX_REQUEST_CHARS + 1)
+    try:
+        raw = sys.stdin.read(MAX_REQUEST_CHARS + 1)
+    except UnicodeError as error:
+        raise ValueError('request must be valid UTF-8 text') from error
     if len(raw) > MAX_REQUEST_CHARS:
         raise ValueError('request exceeds maximum length')
     try:
@@ -73,14 +76,36 @@ def main(argv=None):
         book.recover()
         book.verify()
         if args.command == 'capture':
+            capture = UniversalConversationCapture(book, request['source'])
+            # Resolve the exact vault-keyed source-turn identity BEFORE book.bind:
+            # an ordinary retry without --hcid must not create another page,
+            # and a conflicting retry must not trigger Notebook.start's
+            # content-preserving recovery/failure journal as a side effect.
+            host_key = capture._host_key(request['conversation_id'], request['turn_id'])
+            existing_tx = capture._tx(host_key)
+            prior = book.get_transaction(existing_tx)
             hcid = request.get('hcid')
-            if hcid:
-                row = book.db.execute('SELECT owner,binding FROM identities WHERE hcid=?',
-                                      (hcid,)).fetchone()
-                if row is None or row['owner'] != request['owner'] or row['binding'] != 'VERIFIED':
-                    raise ValueError('Existing binding does not match owner')
-            identity = book.bind(request['owner'], request['human'], hcid=hcid)
-            tx = UniversalConversationCapture(book, request['source']).capture_turn(
+            if prior is not None:
+                identity = book.get_identity(prior['hcid'])
+                state = book.task(existing_tx) or {}
+                if (identity is None or identity['owner'] != request['owner']
+                        or identity['binding'] != 'VERIFIED'
+                        or (hcid is not None and hcid != identity['hcid'])
+                        or prior['input'] != request['human']
+                        or state.get('capture_version') != 1
+                        or state.get('source') != request['source']
+                        or state.get('external_key_digest') != host_key
+                        or (state.get('phase') == 'COMPLETE'
+                            and state.get('final') != request['assistant'])):
+                    raise ValueError('Conversation capture retry differs from preserved evidence')
+            else:
+                if hcid:
+                    row = book.db.execute('SELECT owner,binding FROM identities WHERE hcid=?',
+                                          (hcid,)).fetchone()
+                    if row is None or row['owner'] != request['owner'] or row['binding'] != 'VERIFIED':
+                        raise ValueError('Existing binding does not match owner')
+                identity = book.bind(request['owner'], request['human'], hcid=hcid)
+            tx = capture.capture_turn(
                 identity['hcid'], request['conversation_id'], request['turn_id'],
                 request['human'], request['assistant'])
             result = {'tx': tx, 'hcid': identity['hcid'], 'page': identity['page'],
