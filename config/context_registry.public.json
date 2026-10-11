@@ -939,8 +939,7 @@
         "as built",
         "engineering baseline",
         "reconciliation",
-        "status drift",
-        "foundation"
+        "status drift"
       ],
       "components": [
         "docs/architecture/HUMANOS_ARCHITECTURE_BASELINE_PLAN.md",
@@ -969,7 +968,6 @@
       "status": "REVIEW",
       "confidentiality": "INTERNAL",
       "topics": [
-        "life notebook",
         "ln1",
         "schema",
         "integrity",
@@ -1003,7 +1001,6 @@
       "status": "PROMOTED",
       "confidentiality": "INTERNAL",
       "topics": [
-        "life notebook",
         "memory",
         "preference",
         "transcript",
@@ -1043,11 +1040,9 @@
       "confidentiality": "INTERNAL",
       "topics": [
         "mcp",
-        "chatgpt",
         "control room",
         "work order",
         "approval",
-        "external interface",
         "mailbox",
         "delegation",
         "routing"
