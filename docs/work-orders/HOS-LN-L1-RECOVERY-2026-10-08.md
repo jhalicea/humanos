@@ -55,3 +55,13 @@ Focused negative cases explicitly assert that unknown transaction, wrong owner, 
 **Limit:** This is a CLI-specific conservative filter using existing privacy state, **not** a change to the global `notebook_recall.py` policy or the canonical source transcript. Filtering after bounded ranking can return fewer than the allowed maximum visible results; it does not claim exhaustive redaction of copied material in unrelated transactions or model outputs, owner authentication, or secure deletion. Those require separate permission/data-lifecycle design and tests.
 
 **Gate:** Run full regression and encrypted-backup suites on the exact changed candidate SHA; independent privacy review and explicit owner promotion remain required. No real Notebook data or keys are accessed.
+
+## October 11 privacy-state versus literal marker (draft repair)
+
+**Review finding:** The exact-read CLI was treating a projected transcript row as hidden when its **text** equaled the redaction placeholder `[HIDDEN — content withheld]`. But that string is also a possible original HUMAN/ASSISTANT message. Comparing content rather than authoritative privacy state causes false denial and creates a fragile dependency on the current projection placeholder.
+
+**Narrow change:** A single CLI-local `_transaction_hidden(book, tx)` predicate consults the existing `privacy_state` table, and both `read` and `recall` use the predicate to reject an entire transaction with any HIDDEN transcript row. Readback still uses existing Notebook privacy projections and the original owner/binding guard. No schema, global Notebook privacy policy, or retrieval engine was modified.
+
+**Synthetic acceptance:** A complete visible conversation with exact original text matching the placeholder remains readable. After explicit HIDE the CLI denies the read without content or existence disclosure; after UNHIDE the exact original becomes readable again. Existing hidden-row and recovery tests remain in place.
+
+**Limit and gate:** This corrects an exact-read classification bug; it does not provide authentication, erasure, or whole-system privacy certification. Validate fresh full CI and dedicated encrypted restore suites on the **new immutable PR head**. Keep draft pending separate independent review and owner promotion approval.
