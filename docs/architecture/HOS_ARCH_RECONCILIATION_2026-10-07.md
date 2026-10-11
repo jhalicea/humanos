@@ -46,6 +46,17 @@ This is an **as-observed evidence map**, not a new Foundation, runtime, Notebook
 | Control Room HOS-MCP-001 | [PR #87](https://github.com/jhalicea/humanos/pull/87) draft with automated test evidence | R3 review, owner-host pairing, and promotion gates outstanding |
 | Academy | Generic kernel and public material promoted | Full private curriculum experiences and learner workflow still need owner-environment evidence |
 
+## Candidate branch-only source provenance (checked 2026-10-10)
+
+The new Context Registry entries preserve a `branch` alongside a `work_order` path. A work-order path may exist **only at that branch ref**; do not treat a registry pointer as proof that the file is present on canonical `runtime-0.1`.
+
+- **HOS-LN-001:** `docs/work-orders/HOS-LN-001.md` was readable on `life-notebook-ln1-schema-integrity` (draft [PR #117](https://github.com/jhalicea/humanos/pull/117)); that path was **not** present on the inspected canonical branch or this reconciliation candidate. Its base is `life-notebook-ln0`; no LN-1 promotion is inferred.
+- **HOS-MCP-001:** `docs/work-orders/HOS-MCP-001.md` was readable on `feature/control-room-mcp-v1` (draft [PR #87](https://github.com/jhalicea/humanos/pull/87)); that path was **not** present on the inspected canonical branch. MCP remains a candidate, independently gated and subject to registry reconciliation.
+- **HOS-ARCH-001:** The registry points at `architecture/independent-review-reconciliation-v1` (draft [PR #121](https://github.com/jhalicea/humanos/pull/121)). This **separate** public-safe status reconciliation is draft [PR #123](https://github.com/jhalicea/humanos/pull/123), `architecture/hos-arch-001-project-reconciliation-v1`. The existing architecture baseline/work order was introduced separately through merged [PR #120](https://github.com/jhalicea/humanos/pull/120); neither draft supersedes the other by default.
+- **HOS-LN-002:** `docs/work-orders/HOS-LN-002.md` is already on canonical, but its candidate-era heading required the dated correction included in PR #123. Historical pre-promotion acceptance detail is preserved.
+
+Before routing a continuation to a candidate, resolve **workstream ID → declared branch → work-order file at that exact ref → current PR/commit state**. Missing-at-canonical is not missing-everywhere, and a draft work order is not promoted authority.
+
 ## Open authority and continuity gaps — do not silently resolve
 
 1. **Constitution/Foundation:** The August 2 Constitution v0.2 requires a recorded amendment process. The September 29 owner-recorded ratification changes its declared operating role. A final authoritative Foundation v1.0 artifact/hash binding has not been verified. Preserve both decisions and do not adjust permissions merely because this note was written.
