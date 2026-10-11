@@ -1,12 +1,26 @@
 # HOS-LN-002 — Usable Life Notebook Memory Vertical Slice
 
-Status: **IMPLEMENTED CANDIDATE / CI QUALIFICATION IN PROGRESS / NOT PROMOTED**  
+Status: **PROMOTED TO `runtime-0.1` VIA PR #122 / OWNER-HOST PRODUCTION QUALIFICATION NOT ESTABLISHED**  
 Project: Life Notebook  
 Workspace: `WS-HUMANOS`  
 Repository: `jhalicea/humanos`  
 Branch: `feature/life-notebook-usable-memory-v1`  
 Baseline / merge base: `runtime-0.1` @ `3f2f25ea09941c8727daac1826e37badf0730d72`  
 Created: 2026-10-01
+
+## Post-promotion evidence reconciliation (2026-10-10)
+
+This section corrects the original **pre-promotion snapshot** using immutable GitHub evidence.
+The detailed implementation and historical acceptance contract below are preserved;
+their candidate-stage assertions and unchecked checkboxes are not the current branch status.
+
+- **Promotion evidence:** [PR #122](https://github.com/jhalicea/humanos/pull/122) was merged into `runtime-0.1` on 2026-10-02 at commit `0fe4ea5751bb17be30656a5c95809b79d6718636`. Original feature-head commit: `c9413f50f181019257d7fd66941e596ebd8f8e10`.
+- **Recorded canonical-commit CI:** [regression](https://github.com/jhalicea/humanos/actions/runs/36960921269) and [encrypted-backup/full-suite](https://github.com/jhalicea/humanos/actions/runs/36960921066) concluded **SUCCESS** for the merged commit. These are historical CI outcomes, not tests rerun by this reconciliation.
+- **What was promoted:** deterministic **explicit-preference** semantic memory, provenance, correction/supersession, privacy-aware source suppression, rebuildable derived state, and bound context across restart.
+- **What was *not* qualified:** real owner-vault migration, owner-host recovery/restore, universal external-conversation capture, broad semantic taxonomy/RAG, production SQLCipher/key custody, full deletion/remanence guarantees, or local-model retention/forgetting.
+- **Separate lineage:** PRE-LN-1 / HOS-LN-001 remains independent; [draft PR #117](https://github.com/jhalicea/humanos/pull/117) is not promoted and does not become complete by HOS-LN-002's merge.
+- **Governance evidence limit:** GitHub merge and green CI establish canonical incorporation and recorded tests; this note does not independently certify every historical owner-approval action or owner-device deployment.
+- **Next bounded qualification:** synthetic owner-local Mirror conversation → restart → sourced preference readback/correction, followed by separately authorized restore/privacy qualification. Preserve the original vault; do not infer real-vault access permission from this note.
 
 ## Classification
 
@@ -147,8 +161,9 @@ The first complete CI execution at commit
 that earlier commit passed. The encrypted-backup full-suite matrix also passed on
 Ubuntu/macOS and Python 3.11/3.13 at that commit.
 
-Subsequent privacy, idempotency, and crash-safe binding refinements deliberately invalidate
-that earlier commit as final qualification evidence. Fresh final-head CI is required.
+Subsequent privacy, idempotency, and crash-safe binding refinements invalidated
+that earlier commit as final qualification evidence **at the time of the original candidate review**.
+Later candidate-head and merged-commit CI are recorded in the post-promotion section above.
 
 ## Provenance correction
 
@@ -171,9 +186,11 @@ HOS-LN-002 does **not** claim:
 - LN-1 is complete;
 - this branch is production-ready merely because the bounded acceptance test passes.
 
-## Promotion gates
+## Historical pre-promotion gates (preserved snapshot)
 
-Before promotion to `runtime-0.1`:
+The unchecked items below are original candidate-stage gates, **not a current claim that PR #122 remains unmerged**. GitHub promotion and CI evidence is recorded above; individual owner-host qualification remains separate.
+
+At the time of the pre-promotion review:
 
 - [ ] final branch head passes regression CI on Ubuntu/macOS × Python 3.11/3.13;
 - [ ] final branch head passes encrypted-backup/full-suite CI on the same matrix;
@@ -183,16 +200,15 @@ Before promotion to `runtime-0.1`:
 
 ## Rollback
 
-Until promotion, rollback is deletion/abandonment of this feature branch only. Existing
-`runtime-0.1` Notebook evidence is untouched.
+Before the 2026-10-02 promotion, rollback would have been deletion/abandonment of the candidate branch alone. That historical option does not roll back incorporated canonical code.
 
-After any future promotion, revert the exact promotion commit. The semantic-memory
+After the 2026-10-02 promotion, revert the exact promotion commit through the normal owner-governed SDLC. The semantic-memory
 projection is additive; canonical existing transcript evidence must not be deleted as a
 rollback side effect.
 
 ## Next bounded extension after promotion
 
-Only after this vertical slice is accepted should semantic coverage expand in small,
+The bounded explicit-preference slice is incorporated into the canonical branch; broader semantic coverage remains separately gated. Only after additional bounded acceptance should it expand in small,
 verified increments (for example decisions, tasks, open questions, contradictions, and
 entities), reusing the same invariant:
 

@@ -11,6 +11,8 @@ information, and sensitive local evidence do not belong here.
 |---|---|---|---|
 | HumanOS Constitution | `core/constitution.md` | Governing constitutional copy beneath owner authority and above subordinate decisions/standards | Constitutional change process only |
 | Foundation ratification | `docs/FOUNDATION_RATIFICATION.md` | Ratified Foundation Contract v0.1 boundary | New ratification/amendment |
+| Later Foundation Standard owner decision | Private canonical Decision Register (2026-09-29), outside public Git | Owner-recorded Foundation v1.0 ratification; canonical artifact/hash binding and constitutional compatibility still unresolved | Verified owner disposition or newly bound normative artifact |
+| As-built reconciliation | `docs/architecture/HOS_ARCH_RECONCILIATION_2026-10-07.md` | Dated public-safe evidence map, no independent authority | Material evidence/status drift |
 | Repository working agreement | `AGENTS.md` | Mandatory repository/SDLC/context-routing instructions | Workflow or safety rule change |
 | Global routing/index | GitHub issue #67 | Mutable router/index for discovering workspace/workstream state and current session focus; pointer only | Registry/workstream focus materially changes |
 | Public context registry | `config/context_registry.public.json` | Safe workspace/workstream metadata used for topic-aware development routing | Workstream created, renamed, related, status/resume point changes |
@@ -34,6 +36,12 @@ information, and sensitive local evidence do not belong here.
 | Roadmap | `docs/roadmap.md` | Planned direction, not routing truth | Roadmap change |
 | README/docs index | `README.md`, `docs/index.md` | Entry points/public status | User-facing docs change |
 | Release/rollback evidence | tags, releases, commit history, work orders | Promotion and rollback truth | Merge/release/promotion |
+
+## Cross-source governance caution (2026-10-07)
+
+The September 11 Foundation Contract ratification recorded in Git and the later September 29 owner-recorded Foundation Standard v1.0 ratification are **not the same instrument**. The later decision changes the declared operating role of the earlier Constitution, while the August 2 ratified Constitution requires a recorded amendment process. Preserve both records, keep existing protections in force, and seek an explicit compatibility disposition before changing runtime permissions. The final hash-bound Foundation v1.0 normative artifact was not verified in this public repository; do not imply it was.
+
+The Context Registry is for discovery, work orders for bounded acceptance, root `STATUS.md` for a dated branch/baseline snapshot, code/commits/tests for implementation evidence, and the private Life Notebook for original human-history evidence. None silently supersedes another.
 
 ## Promoted foundation/context baseline
 

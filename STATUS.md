@@ -1,136 +1,35 @@
-# HumanOS Status Snapshot
+# HumanOS Status Snapshot — runtime-0.1 baseline
 
-Status: **HOS-LN-002 IMPLEMENTED CANDIDATE / FINAL-HEAD CI REQUIRED / NOT PROMOTED**  
-Date: 2026-10-01  
-Workspace: `WS-HUMANOS`  
-Project: Life Notebook  
-Workstream: `HOS-LN-002 — Usable Life Notebook Memory Vertical Slice`  
-Branch: `feature/life-notebook-usable-memory-v1`  
-Baseline / merge base: `runtime-0.1` @ `3f2f25ea09941c8727daac1826e37badf0730d72`  
-Work order: `docs/work-orders/HOS-LN-002.md`
+Status: **ACTIVE DEVELOPMENT / NOT PRODUCTION QUALIFIED**  
+Snapshot date: **2026-10-07**  
+Verified repository baseline: `runtime-0.1` at `0fe4ea5751bb17be30656a5c95809b79d6718636`  
+Purpose: a dated commit-scoped snapshot, **not a live project dashboard**.
 
-## Current outcome
+## Confirmed since the earlier October 1 snapshot
 
-A bounded usable-memory vertical slice is implemented on this feature branch using the
-existing HumanOS Notebook rather than a competing memory store.
+- **HOS-LN-002 promoted:** [PR #122](https://github.com/jhalicea/humanos/pull/122) merged October 2 at `0fe4ea5751bb17be30656a5c95809b79d6718636`. The explicit-preference semantic-memory slice includes provenance, correction/supersession, deterministic derived state, restart-safe bounded Mirror context, and fail-soft extraction. Prior 'not promoted' language is historical and superseded by merge evidence.
+- **HOS-ARCH-001 baseline promoted:** [PR #120](https://github.com/jhalicea/humanos/pull/120) merged documentation and work-order scaffolding. Draft [PR #121](https://github.com/jhalicea/humanos/pull/121) is separate and has not been owner-ratified.
+- **PRE-LN-1 schema ADR:** [PR #117](https://github.com/jhalicea/humanos/pull/117) remains a draft on the separate `life-notebook-ln0` base. This is not an LN-1 implementation or acceptance.
+- **Bounded Control Room MCP:** [PR #87](https://github.com/jhalicea/humanos/pull/87) remains draft; automated test evidence is not owner-host acceptance or promotion.
 
-The slice now provides:
+## As-built boundaries
 
-- exact human/assistant transcript evidence preserved by the existing Notebook runtime;
-- deterministic preference extraction after transcript completion;
-- append-only `HOS-MEM-*` semantic events with content-free idempotency identity and exact source provenance;
-- keyed chained event integrity;
-- rebuildable current state with `ACTIVE` / `CONFLICTED` semantics;
-- explicit correction through a new event with `supersedes` lineage;
-- replay detection before current-state resolution;
-- persistence across Notebook close/reopen;
-- bounded current memory + provenance supplied to later Mirror turns;
-- content-light `MEMORY_CONTEXT_BOUND` event-ID snapshots written before first model execution;
-- exact bound-memory reconstruction on interrupted-task resume, preventing later state from silently changing an in-flight task;
-- fail-soft semantic extraction: memory failure cannot erase or block a completed chat;
-- content-light memory-processing receipts in task state.
+Current code includes terminal Mirror, local Ollama adapter, a SQLite-backed Notebook and recovery, deterministic Context Registry/routing and graph primitives, bounded governed tools, browser-bridge code with local pairing still to verify, and a reusable Academy kernel.
 
-The current semantic taxonomy is intentionally small: preference memory only. This is a
-working vertical slice proving the conversation -> semantic ledger -> derived state ->
-restart -> context/provenance -> supersession loop before broader memory types are added.
+**Not established:** universal external ChatGPT capture; whole-human personal graph integration; owner-host Control Room verification; complete PRE-LN-1 storage/deletion production qualification; hosted-model production bridge; finished desktop/mobile UI.
 
-## Acceptance scenario
+## Authority and continuity gaps
 
-The automated acceptance tests cover both ordinary restart and interrupted execution:
+- [Context Registry](config/context_registry.public.json) is the public-safe workstream map; [issue #67](https://github.com/jhalicea/humanos/issues/67) is a mutable pointer, not historical proof.
+- Historical Drive Life Notebook index/state last inspected as modified **September 29, 2026**. October PR activity is **not** presumed checkpointed there. Surface `CHECKPOINT LAG` until readback evidence advances it.
+- The September 11 Foundation Contract ratification and the September 29 owner-recorded Foundation Standard v1.0 ratification are separate historical decisions. September 29 changes the earlier Constitution's stated operating role, while the ratified Constitution requires an amendment procedure. The compatibility question and final versioned Foundation artifact remain unresolved; no new authority or permission is inferred here.
+- GitHub historical-privacy cleanup, including pull-request ref exposure, remains independently unqualified.
 
-```text
-I prefer concise morning summaries.
-        ↓
-exact transcript persisted
-        ↓
-preference event + provenance
-        ↓
-current state = concise
-        ↓
-Notebook close/reopen
-        ↓
-How do I like my morning summaries?
-        ↓
-concise (from persisted derived state)
-        ↓
-provenance points to original page / tx / transcript seq
-        ↓
-Actually, make them detailed.
-        ↓
-new event supersedes old event
-        ↓
-old history retained; current state = detailed
-```
+## Next bounded work
 
-The crash/resume test additionally begins a task while memory is `concise`, persists a
-content-light binding before model execution, forces a model outage, changes current
-memory to `detailed`, and then resumes the interrupted task. The resumed task must still
-receive the originally bound `concise` snapshot, and only one binding event may exist.
+1. Review and test HOS-ARCH-001 public-safe metadata reconciliation; preserve its registry overlap with PR #87.
+2. Resolve the Foundation/Constitution authority discrepancy through explicit owner review without changing runtime authorization by implication.
+3. Verify one owner-local Life Notebook capture → restart → recall → correction + provenance loop, then reconcile Drive checkpoints forward or report lag.
+4. Keep PRE-LN-1 and Control Room security/host acceptance as separate gated workstreams.
 
-A separate failure test forces semantic extraction to raise after a completed
-conversation and verifies that the exact human/assistant transcript remains intact and
-the task remains complete.
-
-## Verification evidence
-
-An earlier intermediate candidate at commit
-`846338877a99e3aa0e014ef76888f089df3042f9` passed its seven then-existing memory tests,
-ran **613 regression tests** successfully on macOS/Python 3.13 with 8 optional-dependency
-skips, and passed the encrypted-backup/full-suite matrix on Ubuntu/macOS × Python
-3.11/3.13.
-
-That evidence is historical only. Privacy, idempotency, and crash-safe context-binding
-refinements were added afterward. The current suite contains eight HOS-LN-002 acceptance
-areas, and fresh CI on the final branch head is mandatory before promotion.
-
-## Provenance correction
-
-The actual branch merge base is
-`3f2f25ea09941c8727daac1826e37badf0730d72`. An earlier draft status listed the first
-parent of that merge instead; the documentation was corrected before final qualification.
-
-## Relationship to PRE-LN-1
-
-HOS-LN-002 does not cancel or overwrite PRE-LN-1. The separate schema/integrity,
-SQLCipher/key-custody, migration/cutover, deletion, and production-qualification work
-remains necessary for the hardened Life Notebook target.
-
-The project direction is now explicitly two-track:
-
-```text
-USABLE LIFE NOTEBOOK                HARDENING
-working transcript                  schema/integrity
-semantic ledger                     SQLCipher / key custody
-current state                       deletion fan-out
-restart + recall                    migration/cutover
-provenance                          production qualification
-supersession
-crash-safe context binding
-        \                              /
-         \                            /
-          ------ hardened runtime ----
-```
-
-Usability is no longer blocked on completing every future hardening gate first.
-
-## Explicit non-claims
-
-- HOS-LN-002 is not yet promoted to `runtime-0.1`.
-- No owner production Notebook data was committed or migrated.
-- Full semantic coverage for decisions/tasks/open questions/entities is not implemented in this v1 slice.
-- PRE-LN-1 cryptographic/storage/deletion requirements are not claimed complete.
-- Passing the bounded acceptance tests does not itself qualify the future LN-1 kernel.
-
-## Promotion gates
-
-- [ ] final-head regression CI passes Ubuntu/macOS × Python 3.11/3.13;
-- [ ] final-head encrypted-backup/full-suite CI passes the same matrix;
-- [ ] final diff review finds no transcript-authority, provenance, privacy, crash/resume, or fail-soft blocker;
-- [ ] no PRE-LN-1 workstream is overwritten or falsely marked complete;
-- [ ] owner explicitly approves promotion.
-
-## Next authorized action
-
-Finish final-head CI and bounded review. If clean, present the exact candidate evidence
-to the owner for promotion approval. Do not merge this branch merely because earlier
-intermediate commits were green.
+Detailed evidence and limits: [October 7 architecture reconciliation](docs/architecture/HOS_ARCH_RECONCILIATION_2026-10-07.md). This snapshot does not itself ratify, deploy, migrate, or promote any capability.
