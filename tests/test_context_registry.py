@@ -44,6 +44,40 @@ class ContextRegistryTests(unittest.TestCase):
         self.assertEqual(result.workstream_id, "HOS-BROWSER-001")
         self.assertIn("closest related stream", result.reason)
 
+    def test_reconciliation_scoped_topics_preserve_capture_and_recall_routes(self):
+        # HOS-ARCH-001 metadata adds legitimate streams, but must not hijack
+        # existing exact external turn capture and local recall requests.
+        registry = self.load()
+        expected = {
+            'continue external ChatGPT capture': 'HOS-NB-CAPTURE-001',
+            'continue ChatGPT conversation capture': 'HOS-NB-CAPTURE-001',
+            'continue life notebook': 'HOS-NB-CAPTURE-001',
+            'continue life notebook restart and recall': 'HOS-NB-RECALL-001',
+            'continue privacy and notebook hidden records': 'HOS-CTX-004',
+        }
+        for request, workstream in expected.items():
+            with self.subTest(request=request):
+                result = route_request(registry, request)
+                self.assertEqual(result.decision, 'CONTINUE')
+                self.assertEqual(result.workstream_id, workstream)
+
+    def test_reconciliation_named_candidates_remain_discoverable(self):
+        # New records remain routable under sufficiently specific descriptions;
+        # Foundation questions must not silently route to new architecture docs.
+        registry = self.load()
+        expected = {
+            'continue PRE-LN-1 schema integrity ADR': ('CONTINUE', 'HOS-LN-001'),
+            'continue humanos life notebook semantic memory': ('CONTINUE', 'HOS-LN-002'),
+            'continue the Control Room MCP boundary': ('CONTINUE', 'HOS-MCP-001'),
+            'continue architecture recovery and engineering baseline': ('CONTINUE', 'HOS-ARCH-001'),
+            'review Foundation Constitution September 29 conflict': ('EXTEND', 'HOS-FND-001'),
+        }
+        for request, (decision, workstream) in expected.items():
+            with self.subTest(request=request):
+                result = route_request(registry, request)
+                self.assertEqual(result.decision, decision)
+                self.assertEqual(result.workstream_id, workstream)
+
     def test_cross_workspace_access_fails_closed_without_explicit_authorization(self):
         data = json.loads(self.public.read_text(encoding="utf-8"))
         data["workspaces"].append({
