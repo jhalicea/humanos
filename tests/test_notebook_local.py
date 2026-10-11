@@ -199,7 +199,7 @@ class NotebookLocalTests(unittest.TestCase):
                 denied_read = run('read', {'owner': 'Synthetic Owner', 'tx': tx})
                 self.assertEqual(denied_read.returncode, 1)
                 self.assertEqual(denied_read.stdout, '')
-                self.assertEqual(denied_read.stderr, 'Notebook operation failed\\n')
+                self.assertEqual(denied_read.stderr, 'Notebook operation failed\n')
 
                 other = recall('Regular weather')
                 self.assertIn(visible_tx, {r['tx'] for r in other['results']})
