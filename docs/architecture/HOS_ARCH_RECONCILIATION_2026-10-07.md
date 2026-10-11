@@ -57,6 +57,14 @@ The new Context Registry entries preserve a `branch` alongside a `work_order` pa
 
 Before routing a continuation to a candidate, resolve **workstream ID → declared branch → work-order file at that exact ref → current PR/commit state**. Missing-at-canonical is not missing-everywhere, and a draft work order is not promoted authority.
 
+## October 11 routing-risk reconciliation (candidate)
+
+The public Context Registry is a behavior-bearing input, not only a list of links. A read-only translation of the current deterministic token scoring showed that **adding new broad topic labels** could redirect existing requests: for example, `continue external ChatGPT capture` matched new `HOS-MCP-001` over existing `HOS-NB-CAPTURE-001`; `continue life notebook restart and recall` matched new `HOS-LN-002` instead of existing `HOS-NB-RECALL-001`; a Foundation/Constitution question became ambiguous.
+
+**Bounded correction on this draft branch:** Narrow topics *only on the four newly introduced workstream records*. Remove the generic `foundation` topic from HOS-ARCH-001, `life notebook` from HOS-LN-001 and HOS-LN-002, and `chatgpt`/`external interface` from HOS-MCP-001. Keep their specific architecture, schema, memory, and MCP/Control Room terms, as well as all original 25 workstream records/metadata unchanged. No status, branch, relation or permission changes are intended.
+
+**Behavior acceptance:** New tests in existing `tests/test_context_registry.py` pin the historical external conversation-capture, Notebook recall, generic Notebook and Foundation request routes, and verify that specific architecture/PRE-LN-1/semantic-memory/MCP queries still resolve to the newly added workstreams. The initial comparison was an independent JS translation, **not native Python execution**. Fresh repository CI, native validator/route smoke checks, independent reviewer analysis and owner approval remain separate gates. This change supersedes the older seven-file candidate and its earlier exact-commit review evidence; do not promote without qualifying the final eight-file SHA.
+
 ## Open authority and continuity gaps — do not silently resolve
 
 1. **Constitution/Foundation:** The August 2 Constitution v0.2 requires a recorded amendment process. The September 29 owner-recorded ratification changes its declared operating role. A final authoritative Foundation v1.0 artifact/hash binding has not been verified. Preserve both decisions and do not adjust permissions merely because this note was written.
