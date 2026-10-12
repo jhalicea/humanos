@@ -270,6 +270,41 @@ class CodexImportCliTests(unittest.TestCase):
                     self.assertFalse(vault.exists())
                     self.assertFalse((root / "capture-receipts.jsonl").exists())
 
+    def test_codex_inspection_reports_ids_without_original_message_text(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source, ledger, vault = self.setup_paths(Path(folder))
+            records = _one_turn_rollout(source, human="PRIVATE human text",
+                                        assistant="PRIVATE assistant text")
+            records.extend([
+                {"type": "response_item", "payload": {"id": "human-2", "role": "user",
+                    "content": [{"type": "input_text", "text": "secret second human"}]}},
+                {"type": "response_item", "payload": {"id": "assistant-2", "role": "assistant",
+                    "content": [{"type": "output_text", "text": "secret second answer"}]}},
+            ])
+            source.write_text("\n".join(json.dumps(x) for x in records) + "\n", encoding="utf-8")
+            code, out, err = self.run_cli(["inspect-codex", "--source", str(source)])
+            self.assertEqual(code, 0, err)
+            self.assertNotIn("PRIVATE", out)
+            self.assertNotIn("secret second", out)
+            report = json.loads(out)
+            self.assertEqual(report["status"], "UNVERIFIED_METADATA_ONLY")
+            self.assertEqual(report["message_count"], 4)
+            self.assertEqual([(x["role"], x["source_id"]) for x in report["messages"]],
+                             [("HUMAN", "human-1"), ("ASSISTANT", "assistant-1"),
+                              ("HUMAN", "human-2"), ("ASSISTANT", "assistant-2")])
+            self.assertFalse(ledger.exists())
+            self.assertFalse(vault.exists())
+
+    def test_codex_inspection_denies_implicit_source_discovery(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source, ledger, vault = self.setup_paths(Path(folder))
+            _one_turn_rollout(source)
+            code, stdout, stderr = self.run_cli(["inspect-codex"])
+            self.assertNotEqual(code, 0)
+            self.assertEqual(stdout, "")
+            self.assertFalse(ledger.exists())
+            self.assertFalse(vault.exists())
+
     def test_foreign_ledger_rejected_without_mutation(self):
         from ledger_capture_adapter import capture_observed_turn
 

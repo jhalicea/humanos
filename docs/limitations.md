@@ -21,7 +21,18 @@ PR #115 proposes one **manual**, owner-confirmed capture path reusing the existi
 **not on canonical runtime-0.1** and is not automatic account or browser capture.
 
 From the repository working directory with an explicitly chosen **local**
-one-turn Codex JSONL rollout and owner-only destination directories:
+Codex JSONL rollout and owner-only destination directories. First view only
+the source message IDs and roles (the inspection prints **no message content**):
+
+```text
+python3 humanos.py inspect-codex --source /absolute/private/path/selected-rollout.jsonl
+```
+
+This preview is `UNVERIFIED_METADATA_ONLY`: it does **not** certify that
+adjacent messages are a complete provider turn. Select one consecutive
+HUMAN/ASSISTANT pair from those IDs before importing a larger session.
+
+Then import that one turn:
 
 ```text
 python3 humanos.py import-codex \

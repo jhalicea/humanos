@@ -117,6 +117,48 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
     }
 
 
+def inspect_selected_codex_source(source):
+    """Display original message IDs and roles, never conversation text."""
+    source = Path(source)
+    if not source.is_absolute() or source.is_symlink():
+        raise ValueError("Choose an absolute, regular non-symlink source")
+    source = source.resolve()
+    repo = Path(__file__).resolve().parent
+    if (not source.is_file() or source.suffix != ".jsonl"
+            or source == repo or repo in source.parents
+            or source.stat().st_size > 16 * 1024 * 1024):
+        raise ValueError("Selected Codex source is invalid or too large")
+    rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+    if any(not isinstance(row, dict) for row in rows):
+        raise ValueError("Codex source records must be JSON objects")
+    metas = [row.get("payload") for row in rows if row.get("type") == "session_meta"]
+    if len(metas) != 1 or not isinstance(metas[0], dict):
+        raise ValueError("Only one explicit Codex session can be inspected")
+    session = metas[0].get("session_id") or metas[0].get("id")
+    if not isinstance(session, str) or not session:
+        raise ValueError("Source session ID is missing")
+    messages = []
+    for row in rows:
+        if row.get("type") != "response_item":
+            continue
+        payload = row.get("payload")
+        if not isinstance(payload, dict) or payload.get("role") not in ("user", "assistant"):
+            continue
+        source_id = payload.get("id")
+        messages.append({
+            "index": len(messages),
+            "role": "HUMAN" if payload["role"] == "user" else "ASSISTANT",
+            "source_id": source_id if isinstance(source_id, str) and source_id else None,
+            "selectable": bool(isinstance(source_id, str) and source_id),
+            "conversation_matches_session": (payload.get("thread_id") or session) == session,
+        })
+        if len(messages) > 1024:
+            raise ValueError("Too many messages for bounded metadata inspection")
+    return {"status": "UNVERIFIED_METADATA_ONLY", "source": "codex-rollout",
+            "message_count": len(messages), "messages": messages}
+
+
 def main(argv=None):
     raw_args = list(argv) if argv is not None else sys.argv[1:]
     if raw_args and raw_args[0] == "academy":
@@ -124,7 +166,7 @@ def main(argv=None):
         return academy_main(raw_args[1:])
 
     parser = argparse.ArgumentParser(prog="humanos")
-    parser.add_argument("command", choices=("capture", "turn", "project", "verify", "status", "audit", "import-codex"))
+    parser.add_argument("command", choices=("capture", "turn", "project", "verify", "status", "audit", "import-codex", "inspect-codex"))
     parser.add_argument("--ledger", type=Path)
     parser.add_argument("--source", type=Path)
     parser.add_argument("--conversation-id")
@@ -138,7 +180,14 @@ def main(argv=None):
     parser.add_argument("--human-source-id", help="Explicit original HUMAN message ID in a larger Codex rollout")
     parser.add_argument("--assistant-source-id", help="Explicit original ASSISTANT message ID in a larger Codex rollout")
     args = parser.parse_args(raw_args)
-    if args.command == "import-codex":
+    if args.command == "inspect-codex":
+        if args.source is None:
+            parser.error("inspect-codex requires --source")
+        try:
+            result = inspect_selected_codex_source(args.source)
+        except (OSError, ValueError, RuntimeError, UnicodeError):
+            parser.error("Selected Codex metadata inspection failed")
+    elif args.command == "import-codex":
         if not args.confirm_observed or any(value is None for value in
                                             (args.source, args.ledger, args.notebook)):
             parser.error("import-codex requires --source, --ledger, --notebook and --confirm-observed")
