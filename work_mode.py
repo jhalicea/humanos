@@ -339,6 +339,9 @@ class WorkContextModel:
         messages = [dict(item) for item in messages]
         if not messages or messages[0].get('role') != 'system':
             raise RuntimeError('Delegated work requires the normal HumanOS system prompt')
+        from terminal_delivery import POLICY as terminal_policy
+        if terminal_policy not in messages[0].get('content', ''):
+            raise PermissionError('Delegated work packet lacks terminal delivery policy')
 
         required_tool, checkpoint = self._next_required_tool(messages)
         if required_tool:

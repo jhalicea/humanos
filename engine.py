@@ -17,6 +17,9 @@ from audit_privacy import (context_summary, exception_summary, model_response_su
                            observation_summary, request_summary)
 from references import (capture_reference_frame, clarification_text, reference_frame_event,
                         resolve_reference, validate_reference_binding)
+from terminal_delivery import (POLICY as TERMINAL_DELIVERY_POLICY, POLICY_ID as TERMINAL_DELIVERY_POLICY_ID,
+                               TerminalDeliveryError,
+                               validate_terminal_delivery)
 
 
 class Model(Protocol):
@@ -397,10 +400,11 @@ class Agent:
                         reference_binding=reference_binding, work_binding=work_binding)
                 )
                 state = {'phase': 'MODEL', 'steps': 0, 'elapsed': 0, 'model': self.model.name,
-                         'messages': [{'role': 'system', 'content': SYSTEM + '\n' + model_instructions(self.tools.capability_states()) + '\nContext packet:\n' + encode(packet)},
+                         'messages': [{'role': 'system', 'content': SYSTEM + '\n' + TERMINAL_DELIVERY_POLICY + '\n' + model_instructions(self.tools.capability_states()) + '\nContext packet:\n' + encode(packet)},
                                       *[{'role': item['role'].lower().replace('human', 'user'), 'content': item['text']} for item in history],
                                       {'role': 'user', 'content': row['input']}],
                          'context': packet, 'workspace': str(self.tools.workspace),
+                         'terminal_delivery_policy': TERMINAL_DELIVERY_POLICY_ID,
                          'permissions': permissions,
                          'reference_binding': reference_binding, 'work_binding': work_binding, 'approvals': []}
                 if reference_binding is not None:
@@ -417,6 +421,13 @@ class Agent:
                     state.update(phase='TOOL', pending=direct, direct_response=True)
                 self.book.save_task(tx, state)
                 self.book.event(tx, 'CONTEXT_LOADED', context_summary(self.book, packet))
+            if (state.get('phase') == 'EXECUTING' and
+                    REGISTRY.get(state['pending'].get('name'), {}).get('effect') not in ('read', 'plan')):
+                raise RuntimeError('Interrupted write has unknown outcome; inspect artifact before manual reconciliation')
+            if (state.get('terminal_delivery_policy') != TERMINAL_DELIVERY_POLICY_ID or
+                    not state.get('messages') or state['messages'][0].get('role') != 'system' or
+                    TERMINAL_DELIVERY_POLICY not in state['messages'][0].get('content', '')):
+                raise PermissionError('Saved terminal delivery policy is missing or altered; explicit reconciliation required')
             if work_binding is not None and state.get('work_binding') != work_binding:
                 raise PermissionError('Delegated work binding differs from preserved task state')
             if state['model'] != self.model.name or state['workspace'] != str(self.tools.workspace):
@@ -437,7 +448,12 @@ class Agent:
                 if remaining <= 0:
                     raise TimeoutError('Task time budget exhausted; preserved for review')
                 if state['phase'] == 'FINAL':
-                    final = state['final']
+                    try:
+                        final = validate_terminal_delivery(state['final'])
+                    except TerminalDeliveryError as error:
+                        self.book.event(tx, 'TERMINAL_DELIVERY_REJECTED', {'reason': str(error)})
+                        final = 'Terminal instructions were withheld because they failed the HumanOS delivery contract.'
+                        state['final'] = final
                     ordinal = self.book.message_count(tx)
                     # A crash between append and state update retries the same final ordinal.
                     ordinal = state.setdefault('final_ordinal', ordinal)
