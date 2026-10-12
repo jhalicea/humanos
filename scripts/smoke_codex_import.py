@@ -41,7 +41,10 @@ def read_notebook(vault, transaction):
         "import json, sys; from notebook import Notebook; "
         "book = Notebook(sys.argv[1]); "
         "print(json.dumps({'transaction': book.get_transaction(sys.argv[2]), "
-        "'task': book.task(sys.argv[2]), 'verified': book.verify()}, sort_keys=True)); book.close()"
+        "'task': book.task(sys.argv[2]), 'records': [dict(row) for row in "
+        "book.db.execute(\"SELECT role,text FROM transcript ORDER BY seq\")], "
+        "'transaction_count': book.db.execute(\"SELECT COUNT(*) FROM transactions\").fetchone()[0], "
+        "'verified': book.verify()}, sort_keys=True)); book.close()"
     )
     result = subprocess.run([sys.executable, "-c", code, str(vault), transaction], cwd=REPO,
                             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
@@ -75,8 +78,12 @@ def main():
         before_hash = hashlib.sha256(source.read_bytes()).hexdigest()
 
         inspected = run_cli("inspect-codex", "--source", source)
-        require(HUMAN not in inspected.stdout and ASSISTANT not in inspected.stdout,
+        inspected_output = inspected.stdout + inspected.stderr
+        require("synthetic idless human" not in inspected_output
+                and "synthetic idless assistant" not in inspected_output,
                 "inspection exposed synthetic conversation content")
+        require(not ledger.exists() and not notebook.exists(),
+                "metadata inspection created a destination")
         report = json.loads(inspected.stdout)
         require(report["status"] == "UNVERIFIED_METADATA_ONLY", "unexpected inspect status")
         messages = report["messages"]
@@ -98,8 +105,10 @@ def main():
                                        "skipped": 0, "pending": 0}},
                 "first import result changed")
         rows = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
-        require([(row["source_id"], row["source_line"], row["text"]) for row in rows] == [
-            (ids[0], 2, HUMAN), (ids[1], 4, ASSISTANT),
+        require([(row["source_id"], row["source_id_origin"], row["source_line"], row["text"])
+                 for row in rows] == [
+            (ids[0], "LOCAL_DERIVED_RECORD_V1", 2, HUMAN),
+            (ids[1], "LOCAL_DERIVED_RECORD_V1", 4, ASSISTANT),
         ], "ledger did not preserve selected text and derived provenance")
         first_ledger = ledger.read_bytes()
         require(hashlib.sha256(source.read_bytes()).hexdigest() == before_hash,
@@ -107,7 +116,15 @@ def main():
         readback = read_notebook(notebook, "CAPTURE-" + ids[1])
         require(readback["verified"] is True
                 and readback["transaction"]["input"] == HUMAN
-                and readback["task"]["assistant_source_id"] == ids[1],
+                and readback["task"] == {
+                    "phase": "COMPLETE", "final": ASSISTANT, "final_ordinal": 1,
+                    "model": "codex-rollout", "projection_version": 1,
+                    "source": "codex-rollout", "conversation_id": "synthetic-idless-session",
+                    "human_source_id": ids[0], "assistant_source_id": ids[1],
+                }
+                and readback["records"] == [
+                    {"role": "HUMAN", "text": HUMAN}, {"role": "ASSISTANT", "text": ASSISTANT},
+                ] and readback["transaction_count"] == 1,
                 "fresh Notebook process did not read exact selected provenance")
 
         repeated = json.loads(run_cli(*command).stdout)
@@ -121,7 +138,8 @@ def main():
                 "restart changed the Notebook transcript or provenance")
         print("synthetic Codex import smoke: PASS")
     finally:
-        shutil.rmtree(root, ignore_errors=True)
+        shutil.rmtree(root)
+        require(not root.exists(), "synthetic temporary root was not removed")
 
 
 if __name__ == "__main__":
