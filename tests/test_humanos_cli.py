@@ -182,6 +182,24 @@ class CodexImportCliTests(unittest.TestCase):
                     self.assertFalse(vault.exists())
                     self.assertFalse((root / "capture-receipts.jsonl").exists())
 
+    def test_public_destination_denied_before_capture(self):
+        import os
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "selected-rollout.jsonl"
+            _one_turn_rollout(source)
+            shared = root / "shared"
+            shared.mkdir()
+            os.chmod(shared, 0o755)
+            ledger, vault = shared / "ledger.jsonl", shared / "notebook"
+            code, stdout, stderr = self.run_cli(self.command(source, ledger, vault))
+            self.assertNotEqual(code, 0)
+            self.assertEqual(stdout, "")
+            self.assertIn("Selected Codex import failed", stderr)
+            self.assertFalse(ledger.exists())
+            self.assertFalse(vault.exists())
+            self.assertFalse((shared / "capture-receipts.jsonl").exists())
+
     def test_foreign_ledger_rejected_without_mutation(self):
         from ledger_capture_adapter import capture_observed_turn
 
