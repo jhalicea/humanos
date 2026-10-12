@@ -49,9 +49,14 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
 
     # The existing importer silently ignores unsupported records. This
     # stricter opt-in route must not call a partial parse 'complete'.
-    raw = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines()
-           if line.strip()]
-    if any(not isinstance(record, dict) for record in raw):
+    entries = [(line_no, json.loads(line))
+               for line_no, line in enumerate(source.read_text(encoding="utf-8").splitlines(),
+                                              start=1) if line.strip()]
+    raw = [record for _line_no, record in entries]
+    if any(not isinstance(record, dict)
+           or (record.get("type") in ("session_meta", "response_item")
+               and not isinstance(record.get("payload"), dict))
+           for record in raw):
         raise ValueError("Selected rollout contains invalid records")
     meta = [record.get("payload", {}) for record in raw
             if record.get("type") == "session_meta"]
@@ -62,7 +67,7 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
         raise ValueError("Selected session is missing a stable ID")
     relevant = [(record["payload"],
                  _codex_source_id(record, line_no, session))
-                for line_no, record in enumerate(raw, start=1)
+                for line_no, record in entries
                 if record.get("type") == "response_item"
                 and isinstance(record.get("payload"), dict)
                 and record["payload"].get("role") in ("user", "assistant")]
@@ -131,10 +136,15 @@ def inspect_selected_codex_source(source):
             or source == repo or repo in source.parents
             or source.stat().st_size > 16 * 1024 * 1024):
         raise ValueError("Selected Codex source is invalid or too large")
-    rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines()
-            if line.strip()]
-    if any(not isinstance(row, dict) for row in rows):
-        raise ValueError("Codex source records must be JSON objects")
+    entries = [(line_no, json.loads(line))
+               for line_no, line in enumerate(source.read_text(encoding="utf-8").splitlines(),
+                                              start=1) if line.strip()]
+    rows = [record for _line_no, record in entries]
+    if any(not isinstance(row, dict)
+           or (row.get("type") in ("session_meta", "response_item")
+               and not isinstance(row.get("payload"), dict))
+           for row in rows):
+        raise ValueError("Codex source records must be valid JSON objects")
     metas = [row.get("payload") for row in rows if row.get("type") == "session_meta"]
     if len(metas) != 1 or not isinstance(metas[0], dict):
         raise ValueError("Only one explicit Codex session can be inspected")
@@ -142,7 +152,7 @@ def inspect_selected_codex_source(source):
     if not isinstance(session, str) or not session:
         raise ValueError("Source session ID is missing")
     messages = []
-    for line_number, row in enumerate(rows, start=1):
+    for line_number, row in entries:
         if row.get("type") != "response_item":
             continue
         payload = row.get("payload")
