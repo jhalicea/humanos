@@ -377,6 +377,47 @@ class CodexImportCliTests(unittest.TestCase):
             self.assertFalse(ledger.exists())
             self.assertFalse(vault.exists())
 
+    def test_idless_source_reference_uses_physical_line_ordinal_with_blank_lines(self):
+        from conversation_ledger import read_ledger
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source, ledger, vault = self.setup_paths(root)
+            records = [
+                {"type": "session_meta", "payload": {"id": "synthetic-session"}},
+                {"type": "response_item", "payload": {"type": "message", "role": "user",
+                    "content": [{"type": "input_text", "text": "human original"}]}},
+                {"type": "response_item", "payload": {"type": "message", "role": "assistant",
+                    "content": [{"type": "output_text", "text": "assistant original"}]}},
+            ]
+            source.write_text("\n\n".join(json.dumps(r) for r in records) + "\n",
+                              encoding="utf-8")
+            code, out, err = self.run_cli(["inspect-codex", "--source", str(source)])
+            self.assertEqual(code, 0, err)
+            ids = [r["source_id"] for r in json.loads(out)["messages"]]
+            code, out, err = self.run_cli(self.command(source, ledger, vault) + [
+                "--human-source-id", ids[0], "--assistant-source-id", ids[1],
+            ])
+            self.assertEqual(code, 0, err)
+            saved = read_ledger(ledger)
+            self.assertEqual([r["source_line"] for r in saved], [3, 5])
+            self.assertEqual([r["source_id"] for r in saved], ids)
+
+    def test_malformed_codex_message_payload_fails_generic_before_capture(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source, ledger, vault = self.setup_paths(Path(folder))
+            source.write_text("\n".join(json.dumps(r) for r in (
+                {"type": "session_meta", "payload": {"id": "synthetic-session"}},
+                {"type": "response_item", "payload": []},
+            )) + "\n", encoding="utf-8")
+            for command in (["inspect-codex", "--source", str(source)],
+                            self.command(source, ledger, vault)):
+                with self.subTest(command=command[0]):
+                    code, out, err = self.run_cli(command)
+                    self.assertNotEqual(code, 0)
+                    self.assertEqual(out, "")
+                    self.assertFalse(ledger.exists())
+                    self.assertFalse(vault.exists())
+
     def test_codex_inspection_denies_implicit_source_discovery(self):
         with tempfile.TemporaryDirectory() as folder:
             source, ledger, vault = self.setup_paths(Path(folder))
