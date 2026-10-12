@@ -25,3 +25,5 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Test with isolated notebooks and simulated models
         run: python -m unittest discover -s tests -v
+      - name: Rehearse synthetic Codex import only
+        run: python scripts/smoke_codex_import.py
