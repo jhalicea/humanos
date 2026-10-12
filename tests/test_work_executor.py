@@ -6,6 +6,7 @@ from pathlib import Path
 from notebook import Notebook
 from work_executor import WorkExecutor, build_plan, requested_deliverable
 from work_mode import WorkBoard, WorkContextModel, execution_contract
+from terminal_delivery import POLICY as TERMINAL_DELIVERY_POLICY
 
 
 class FakeModel:
@@ -117,7 +118,7 @@ class WorkExecutorTests(unittest.TestCase):
         briefing = ('Work ID: WORK-ABC\nOriginal goal: ' + goal + '\n'
                     'Verified progress JSON: {"inspected_paths": [], "artifacts": []}')
         wrapped = WorkContextModel(base, briefing)
-        messages = [{'role': 'system', 'content': 'policy'}]
+        messages = [{'role': 'system', 'content': 'policy ' + TERMINAL_DELIVERY_POLICY}]
         scan = json.dumps({'folder': '.', 'entries': [{'path': 'a.txt', 'kind': 'file', 'size': 1}],
                            'skipped': [], 'truncated': False})
         messages += self._observation({'name': 'scan_files', 'path': '.'}, scan)
@@ -133,7 +134,7 @@ class WorkExecutorTests(unittest.TestCase):
         briefing = ('Work ID: WORK-ABC\nOriginal goal: ' + goal + '\n'
                     'Verified progress JSON: {"inspected_paths": [], "artifacts": []}')
         wrapped = WorkContextModel(base, briefing)
-        messages = [{'role': 'system', 'content': 'policy'}]
+        messages = [{'role': 'system', 'content': 'policy ' + TERMINAL_DELIVERY_POLICY}]
         scan = json.dumps({'folder': '.', 'entries': [], 'skipped': [], 'truncated': False})
         messages += self._observation({'name': 'scan_files', 'path': '.'}, scan)
         request = {'name': 'create_file', 'path': 'work-report-abc.md', 'content': 'Verified findings'}
@@ -154,7 +155,7 @@ class WorkExecutorTests(unittest.TestCase):
         briefing = ('Work ID: WORK-ABC\nOriginal goal: ' + goal + '\n'
                     'Verified progress JSON: {"inspected_paths": [], "artifact_paths": []}')
         wrapped = WorkContextModel(base, briefing)
-        messages = [{'role': 'system', 'content': 'policy'}]
+        messages = [{'role': 'system', 'content': 'policy ' + TERMINAL_DELIVERY_POLICY}]
         entries = [{'path': f'f{i}.txt', 'kind': 'file', 'size': i} for i in range(10)]
         scan = json.dumps({'folder': '.', 'entries': entries, 'skipped': [], 'truncated': False})
         messages += self._observation({'name': 'scan_files', 'path': '.'}, scan)

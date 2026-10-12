@@ -923,6 +923,40 @@
       "last_verified_commit": null,
       "resume_point": "Multiple file/document branches exist; inspect them before creating another file-context stream.",
       "next_action": "Reconcile contextual-file-intelligence, document-context-extraction, and file-organization branches."
+    },
+    {
+      "workstream_id": "HOS-TERM-001",
+      "workspace_id": "WS-HUMANOS",
+      "title": "Terminal Delivery Contract",
+      "project": "Runtime Governance",
+      "repository": "jhalicea/humanos",
+      "branch": "fix/terminal-delivery-contract-v1",
+      "work_order": "docs/work-orders/HOS-TERM-001.md",
+      "status": "REVIEW",
+      "confidentiality": "INTERNAL",
+      "topics": [
+        "terminal",
+        "shell",
+        "copyblock",
+        "delivery",
+        "command",
+        "worker"
+      ],
+      "components": [
+        "terminal_delivery.py",
+        "engine.py",
+        "work_mode.py",
+        "server_core.py"
+      ],
+      "relations": [
+        {
+          "relation": "RELATED_TO",
+          "target_workstream_id": "HOS-CTX-002"
+        }
+      ],
+      "last_verified_commit": null,
+      "resume_point": "Isolated candidate implements local terminal packet and delivery validation; independent review and final-head CI are pending.",
+      "next_action": "Review exact candidate PR head, then seek owner promotion decision."
     }
   ]
 }
