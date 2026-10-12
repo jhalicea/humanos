@@ -1,6 +1,10 @@
 import json
 
-import pytest
+import contextlib
+import io
+import tempfile
+import unittest
+from pathlib import Path
 
 from humanos import main
 
@@ -61,111 +65,134 @@ def _one_turn_rollout(source, *, conversation="synthetic-session", human="  hell
     return records
 
 
-def test_opt_in_codex_one_turn_import_and_restart_readback(tmp_path, capsys):
-    from conversation_ledger import read_ledger, verify_ledger
-    from notebook import Notebook
+class CodexImportCliTests(unittest.TestCase):
+    @staticmethod
+    def run_cli(args):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            try:
+                main(args)
+                code = 0
+            except SystemExit as error:
+                code = error.code
+        return code, out.getvalue(), err.getvalue()
 
-    source, ledger, vault = (tmp_path / "selected-rollout.jsonl",
-                             tmp_path / "ledger.jsonl", tmp_path / "notebook")
-    human, assistant = "  observed human 🧭\nline two  ", "original answer\n"
-    _one_turn_rollout(source, human=human, assistant=assistant)
-    args = ["import-codex", "--source", str(source), "--ledger", str(ledger),
-            "--notebook", str(vault), "--confirm-observed"]
-    main(args)
-    result = json.loads(capsys.readouterr().out)
-    assert result["status"] == "CHECKPOINTED"
-    assert result["source"] == "codex-rollout"
-    assert result["turns"] == 1
-    assert result["ledger"] == {"rows": 2, "status": "CHECKPOINTED"}
-    assert result["notebook"]["projected"] == 1
-    first = ledger.read_bytes()
-    assert [(r["role"], r["text"]) for r in read_ledger(ledger)] == [
-        ("HUMAN", human), ("ASSISTANT", assistant)]
-    assert verify_ledger(ledger)["status"] == "CHECKPOINTED"
+    @staticmethod
+    def setup_paths(root):
+        return (root / "selected-rollout.jsonl", root / "ledger.jsonl", root / "notebook")
 
-    main(args)
-    repeated = json.loads(capsys.readouterr().out)
-    assert repeated["status"] == "CHECKPOINTED"
-    assert repeated["notebook"]["skipped"] == 1
-    assert repeated["notebook"]["projected"] == 0
-    assert ledger.read_bytes() == first
+    @staticmethod
+    def command(source, ledger, vault, *, confirm=True):
+        args = ["import-codex", "--source", str(source), "--ledger", str(ledger),
+                "--notebook", str(vault)]
+        if confirm:
+            args.append("--confirm-observed")
+        return args
 
-    book = Notebook(vault)
-    try:
-        assert book.verify()
-        tx = "CAPTURE-assistant-1"
-        assert book.get_transaction(tx)["status"] == "CHECKPOINTED"
-        task = book.task(tx)
-        assert task["source"] == "codex-rollout"
-        assert task["conversation_id"] == "synthetic-session"
-        actual = [(r["role"], r["text"]) for r in book.db.execute(
-            "SELECT role,text FROM transcript WHERE tx=? ORDER BY ordinal", (tx,))]
-        assert actual == [("HUMAN", human), ("ASSISTANT", assistant)]
-    finally:
-        book.close()
+    def test_selected_codex_turn_import_idempotent_restart_readback(self):
+        from conversation_ledger import read_ledger, verify_ledger
+        from notebook import Notebook
 
+        with tempfile.TemporaryDirectory() as folder:
+            source, ledger, vault = self.setup_paths(Path(folder))
+            human, assistant = "  observed human 🧭\\nline two  ", "original answer\\n"
+            _one_turn_rollout(source, human=human, assistant=assistant)
+            args = self.command(source, ledger, vault)
+            code, stdout, stderr = self.run_cli(args)
+            self.assertEqual(code, 0, stderr)
+            result = json.loads(stdout)
+            self.assertEqual(result["status"], "CHECKPOINTED")
+            self.assertEqual(result["source"], "codex-rollout")
+            self.assertEqual(result["turns"], 1)
+            self.assertEqual(result["ledger"], {"rows": 2, "status": "CHECKPOINTED"})
+            self.assertEqual(result["notebook"]["projected"], 1)
+            first = ledger.read_bytes()
+            self.assertEqual([(r["role"], r["text"]) for r in read_ledger(ledger)],
+                             [("HUMAN", human), ("ASSISTANT", assistant)])
+            self.assertEqual(verify_ledger(ledger)["status"], "CHECKPOINTED")
 
-def test_codex_import_requires_explicit_confirmation_and_destinations(tmp_path, capsys):
-    source, ledger, vault = (tmp_path / "selected-rollout.jsonl",
-                             tmp_path / "ledger.jsonl", tmp_path / "notebook")
-    _one_turn_rollout(source)
-    argv = ["import-codex", "--source", str(source), "--ledger", str(ledger),
-            "--notebook", str(vault)]
-    with pytest.raises(SystemExit):
-        main(argv)
-    assert capsys.readouterr().out == ""
-    assert not ledger.exists() and not vault.exists()
+            code, stdout, stderr = self.run_cli(args)
+            self.assertEqual(code, 0, stderr)
+            repeated = json.loads(stdout)
+            self.assertEqual(repeated["status"], "CHECKPOINTED")
+            self.assertEqual(repeated["notebook"]["skipped"], 1)
+            self.assertEqual(repeated["notebook"]["projected"], 0)
+            self.assertEqual(ledger.read_bytes(), first)
 
-    with pytest.raises(SystemExit):
-        main(["import-codex", "--confirm-observed", "--ledger", str(ledger),
-              "--notebook", str(vault)])
-    assert capsys.readouterr().out == ""
-    assert not ledger.exists() and not vault.exists()
+            book = Notebook(vault)
+            try:
+                self.assertTrue(book.verify())
+                tx = "CAPTURE-assistant-1"
+                self.assertEqual(book.get_transaction(tx)["status"], "CHECKPOINTED")
+                state = book.task(tx)
+                self.assertEqual(state["source"], "codex-rollout")
+                self.assertEqual(state["conversation_id"], "synthetic-session")
+                actual = [(r["role"], r["text"]) for r in book.db.execute(
+                    "SELECT role,text FROM transcript WHERE tx=? ORDER BY ordinal", (tx,))]
+                self.assertEqual(actual, [("HUMAN", human), ("ASSISTANT", assistant)])
+            finally:
+                book.close()
 
+    def test_selection_and_owner_confirmation_required_before_writes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source, ledger, vault = self.setup_paths(Path(folder))
+            _one_turn_rollout(source)
+            for args in (
+                self.command(source, ledger, vault, confirm=False),
+                ["import-codex", "--confirm-observed", "--ledger", str(ledger),
+                 "--notebook", str(vault)],
+                self.command(source, ledger.relative_to(Path(folder)), vault),
+            ):
+                with self.subTest(args=args):
+                    code, stdout, _ = self.run_cli(args)
+                    self.assertNotEqual(code, 0)
+                    self.assertEqual(stdout, "")
+                    self.assertFalse(ledger.exists())
+                    self.assertFalse(vault.exists())
 
-@pytest.mark.parametrize("case", [
-    "two_turns", "second_session", "orphan_assistant", "mismatched_thread",
-    "missing_message_id",
-])
-def test_codex_import_rejects_ambiguous_source_without_side_effects(tmp_path, capsys, case):
-    source, ledger, vault = (tmp_path / "selected-rollout.jsonl",
-                             tmp_path / "ledger.jsonl", tmp_path / "notebook")
-    records = _one_turn_rollout(source)
-    if case == "two_turns":
-        records.extend([dict(records[1], payload=dict(records[1]["payload"], id="human-2")),
-                        dict(records[2], payload=dict(records[2]["payload"], id="assistant-2"))])
-    elif case == "second_session":
-        records.append({"type": "session_meta", "payload": {"session_id": "another-session"}})
-    elif case == "orphan_assistant":
-        records.pop(1)
-    elif case == "mismatched_thread":
-        records[2]["payload"]["thread_id"] = "different-conversation"
-    else:
-        records[1]["payload"].pop("id")
-    source.write_text("\n".join(json.dumps(row) for row in records) + "\n", encoding="utf-8")
+    def test_ambiguous_rollout_rejected_without_vault_or_ledger(self):
+        for case in ("two_turns", "second_session", "orphan_assistant",
+                     "mismatched_thread", "missing_message_id"):
+            with self.subTest(case=case):
+                with tempfile.TemporaryDirectory() as folder:
+                    root = Path(folder)
+                    source, ledger, vault = self.setup_paths(root)
+                    records = _one_turn_rollout(source)
+                    if case == "two_turns":
+                        records.extend([
+                            dict(records[1], payload=dict(records[1]["payload"], id="human-2")),
+                            dict(records[2], payload=dict(records[2]["payload"], id="assistant-2")),
+                        ])
+                    elif case == "second_session":
+                        records.append({"type": "session_meta", "payload": {"session_id": "another"}})
+                    elif case == "orphan_assistant":
+                        records.pop(1)
+                    elif case == "mismatched_thread":
+                        records[2]["payload"]["thread_id"] = "different"
+                    else:
+                        records[1]["payload"].pop("id")
+                    source.write_text("\n".join(json.dumps(row) for row in records) + "\n",
+                                      encoding="utf-8")
+                    code, stdout, stderr = self.run_cli(self.command(source, ledger, vault))
+                    self.assertNotEqual(code, 0)
+                    self.assertEqual(stdout, "")
+                    self.assertIn("Selected Codex import failed", stderr)
+                    self.assertNotIn("hello 🧭", stderr)
+                    self.assertFalse(ledger.exists())
+                    self.assertFalse(vault.exists())
+                    self.assertFalse((root / "capture-receipts.jsonl").exists())
 
-    with pytest.raises(SystemExit):
-        main(["import-codex", "--source", str(source), "--ledger", str(ledger),
-              "--notebook", str(vault), "--confirm-observed"])
-    output = capsys.readouterr()
-    assert output.out == ""
-    assert "Selected Codex import failed" in output.err
-    assert "hello 🧭" not in output.err
-    assert not ledger.exists() and not vault.exists()
-    assert not (tmp_path / "capture-receipts.jsonl").exists()
+    def test_foreign_ledger_rejected_without_mutation(self):
+        from ledger_capture_adapter import capture_observed_turn
 
-
-def test_codex_import_rejects_foreign_ledger_without_mutation(tmp_path, capsys):
-    from ledger_capture_adapter import capture_observed_turn
-
-    source, ledger, vault = (tmp_path / "selected-rollout.jsonl",
-                             tmp_path / "ledger.jsonl", tmp_path / "notebook")
-    _one_turn_rollout(source)
-    capture_observed_turn(ledger, "provider-a", "foreign", "t1", "foreign human", "foreign assistant")
-    original = ledger.read_bytes()
-    with pytest.raises(SystemExit):
-        main(["import-codex", "--source", str(source), "--ledger", str(ledger),
-              "--notebook", str(vault), "--confirm-observed"])
-    assert capsys.readouterr().out == ""
-    assert ledger.read_bytes() == original
-    assert not vault.exists()
+        with tempfile.TemporaryDirectory() as folder:
+            source, ledger, vault = self.setup_paths(Path(folder))
+            _one_turn_rollout(source)
+            capture_observed_turn(ledger, "provider-a", "foreign", "t1",
+                                  "foreign human", "foreign assistant")
+            initial = ledger.read_bytes()
+            code, stdout, _ = self.run_cli(self.command(source, ledger, vault))
+            self.assertNotEqual(code, 0)
+            self.assertEqual(stdout, "")
+            self.assertEqual(ledger.read_bytes(), initial)
+            self.assertFalse(vault.exists())
