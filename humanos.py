@@ -2,6 +2,8 @@
 
 import argparse
 import json
+import os
+import stat
 import sys
 from pathlib import Path
 
@@ -36,8 +38,14 @@ def import_selected_codex_turn(source, ledger, notebook):
         raise ValueError("Explicit source must be a regular rollout JSONL file")
     if source.stat().st_size > 1024 * 1024:
         raise ValueError("Selected rollout exceeds the one-turn import size limit")
-    if ledger.is_symlink():
-        raise ValueError("Ledger destination may not be a symbolic link")
+    if paths[1].is_symlink() or paths[2].is_symlink():
+        raise ValueError("Ledger and Notebook destinations may not be symbolic links")
+    # Receipts and ledger plaintext require an owner-only parent directory;
+    # a predictable path in shared /tmp (or a public home directory) is unsafe.
+    for parent in (ledger.parent, notebook.parent):
+        if (not parent.is_dir() or parent.stat().st_uid != os.getuid()
+                or stat.S_IMODE(parent.stat().st_mode) & 0o077):
+            raise ValueError("Ledger and Notebook parent directories must be owner-only")
 
     # The existing importer silently ignores unsupported records. This
     # stricter opt-in route must not call a partial parse 'complete'.
