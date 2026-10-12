@@ -3,6 +3,7 @@
 import hashlib
 import argparse
 import json
+from io import StringIO
 from pathlib import Path
 
 
@@ -35,9 +36,14 @@ def _codex_source_id(record, line_number, conversation_id):
     return "local-record-v1:" + fingerprint, "LOCAL_DERIVED_RECORD_V1"
 
 
-def _messages(source, allow_derived_ids=False):
+def _messages(source, allow_derived_ids=False, snapshot_bytes=None):
+    """Parse an immutable source snapshot when explicitly supplied."""
     conversation_id = None
-    with Path(source).open(encoding="utf-8") as stream:
+    if snapshot_bytes is not None and not isinstance(snapshot_bytes, bytes):
+        raise ValueError("Observed source snapshot must be bytes")
+    stream_source = (Path(source).open(encoding="utf-8") if snapshot_bytes is None
+                     else StringIO(snapshot_bytes.decode("utf-8")))
+    with stream_source as stream:
         for line_number, line in enumerate(stream, start=1):
             if not line.strip():
                 continue
@@ -68,7 +74,8 @@ def _messages(source, allow_derived_ids=False):
             yield row
 
 
-def import_messages(source, ledger, selected_source_ids=None, allow_derived_ids=False):
+def import_messages(source, ledger, selected_source_ids=None, allow_derived_ids=False,
+                    snapshot_bytes=None):
     """Append unseen source messages; optionally select one explicitly named pair.
 
     Existing rows are keyed by source/source_id and conflicting duplicates fail
@@ -87,7 +94,8 @@ def import_messages(source, ledger, selected_source_ids=None, allow_derived_ids=
                 existing[key] = row
     pending = []
     pending_keys = set()
-    messages = list(_messages(source, allow_derived_ids=allow_derived_ids))
+    messages = list(_messages(source, allow_derived_ids=allow_derived_ids,
+                              snapshot_bytes=snapshot_bytes))
     if selected_source_ids is not None:
         if (not isinstance(selected_source_ids, (tuple, list))
                 or len(selected_source_ids) != 2

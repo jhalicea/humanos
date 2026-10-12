@@ -21,7 +21,8 @@ def resolve_source(session_id, sessions_root=None):
     return matches[-1]
 
 
-def capture_current(ledger=None, source=None, selected_source_ids=None, allow_derived_ids=False):
+def capture_current(ledger=None, source=None, selected_source_ids=None, allow_derived_ids=False,
+                    snapshot_bytes=None):
     ledger = Path(ledger or DEFAULT_LEDGER)
     session_id = os.environ.get("CODEX_SESSION_ID")
     if source is None and not session_id:
@@ -31,7 +32,7 @@ def capture_current(ledger=None, source=None, selected_source_ids=None, allow_de
     receipt.parent.mkdir(parents=True, exist_ok=True)
     try:
         result = import_messages(source, ledger, selected_source_ids=selected_source_ids,
-                                 allow_derived_ids=allow_derived_ids)
+                                 allow_derived_ids=allow_derived_ids, snapshot_bytes=snapshot_bytes)
         result["verification"] = verify_ledger(ledger)
         result["status"] = "CHECKPOINTED"
     except Exception as error:

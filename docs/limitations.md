@@ -55,6 +55,10 @@ IDs from one consecutive pair; for example add `--human-source-id human-2
 --assistant-source-id assistant-2`. The selected source file has a 16 MiB
 upper size limit. It is idempotent for an exact previously imported turn.
 The command emits aggregate verification status, not transcript text.
+The selected source is parsed into one bounded immutable in-memory snapshot,
+which is reused for preflight and ledger append. This prevents mixing different
+revisions of the source between selection and capture but does not authenticate
+the source provider or prevent concurrent changes to the source file itself.
 
 **Limitations:** This does not verify host provenance independently of the
 selected file, perform provider-side completeness attestation, protect a

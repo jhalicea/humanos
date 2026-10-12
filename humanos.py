@@ -38,6 +38,10 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
         raise ValueError("Explicit source must be a regular rollout JSONL file")
     if source.stat().st_size > 16 * 1024 * 1024:
         raise ValueError("Selected rollout exceeds the bounded source size limit")
+    # One bounded snapshot supplies all preflight evidence and the ledger.
+    snapshot_bytes = source.read_bytes()
+    if len(snapshot_bytes) > 16 * 1024 * 1024:
+        raise ValueError("Selected rollout grew beyond its bounded source size limit")
     if paths[1].is_symlink() or paths[2].is_symlink():
         raise ValueError("Ledger and Notebook destinations may not be symbolic links")
     # Receipts and ledger plaintext require an owner-only parent directory;
@@ -50,7 +54,7 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
     # The existing importer silently ignores unsupported records. This
     # stricter opt-in route must not call a partial parse 'complete'.
     entries = [(line_no, json.loads(line))
-               for line_no, line in enumerate(source.read_text(encoding="utf-8").splitlines(),
+               for line_no, line in enumerate(snapshot_bytes.decode("utf-8").splitlines(),
                                               start=1) if line.strip()]
     raw = [record for _line_no, record in entries]
     if any(not isinstance(record, dict)
@@ -90,7 +94,8 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
             raise ValueError("Selected messages must form one consecutive ordered pair")
     elif [payload.get("role") for payload, _id in relevant] != ["user", "assistant"]:
         raise ValueError("Multiple turns require explicit source record IDs")
-    all_observed = list(_messages(source, allow_derived_ids=True))
+    all_observed = list(_messages(source, allow_derived_ids=True,
+                                  snapshot_bytes=snapshot_bytes))
     observed = ([row for row in all_observed if row["source_id"] in selected_ids]
                 if selected_ids is not None else all_observed)
     if (len(observed) != 2 or [row["role"] for row in observed] != ["HUMAN", "ASSISTANT"]
@@ -112,7 +117,7 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
     # The existing explicit capture path supplies append-only receipts. A
     # projection failure never rewrites the ledger or claims Notebook success.
     captured = capture_current(ledger, source, selected_source_ids=selected_ids,
-                               allow_derived_ids=True)
+                               allow_derived_ids=True, snapshot_bytes=snapshot_bytes)
     projected = project_all_pairs(ledger, notebook)
     if projected["pending"] or projected["projected"] + projected["skipped"] != 1:
         raise RuntimeError("Selected source turn did not yield one verified Notebook projection")

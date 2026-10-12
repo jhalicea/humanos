@@ -418,6 +418,35 @@ class CodexImportCliTests(unittest.TestCase):
                     self.assertFalse(ledger.exists())
                     self.assertFalse(vault.exists())
 
+    def test_preflight_snapshot_prevents_changed_provider_message_content(self):
+        """A changed live file cannot replace content after preflight by stable provider IDs."""
+        from unittest.mock import patch
+        import humanos
+        from conversation_ledger import read_ledger
+
+        with tempfile.TemporaryDirectory() as folder:
+            source, ledger, vault = self.setup_paths(Path(folder))
+            records = _one_turn_rollout(source, human="original human", assistant="original answer")
+            original_capture = humanos.capture_current
+
+            def overwrite_source_before_append(*args, **kwargs):
+                mutated = [dict(r) for r in records]
+                mutated[1] = dict(records[1], payload=dict(records[1]["payload"],
+                    content=[{"type": "input_text", "text": "changed human"}]))
+                mutated[2] = dict(records[2], payload=dict(records[2]["payload"],
+                    content=[{"type": "output_text", "text": "changed answer"}]))
+                source.write_text("\n".join(json.dumps(r) for r in mutated) + "\n",
+                                  encoding="utf-8")
+                return original_capture(*args, **kwargs)
+
+            with patch("humanos.capture_current", side_effect=overwrite_source_before_append):
+                code, out, err = self.run_cli(self.command(source, ledger, vault))
+            self.assertEqual(code, 0, err)
+            self.assertEqual(json.loads(out)["status"], "CHECKPOINTED")
+            self.assertEqual([r["text"] for r in read_ledger(ledger)],
+                             ["original human", "original answer"])
+            self.assertNotIn("changed human", ledger.read_text(encoding="utf-8"))
+
     def test_codex_inspection_denies_implicit_source_discovery(self):
         with tempfile.TemporaryDirectory() as folder:
             source, ledger, vault = self.setup_paths(Path(folder))
