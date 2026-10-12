@@ -2,15 +2,175 @@
 
 import argparse
 import json
+import os
+import stat
 import sys
 from pathlib import Path
 
 from capture_current_conversation import capture_audit, capture_current, capture_status
+from conversation_ledger import _messages, _codex_source_id, read_ledger
 from local_kernel_capture import capture_turn
 from ledger_notebook_projection import project_all_pairs
 from conversation_ledger import verify_ledger
 
 DEFAULT_LEDGER = Path(__file__).resolve().parent / "var" / "current-conversation.jsonl"
+
+
+def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, assistant_source_id=None):
+    """Manual one-turn local import; never enumerate browser or Codex sessions.
+
+    Explicit source/destinations are required, the provider conversation and
+    exact turn must be unambiguous, and all data stays outside this repository.
+    """
+    source, ledger, notebook = (Path(value) for value in (source, ledger, notebook))
+    paths = (source, ledger, notebook)
+    if any(not path.is_absolute() for path in paths):
+        raise ValueError("Source, ledger, and Notebook paths must be absolute")
+    source, ledger, notebook = (path.resolve() for path in paths)
+    repo = Path(__file__).resolve().parent
+    if any(path == repo or repo in path.parents for path in (source, ledger, notebook)):
+        raise ValueError("Import files must remain outside the HumanOS repository")
+    if source == ledger or source == notebook or ledger == notebook:
+        raise ValueError("Import source and destinations must be distinct")
+    if notebook in source.parents or notebook in ledger.parents:
+        raise ValueError("Source and ledger may not be inside the Notebook vault")
+    if not source.is_file() or source.suffix != ".jsonl" or paths[0].is_symlink():
+        raise ValueError("Explicit source must be a regular rollout JSONL file")
+    if source.stat().st_size > 16 * 1024 * 1024:
+        raise ValueError("Selected rollout exceeds the bounded source size limit")
+    if paths[1].is_symlink() or paths[2].is_symlink():
+        raise ValueError("Ledger and Notebook destinations may not be symbolic links")
+    # Receipts and ledger plaintext require an owner-only parent directory;
+    # a predictable path in shared /tmp (or a public home directory) is unsafe.
+    for parent in (ledger.parent, notebook.parent):
+        if (not parent.is_dir() or parent.stat().st_uid != os.getuid()
+                or stat.S_IMODE(parent.stat().st_mode) & 0o077):
+            raise ValueError("Ledger and Notebook parent directories must be owner-only")
+
+    # The existing importer silently ignores unsupported records. This
+    # stricter opt-in route must not call a partial parse 'complete'.
+    entries = [(line_no, json.loads(line))
+               for line_no, line in enumerate(source.read_text(encoding="utf-8").splitlines(),
+                                              start=1) if line.strip()]
+    raw = [record for _line_no, record in entries]
+    if any(not isinstance(record, dict)
+           or (record.get("type") in ("session_meta", "response_item")
+               and not isinstance(record.get("payload"), dict))
+           for record in raw):
+        raise ValueError("Selected rollout contains invalid records")
+    meta = [record.get("payload", {}) for record in raw
+            if record.get("type") == "session_meta"]
+    if len(meta) != 1 or not isinstance(meta[0], dict):
+        raise ValueError("A single explicit Codex session is required")
+    session = meta[0].get("session_id") or meta[0].get("id")
+    if not isinstance(session, str) or not session:
+        raise ValueError("Selected session is missing a stable ID")
+    relevant = [(record["payload"],
+                 _codex_source_id(record, line_no, session))
+                for line_no, record in entries
+                if record.get("type") == "response_item"
+                and isinstance(record.get("payload"), dict)
+                and record["payload"].get("role") in ("user", "assistant")]
+    if (human_source_id is None) != (assistant_source_id is None):
+        raise ValueError("Both original source message IDs must be supplied together")
+    selected_ids = None
+    if human_source_id is not None:
+        if (not isinstance(human_source_id, str) or not human_source_id
+                or not isinstance(assistant_source_id, str) or not assistant_source_id
+                or human_source_id == assistant_source_id):
+            raise ValueError("Selected source message IDs must be distinct nonempty strings")
+        selected_ids = (human_source_id, assistant_source_id)
+        # The IDs are an explicit owner selection, NOT permission to pair
+        # unrelated messages across intervening HUMAN/ASSISTANT records.
+        positions = [i for i, (_payload, (source_id, _origin)) in enumerate(relevant)
+                     if source_id in selected_ids]
+        if (len(positions) != 2 or positions[1] != positions[0] + 1
+                or [relevant[i][1][0] for i in positions] != list(selected_ids)
+                or [relevant[i][0].get("role") for i in positions] != ["user", "assistant"]):
+            raise ValueError("Selected messages must form one consecutive ordered pair")
+    elif [payload.get("role") for payload, _id in relevant] != ["user", "assistant"]:
+        raise ValueError("Multiple turns require explicit source record IDs")
+    all_observed = list(_messages(source, allow_derived_ids=True))
+    observed = ([row for row in all_observed if row["source_id"] in selected_ids]
+                if selected_ids is not None else all_observed)
+    if (len(observed) != 2 or [row["role"] for row in observed] != ["HUMAN", "ASSISTANT"]
+            or any(row["conversation_id"] != session for row in observed)
+            or observed[0]["source_id"] == observed[1]["source_id"]
+            or (selected_ids is not None
+                and [row["source_id"] for row in observed] != list(selected_ids))):
+        raise ValueError("Incomplete or ambiguous selected source turn")
+
+    if ledger.exists():
+        verify_ledger(ledger)
+        previous = read_ledger(ledger)
+        permitted = {row["source_id"] for row in observed}
+        if any(row.get("event_type") or row.get("source") != "codex-rollout"
+               or row.get("conversation_id") != session
+               or row.get("source_id") not in permitted for row in previous):
+            raise ValueError("Ledger contains evidence outside the selected source turn")
+
+    # The existing explicit capture path supplies append-only receipts. A
+    # projection failure never rewrites the ledger or claims Notebook success.
+    captured = capture_current(ledger, source, selected_source_ids=selected_ids,
+                               allow_derived_ids=True)
+    projected = project_all_pairs(ledger, notebook)
+    if projected["pending"] or projected["projected"] + projected["skipped"] != 1:
+        raise RuntimeError("Selected source turn did not yield one verified Notebook projection")
+    return {
+        "status": "CHECKPOINTED",
+        "source": "codex-rollout",
+        "turns": 1,
+        "ledger": captured["verification"],
+        "notebook": projected,
+    }
+
+
+def inspect_selected_codex_source(source):
+    """Display original message IDs and roles, never conversation text."""
+    source = Path(source)
+    if not source.is_absolute() or source.is_symlink():
+        raise ValueError("Choose an absolute, regular non-symlink source")
+    source = source.resolve()
+    repo = Path(__file__).resolve().parent
+    if (not source.is_file() or source.suffix != ".jsonl"
+            or source == repo or repo in source.parents
+            or source.stat().st_size > 16 * 1024 * 1024):
+        raise ValueError("Selected Codex source is invalid or too large")
+    entries = [(line_no, json.loads(line))
+               for line_no, line in enumerate(source.read_text(encoding="utf-8").splitlines(),
+                                              start=1) if line.strip()]
+    rows = [record for _line_no, record in entries]
+    if any(not isinstance(row, dict)
+           or (row.get("type") in ("session_meta", "response_item")
+               and not isinstance(row.get("payload"), dict))
+           for row in rows):
+        raise ValueError("Codex source records must be valid JSON objects")
+    metas = [row.get("payload") for row in rows if row.get("type") == "session_meta"]
+    if len(metas) != 1 or not isinstance(metas[0], dict):
+        raise ValueError("Only one explicit Codex session can be inspected")
+    session = metas[0].get("session_id") or metas[0].get("id")
+    if not isinstance(session, str) or not session:
+        raise ValueError("Source session ID is missing")
+    messages = []
+    for line_number, row in entries:
+        if row.get("type") != "response_item":
+            continue
+        payload = row.get("payload")
+        if not isinstance(payload, dict) or payload.get("role") not in ("user", "assistant"):
+            continue
+        source_id, origin = _codex_source_id(row, line_number, session)
+        messages.append({
+            "index": len(messages),
+            "role": "HUMAN" if payload["role"] == "user" else "ASSISTANT",
+            "source_id": source_id,
+            "source_id_origin": origin,
+            "selectable": True,
+            "conversation_matches_session": (payload.get("thread_id") or session) == session,
+        })
+        if len(messages) > 1024:
+            raise ValueError("Too many messages for bounded metadata inspection")
+    return {"status": "UNVERIFIED_METADATA_ONLY", "source": "codex-rollout",
+            "message_count": len(messages), "messages": messages}
 
 
 def main(argv=None):
@@ -20,7 +180,7 @@ def main(argv=None):
         return academy_main(raw_args[1:])
 
     parser = argparse.ArgumentParser(prog="humanos")
-    parser.add_argument("command", choices=("capture", "turn", "project", "verify", "status", "audit"))
+    parser.add_argument("command", choices=("capture", "turn", "project", "verify", "status", "audit", "import-codex", "inspect-codex"))
     parser.add_argument("--ledger", type=Path)
     parser.add_argument("--source", type=Path)
     parser.add_argument("--conversation-id")
@@ -29,8 +189,30 @@ def main(argv=None):
     parser.add_argument("--assistant")
     parser.add_argument("--notebook", type=Path)
     parser.add_argument("--pretty", action="store_true")
+    parser.add_argument("--confirm-observed", action="store_true",
+                        help="Explicit owner confirmation for the selected one-turn Codex import")
+    parser.add_argument("--human-source-id", help="Explicit original HUMAN message ID in a larger Codex rollout")
+    parser.add_argument("--assistant-source-id", help="Explicit original ASSISTANT message ID in a larger Codex rollout")
     args = parser.parse_args(raw_args)
-    if args.command == "capture":
+    if args.command == "inspect-codex":
+        if args.source is None:
+            parser.error("inspect-codex requires --source")
+        try:
+            result = inspect_selected_codex_source(args.source)
+        except (OSError, ValueError, RuntimeError, UnicodeError):
+            parser.error("Selected Codex metadata inspection failed")
+    elif args.command == "import-codex":
+        if not args.confirm_observed or any(value is None for value in
+                                            (args.source, args.ledger, args.notebook)):
+            parser.error("import-codex requires --source, --ledger, --notebook and --confirm-observed")
+        try:
+            result = import_selected_codex_turn(
+                args.source, args.ledger, args.notebook, args.human_source_id, args.assistant_source_id
+            )
+        except (OSError, ValueError, RuntimeError, UnicodeError):
+            # Avoid printing exception details that might contain private paths.
+            parser.error("Selected Codex import failed validation or projection")
+    elif args.command == "capture":
         result = capture_current(args.ledger, args.source)
     elif args.command == "turn":
         required = (args.conversation_id, args.turn_id, args.human, args.assistant)
@@ -45,16 +227,19 @@ def main(argv=None):
     elif args.command == "verify":
         ledger = args.ledger or DEFAULT_LEDGER
         if not ledger.exists():
+            # Missing evidence is PENDING, even when an orphan runtime receipt
+            # exists. Verification must not create a Notebook from no ledger.
             result = {"ledger": {"status": "PENDING", "rows": 0},
                       "capture": capture_status(ledger),
+                      "runtime_capture": "PENDING",
                       "reason": "local ledger has not been created yet"}
-            runtime_status = "PENDING"
         else:
             runtime_receipt = ledger.parent / "runtime-capture-receipts.jsonl"
             runtime_status = "CHECKPOINTED" if runtime_receipt.exists() else "PENDING"
-            result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger), "runtime_capture": runtime_status}
-        if args.notebook is not None:
-            result["notebook"] = project_all_pairs(ledger, args.notebook)
+            result = {"ledger": verify_ledger(ledger), "capture": capture_status(ledger),
+                      "runtime_capture": runtime_status}
+            if args.notebook is not None:
+                result["notebook"] = project_all_pairs(ledger, args.notebook)
     elif args.command == "status":
         result = capture_status(args.ledger)
     else:
