@@ -1,5 +1,9 @@
 import json
+import os
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -8,6 +12,150 @@ from conversation_ledger import append_conversation_id_correction, import_messag
 
 
 class ConversationLedgerTests(unittest.TestCase):
+
+    def test_failure_receipt_redacts_source_path_error_data_and_uses_mode_0600(self):
+        import stat
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "private-source-path-secret.jsonl"
+            source.write_text(json.dumps({
+                "type": "response_item", "payload": {
+                    "id": "secret-original-message-id", "role": "user",
+                    "content": [{"type": "input_text", "text": "private human text"}]}
+            }) + "\n", encoding="utf-8")
+            ledger = root / "ledger.jsonl"
+            earlier = os.umask(0)
+            try:
+                with self.assertRaisesRegex(ValueError, "conversation ID"):
+                    capture_current(ledger, source)
+            finally:
+                os.umask(earlier)
+            receipt = root / "capture-receipts.jsonl"
+            self.assertEqual(stat.S_IMODE(receipt.stat().st_mode), 0o600)
+            content = receipt.read_text(encoding="utf-8")
+            self.assertNotIn("private-source-path-secret", content)
+            self.assertNotIn("secret-original-message-id", content)
+            self.assertNotIn("private human text", content)
+            record = json.loads(content)
+            self.assertEqual(record["status"], "RECOVERY REQUIRED")
+            self.assertEqual(record["reason"], "capture_failed")
+            self.assertEqual(record["source"], "codex-rollout")
+            self.assertFalse(ledger.exists())
+
+    def test_existing_exposed_receipt_fails_before_ledger_append(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "source.jsonl"
+            source.write_text("\n".join(json.dumps(r) for r in [
+                {"type": "session_meta", "payload": {"id": "synthetic"}},
+                {"type": "response_item", "payload": {"id": "u1", "role": "user",
+                    "content": [{"type": "input_text", "text": "human"}]}},
+            ]) + "\n", encoding="utf-8")
+            receipt = root / "capture-receipts.jsonl"
+            receipt.write_text("old-legacy-data\n", encoding="utf-8")
+            receipt.chmod(0o644)
+            before = receipt.read_bytes()
+            ledger = root / "ledger.jsonl"
+            with self.assertRaises(PermissionError):
+                capture_current(ledger, source)
+            self.assertEqual(receipt.read_bytes(), before)
+            self.assertFalse(ledger.exists())
+
+    def test_receipt_symlink_rejected_before_ledger_or_external_mutation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "source.jsonl"
+            source.write_text(json.dumps({"type": "session_meta",
+                "payload": {"id": "synthetic"}}) + "\n", encoding="utf-8")
+            external = root / "external-receipt-target"
+            external.write_text("unchanged", encoding="utf-8")
+            (root / "capture-receipts.jsonl").symlink_to(external)
+            with self.assertRaises(PermissionError):
+                capture_current(root / "ledger.jsonl", source)
+            self.assertEqual(external.read_text(encoding="utf-8"), "unchanged")
+            self.assertFalse((root / "ledger.jsonl").exists())
+
+    def test_simultaneous_processes_only_append_each_selected_message_once(self):
+        """Both writers queue on the same lock, then dedup against committed rows."""
+        from conversation_ledger import _ledger_writer
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, ledger = root / "source.jsonl", root / "ledger.jsonl"
+            records = [
+                {"type": "session_meta", "payload": {"session_id": "synthetic-concurrent"}},
+                {"type": "response_item", "payload": {"id": "u1", "role": "user",
+                    "content": [{"type": "input_text", "text": "human"}]}},
+                {"type": "response_item", "payload": {"id": "a1", "role": "assistant",
+                    "content": [{"type": "output_text", "text": "answer"}]}},
+            ]
+            source.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+            script = (
+                "import json,pathlib,sys; from conversation_ledger import import_messages; "
+                "pathlib.Path(sys.argv[3]).write_text('ready'); "
+                "print(json.dumps(import_messages(sys.argv[1],sys.argv[2])))"
+            )
+            processes = []
+            try:
+                # Force both workers to arrive before either may read the ledger.
+                with _ledger_writer(ledger):
+                    for i in range(2):
+                        ready = root / ("ready-" + str(i))
+                        processes.append(subprocess.Popen(
+                            [sys.executable, "-c", script, str(source), str(ledger), str(ready)],
+                            cwd=str(Path(__file__).resolve().parents[1]),
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+                    deadline = time.monotonic() + 10
+                    while (not all((root / ("ready-" + str(i))).exists() for i in range(2))
+                           and time.monotonic() < deadline):
+                        time.sleep(0.02)
+                    self.assertTrue(all((root / ("ready-" + str(i))).exists()
+                                        for i in range(2)), "children did not reach lock")
+                    self.assertFalse(ledger.exists(), "ledger was written while locked")
+                results = []
+                for proc in processes:
+                    stdout, stderr = proc.communicate(timeout=15)
+                    self.assertEqual(proc.returncode, 0, stderr)
+                    results.append(json.loads(stdout))
+                self.assertEqual(sorted(result["added"] for result in results), [0, 2])
+                self.assertEqual([row["source_id"] for row in read_ledger(ledger)],
+                                 ["u1", "a1"])
+                self.assertEqual(verify_ledger(ledger),
+                                 {"rows": 2, "status": "CHECKPOINTED"})
+            finally:
+                for proc in processes:
+                    if proc.poll() is None:
+                        proc.kill()
+                    proc.communicate()
+
+    def test_ledger_and_persistent_lock_are_owner_only_even_under_open_umask(self):
+        import stat
+        from conversation_ledger import append_observed_turn
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ledger = root / "ledger.jsonl"
+            former = os.umask(0)
+            try:
+                append_observed_turn(ledger, "synthetic", "c", "t1", "human", "assistant")
+            finally:
+                os.umask(former)
+            self.assertEqual(stat.S_IMODE(ledger.stat().st_mode), 0o600)
+            self.assertEqual(stat.S_IMODE((root / "ledger.jsonl.writer.lock").stat().st_mode),
+                             0o600)
+            self.assertEqual(verify_ledger(ledger)["rows"], 2)
+
+    def test_existing_group_readable_ledger_fails_closed_without_mutation(self):
+        from conversation_ledger import append_observed_turn
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = Path(directory) / "ledger.jsonl"
+            append_observed_turn(ledger, "synthetic", "c", "t1", "human", "assistant")
+            expected = ledger.read_bytes()
+            ledger.chmod(0o644)
+            with self.assertRaises(PermissionError):
+                append_observed_turn(ledger, "synthetic", "c", "t2", "human2", "assistant2")
+            self.assertEqual(ledger.read_bytes(), expected)
+            self.assertEqual(verify_ledger(ledger)["rows"], 2)
+
+
     def test_import_is_exact_idempotent_and_reopenable(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

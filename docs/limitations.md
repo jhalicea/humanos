@@ -55,6 +55,10 @@ IDs from one consecutive pair; for example add `--human-source-id human-2
 --assistant-source-id assistant-2`. The selected source file has a 16 MiB
 upper size limit. It is idempotent for an exact previously imported turn.
 The command emits aggregate verification status, not transcript text.
+The selected source is parsed into one bounded immutable in-memory snapshot,
+which is reused for preflight and ledger append. This prevents mixing different
+revisions of the source between selection and capture but does not authenticate
+the source provider or prevent concurrent changes to the source file itself.
 
 **Limitations:** This does not verify host provenance independently of the
 selected file, perform provider-side completeness attestation, protect a
@@ -67,3 +71,33 @@ installation nor private-vault restoration is qualified by repository CI.
 ## Documentation policy
 
 Specifications and roadmaps describe intended work. They must not be presented as implemented or verified until corresponding code and evidence exist.
+
+## PR #128 candidate: concurrent ledger writer and private file policy
+
+An isolated follow-up proposes an exclusive advisory writer lock using a
+persistent `<ledger>.writer.lock` sidecar. Existing ledger import, observed-turn,
+observed-message, and metadata-correction append routes all use the same lock
+around source-identity read, duplicate check, and append. The lock inode is
+not unlinked after release to avoid splitting competing writers between files.
+Synthetic cross-process tests deliberately queue two imports simultaneously
+and require one append and one idempotent skip.
+
+The ledger and lock files are created with mode **0600** regardless of umask;
+existing group- or other-readable ledger/lock files fail closed instead of
+silently changing their permissions or appending private evidence. Existing
+owners should review and remediate historical permissions separately.
+
+Capture receipts are additionally written through a bounded, owner-private (0600)
+append with an exclusive receipt-file lock. Both successful and failed receipts
+omit the selected source's absolute path; failures record a generic
+`capture_failed` reason rather than an exception string that might include
+user-controlled message identifiers or transcript fragments. Existing exposed
+receipt files and symlinks are refused before ledger mutation. Historical
+receipts are neither rewritten nor silently migrated.
+
+**Not yet covered:** direct file edits by non-cooperating processes, crash-safe
+multi-row appends, atomic ledger/receipt cross-file commits and checkpoint verification, unrestricted
+filesystem adversaries, or end-to-end ledger/receipt/Notebook transactions.
+The shared ledger and any future receipt operation still require owner-host
+acceptance, independent review and explicit promotion approval. This is a
+candidate, not part of canonical `runtime-0.1`.

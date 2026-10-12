@@ -3,10 +3,56 @@
 import hashlib
 import argparse
 import json
+import os
+import stat
+import fcntl
+from contextlib import contextmanager
+from io import StringIO
 from pathlib import Path
 
 
 ROLES = {"user": "HUMAN", "assistant": "ASSISTANT"}
+
+@contextmanager
+def _ledger_writer(ledger):
+    """Enforce one cooperative local writer during read/dedup/append."""
+    path = Path(ledger)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sidecar = path.with_name(path.name + ".writer.lock")
+    # Persistent lock inode: never unlink it or concurrent writers split locks.
+    fd = os.open(sidecar, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or stat.S_IMODE(info.st_mode) & 0o077):
+            raise PermissionError("Conversation writer lock must be owner-private")
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield path
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def _append_rows(path, rows):
+    """Append evidence under a caller-held lock with owner-private file mode."""
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or stat.S_IMODE(info.st_mode) & 0o077):
+            raise PermissionError("Conversation ledger must be owner-private")
+        data = "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
+                       for row in rows).encode("utf-8")
+        while data:
+            written = os.write(fd, data)
+            if written <= 0:
+                raise OSError("Conversation ledger write did not advance")
+            data = data[written:]
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 
 
 def _text(payload):
@@ -35,9 +81,14 @@ def _codex_source_id(record, line_number, conversation_id):
     return "local-record-v1:" + fingerprint, "LOCAL_DERIVED_RECORD_V1"
 
 
-def _messages(source, allow_derived_ids=False):
+def _messages(source, allow_derived_ids=False, snapshot_bytes=None):
+    """Parse an immutable source snapshot when explicitly supplied."""
     conversation_id = None
-    with Path(source).open(encoding="utf-8") as stream:
+    if snapshot_bytes is not None and not isinstance(snapshot_bytes, bytes):
+        raise ValueError("Observed source snapshot must be bytes")
+    stream_source = (Path(source).open(encoding="utf-8") if snapshot_bytes is None
+                     else StringIO(snapshot_bytes.decode("utf-8")))
+    with stream_source as stream:
         for line_number, line in enumerate(stream, start=1):
             if not line.strip():
                 continue
@@ -68,7 +119,8 @@ def _messages(source, allow_derived_ids=False):
             yield row
 
 
-def import_messages(source, ledger, selected_source_ids=None, allow_derived_ids=False):
+def import_messages(source, ledger, selected_source_ids=None, allow_derived_ids=False,
+                    snapshot_bytes=None):
     """Append unseen source messages; optionally select one explicitly named pair.
 
     Existing rows are keyed by source/source_id and conflicting duplicates fail
@@ -76,49 +128,46 @@ def import_messages(source, ledger, selected_source_ids=None, allow_derived_ids=
     """
     path = Path(ledger)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existing = {}
-    if path.exists():
-        with path.open(encoding="utf-8") as stream:
-            for line in stream:
-                row = json.loads(line)
-                key = (row["source"], row["source_id"])
-                if key in existing and existing[key] != row:
-                    raise ValueError("conflicting ledger duplicate: " + row["source_id"])
-                existing[key] = row
-    pending = []
-    pending_keys = set()
-    messages = list(_messages(source, allow_derived_ids=allow_derived_ids))
-    if selected_source_ids is not None:
-        if (not isinstance(selected_source_ids, (tuple, list))
-                or len(selected_source_ids) != 2
-                or any(not isinstance(item, str) or not item for item in selected_source_ids)
-                or selected_source_ids[0] == selected_source_ids[1]):
-            raise ValueError("Explicit source selection requires two distinct message IDs")
-        messages = [row for row in messages if row["source_id"] in selected_source_ids]
-        if (len(messages) != 2
-                or [row["source_id"] for row in messages] != list(selected_source_ids)
-                or [row["role"] for row in messages] != ["HUMAN", "ASSISTANT"]):
-            raise ValueError("Explicit selected messages are absent, duplicated or unordered")
-    for row in messages:
-        if not row.get("conversation_id"):
-            raise ValueError("source message has no conversation ID: " + row["source_id"])
-        row["content_digest"] = hashlib.sha256(row["text"].encode("utf-8")).hexdigest()
-        key = (row["source"], row["source_id"])
-        if key in existing:
-            if existing[key] != row:
-                raise ValueError("source message changed: " + row["source_id"])
-            continue
-        if key in pending_keys:
-            raise ValueError("duplicate source message: " + row["source_id"])
-        pending_keys.add(key)
-        pending.append(row)
-    added = 0
-    with path.open("a", encoding="utf-8") as stream:
-        for row in pending:
-            stream.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
-            existing[(row["source"], row["source_id"])] = row
-            added += 1
-    return {"added": added, "total": len(existing)}
+    with _ledger_writer(path):
+        existing = {}
+        if path.exists():
+            with path.open(encoding="utf-8") as stream:
+                for line in stream:
+                    row = json.loads(line)
+                    key = (row["source"], row["source_id"])
+                    if key in existing and existing[key] != row:
+                        raise ValueError("conflicting ledger duplicate: " + row["source_id"])
+                    existing[key] = row
+        pending = []
+        pending_keys = set()
+        messages = list(_messages(source, allow_derived_ids=allow_derived_ids,
+                                  snapshot_bytes=snapshot_bytes))
+        if selected_source_ids is not None:
+            if (not isinstance(selected_source_ids, (tuple, list))
+                    or len(selected_source_ids) != 2
+                    or any(not isinstance(item, str) or not item for item in selected_source_ids)
+                    or selected_source_ids[0] == selected_source_ids[1]):
+                raise ValueError("Explicit source selection requires two distinct message IDs")
+            messages = [row for row in messages if row["source_id"] in selected_source_ids]
+            if (len(messages) != 2
+                    or [row["source_id"] for row in messages] != list(selected_source_ids)
+                    or [row["role"] for row in messages] != ["HUMAN", "ASSISTANT"]):
+                raise ValueError("Explicit selected messages are absent, duplicated or unordered")
+        for row in messages:
+            if not row.get("conversation_id"):
+                raise ValueError("source message has no conversation ID: " + row["source_id"])
+            row["content_digest"] = hashlib.sha256(row["text"].encode("utf-8")).hexdigest()
+            key = (row["source"], row["source_id"])
+            if key in existing:
+                if existing[key] != row:
+                    raise ValueError("source message changed: " + row["source_id"])
+                continue
+            if key in pending_keys:
+                raise ValueError("duplicate source message: " + row["source_id"])
+            pending_keys.add(key)
+            pending.append(row)
+        _append_rows(path, pending)
+        return {"added": len(pending), "total": len(existing) + len(pending)}
 
 
 def append_observed_turn(ledger, source, conversation_id, turn_id, human_text, assistant_text,
@@ -131,22 +180,21 @@ def append_observed_turn(ledger, source, conversation_id, turn_id, human_text, a
             raise ValueError("observed turn fields must be nonempty")
     path = Path(ledger)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existing = {(row["source"], row["source_id"]): row for row in read_ledger(path)} if path.exists() else {}
-    pending = []
-    for source_id, role, text in values:
-        row = {"source": source, "source_id": source_id, "conversation_id": conversation_id,
-               "role": role, "text": text, "timestamp": None,
-               "content_digest": hashlib.sha256(text.encode("utf-8")).hexdigest()}
-        key = (source, source_id)
-        if key in existing:
-            if existing[key] != row:
-                raise ValueError("observed source message changed: " + source_id)
-            continue
-        pending.append(row)
-    with path.open("a", encoding="utf-8") as stream:
-        for row in pending:
-            stream.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
-    return {"added": len(pending), "total": len(existing) + len(pending)}
+    with _ledger_writer(path):
+        existing = {(row["source"], row["source_id"]): row for row in read_ledger(path)} if path.exists() else {}
+        pending = []
+        for source_id, role, text in values:
+            row = {"source": source, "source_id": source_id, "conversation_id": conversation_id,
+                   "role": role, "text": text, "timestamp": None,
+                   "content_digest": hashlib.sha256(text.encode("utf-8")).hexdigest()}
+            key = (source, source_id)
+            if key in existing:
+                if existing[key] != row:
+                    raise ValueError("observed source message changed: " + source_id)
+                continue
+            pending.append(row)
+        _append_rows(path, pending)
+        return {"added": len(pending), "total": len(existing) + len(pending)}
 
 
 def append_observed_message(ledger, source, conversation_id, turn_id, role, text,
@@ -163,15 +211,15 @@ def append_observed_message(ledger, source, conversation_id, turn_id, role, text
            "content_digest": hashlib.sha256(text.encode("utf-8")).hexdigest()}
     path = Path(ledger)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existing = {(item["source"], item["source_id"]): item for item in read_ledger(path)} if path.exists() else {}
-    key = (source, source_id)
-    if key in existing:
-        if existing[key] != row:
-            raise ValueError("observed source message changed: " + source_id)
-        return {"added": 0, "row": existing[key]}
-    with path.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
-    return {"added": 1, "row": row}
+    with _ledger_writer(path):
+        existing = {(item["source"], item["source_id"]): item for item in read_ledger(path)} if path.exists() else {}
+        key = (source, source_id)
+        if key in existing:
+            if existing[key] != row:
+                raise ValueError("observed source message changed: " + source_id)
+            return {"added": 0, "row": existing[key]}
+        _append_rows(path, [row])
+        return {"added": 1, "row": row}
 
 
 def append_conversation_id_correction(ledger, source_id, conversation_id):
@@ -180,8 +228,8 @@ def append_conversation_id_correction(ledger, source_id, conversation_id):
     correction = {"source": "codex-rollout", "source_id": source_id,
                   "event_type": "METADATA_CORRECTION",
                   "field": "conversation_id", "value": conversation_id}
-    with path.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(correction, ensure_ascii=False, sort_keys=True) + "\n")
+    with _ledger_writer(path):
+        _append_rows(path, [correction])
     return correction
 
 
