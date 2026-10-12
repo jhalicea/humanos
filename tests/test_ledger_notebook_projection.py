@@ -167,7 +167,7 @@ class LedgerNotebookProjectionTests(unittest.TestCase):
                 "content_digest": hashlib.sha256(text.encode("utf-8")).hexdigest(),
             })
         ledger.write_text(
-            "\\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\\n",
+            "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
             encoding="utf-8",
         )
 
