@@ -4,6 +4,8 @@ import argparse
 import hashlib
 import json
 import os
+import stat
+import fcntl
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,6 +13,39 @@ from conversation_ledger import import_messages, read_ledger, verify_ledger
 
 RUNTIME_ROOT = Path(__file__).resolve().parent
 DEFAULT_LEDGER = RUNTIME_ROOT / "var" / "current-conversation.jsonl"
+
+
+
+def _receipt_preflight(receipt):
+    """Refuse preexisting exposed receipts before ledger capture begins."""
+    try:
+        info = Path(receipt).lstat()
+    except FileNotFoundError:
+        return
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+            or stat.S_IMODE(info.st_mode) & 0o077):
+        raise PermissionError("Capture receipts must be owner-private")
+
+
+def _append_private_receipt(receipt, record):
+    """Append bounded, content-light receipts through one 0600 locked file."""
+    fd = os.open(receipt, os.O_APPEND | os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or stat.S_IMODE(info.st_mode) & 0o077):
+            raise PermissionError("Capture receipts must be owner-private")
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        data = (json.dumps(record, sort_keys=True) + "\n").encode("utf-8")
+        while data:
+            written = os.write(fd, data)
+            if written <= 0:
+                raise OSError("Receipt append did not advance")
+            data = data[written:]
+        os.fsync(fd)
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
 
 
 def resolve_source(session_id, sessions_root=None):
@@ -30,25 +65,28 @@ def capture_current(ledger=None, source=None, selected_source_ids=None, allow_de
     source = source or resolve_source(session_id)
     receipt = ledger.parent / "capture-receipts.jsonl"
     receipt.parent.mkdir(parents=True, exist_ok=True)
+    _receipt_preflight(receipt)
     try:
         result = import_messages(source, ledger, selected_source_ids=selected_source_ids,
                                  allow_derived_ids=allow_derived_ids, snapshot_bytes=snapshot_bytes)
         result["verification"] = verify_ledger(ledger)
         result["status"] = "CHECKPOINTED"
-    except Exception as error:
-        with receipt.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps({"captured_at": datetime.now(timezone.utc).isoformat(),
-                "source": str(source), "status": "RECOVERY REQUIRED", "reason": str(error)}, sort_keys=True) + "\n")
-        raise
-    with receipt.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps({
+    except Exception:
+        _append_private_receipt(receipt, {
             "captured_at": datetime.now(timezone.utc).isoformat(),
-            "source": str(source),
-            "conversation_id": next(iter({row["conversation_id"] for row in read_ledger(ledger) if row.get("conversation_id")})),
-            "added": result["added"], "total": result["total"],
-            "ledger_digest": hashlib.sha256(ledger.read_bytes()).hexdigest(),
-            "status": result["status"],
-        }, sort_keys=True) + "\n")
+            "source": "codex-rollout",
+            "status": "RECOVERY REQUIRED",
+            "reason": "capture_failed",
+        })
+        raise
+    _append_private_receipt(receipt, {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "source": "codex-rollout",
+        "conversation_id": next(iter({row["conversation_id"] for row in read_ledger(ledger) if row.get("conversation_id")})),
+        "added": result["added"], "total": result["total"],
+        "ledger_digest": hashlib.sha256(ledger.read_bytes()).hexdigest(),
+        "status": result["status"],
+    })
     return result
 
 
