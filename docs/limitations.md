@@ -71,3 +71,25 @@ installation nor private-vault restoration is qualified by repository CI.
 ## Documentation policy
 
 Specifications and roadmaps describe intended work. They must not be presented as implemented or verified until corresponding code and evidence exist.
+
+## PR #128 candidate: concurrent ledger writer and private file policy
+
+An isolated follow-up proposes an exclusive advisory writer lock using a
+persistent `<ledger>.writer.lock` sidecar. Existing ledger import, observed-turn,
+observed-message, and metadata-correction append routes all use the same lock
+around source-identity read, duplicate check, and append. The lock inode is
+not unlinked after release to avoid splitting competing writers between files.
+Synthetic cross-process tests deliberately queue two imports simultaneously
+and require one append and one idempotent skip.
+
+The ledger and lock files are created with mode **0600** regardless of umask;
+existing group- or other-readable ledger/lock files fail closed instead of
+silently changing their permissions or appending private evidence. Existing
+owners should review and remediate historical permissions separately.
+
+**Not yet covered:** direct file edits by non-cooperating processes, crash-safe
+multi-row appends, concurrent receipt writes and verification, unrestricted
+filesystem adversaries, or end-to-end ledger/receipt/Notebook transactions.
+The shared ledger and any future receipt operation still require owner-host
+acceptance, independent review and explicit promotion approval. This is a
+candidate, not part of canonical `runtime-0.1`.
