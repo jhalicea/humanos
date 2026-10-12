@@ -39,6 +39,8 @@ def _messages(source, allow_derived_ids=False):
     conversation_id = None
     with Path(source).open(encoding="utf-8") as stream:
         for line_number, line in enumerate(stream, start=1):
+            if not line.strip():
+                continue
             record = json.loads(line)
             payload = record.get("payload", {})
             if record.get("type") == "session_meta":
