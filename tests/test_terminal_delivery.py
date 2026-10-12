@@ -1,4 +1,7 @@
 import io
+import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -6,7 +9,7 @@ from pathlib import Path
 from engine import Agent, Tools
 from notebook import Notebook
 from server_core import HumanOSRuntime
-from terminal_delivery import TerminalDeliveryError, validate_terminal_delivery
+from terminal_delivery import POLICY, POLICY_ID, TerminalDeliveryError, validate_terminal_delivery
 from work_mode import WorkContextModel
 
 
@@ -32,6 +35,15 @@ class ScriptedModel:
 
 
 class TerminalDeliveryTests(unittest.TestCase):
+    def test_external_packet_and_filter_are_machine_consumable(self):
+        module = str(Path(__file__).resolve().parents[1] / 'terminal_delivery.py')
+        packet = subprocess.run([sys.executable, module, '--packet'], capture_output=True, text=True, check=True)
+        self.assertEqual(json.loads(packet.stdout)['rule'], POLICY)
+        self.assertEqual(json.loads(packet.stdout)['policy_id'], POLICY_ID)
+        rejected = subprocess.run([sys.executable, module], input='Run python3 scripts/smoke_codex_import.py',
+                                  capture_output=True, text=True)
+        self.assertEqual(rejected.returncode, 2)
+        self.assertEqual(rejected.stdout, '')
     def test_compliant_smoke_and_nonterminal_text(self):
         self.assertEqual(validate_terminal_delivery(GOOD), GOOD)
         self.assertEqual(validate_terminal_delivery('Hello, Jon.'), 'Hello, Jon.')
@@ -47,6 +59,10 @@ class TerminalDeliveryTests(unittest.TestCase):
             'Run `python3 scripts/smoke_codex_import.py`.',
             'Run python3 scripts/smoke_codex_import.py',
             'Run this: ```text\npython3 scripts/smoke_codex_import.py\n```',
+            '```text\nls scripts\n```',
+            'Run /tmp/foo.sh',
+            'Run ~/script.sh',
+            'pwd',
             GOOD.replace('/Users/jhalicea/Developer/10_Repos/humanos/scripts/smoke_codex_import.py',
                          'scripts/smoke_codex_import.py'),
             GOOD.replace('set -e\n', ''),
@@ -102,6 +118,8 @@ class TerminalDeliveryTests(unittest.TestCase):
             'Work ID: WORK-1\nOriginal goal: answer a question\nVerified progress JSON: {}')
         with self.assertRaisesRegex(PermissionError, 'terminal delivery policy'):
             wrapped.invoke([{'role': 'system', 'content': 'other policy'}], 7)
+        with self.assertRaisesRegex(RuntimeError, 'normal HumanOS system prompt'):
+            wrapped.invoke([{'role': 'user', 'content': 'other policy'}], 7)
 
     def test_delivery_sink_rejects_tampered_saved_answer_without_writing(self):
         runtime = object.__new__(HumanOSRuntime)

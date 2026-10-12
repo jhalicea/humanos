@@ -37,7 +37,10 @@ extra commands, and multiple blocks are rejected.
 - **External Work:** the inspected create/send/read thread tool schemas expose
   prompts and observation but no verified pre-delivery transform. The
   `terminal_delivery.py` stdin filter is a handoff mitigation for a controlled
-  wrapper; it is not evidence of automatic ChatGPT Work interception.
+  wrapper. Its `--packet` output supplies the same versioned rule to an external
+  caller; the caller must run the filter on the proposed reply before delivery.
+  No available Work UI hook was verified to perform that wiring, so direct Work
+  replies remain **BLOCKED** for automatic enforcement. Jon is not the filter.
 
 Rollback: revert this candidate commit/PR. An older unfinished task without the
 bound policy fails closed and needs explicit reconciliation before resuming.

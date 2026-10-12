@@ -6,6 +6,7 @@ the proposed command. Unsupported shell forms require a new, reviewed contract.
 import re
 import shlex
 import sys
+import json
 from pathlib import PurePosixPath
 
 
@@ -22,10 +23,11 @@ APPROVED_SYNTHETIC_SCRIPTS = frozenset({
 APPROVED_REPO = '/Users/jhalicea/Developer/10_Repos/humanos'
 _FENCE = re.compile(r"```([^\n]*)\n(.*?)\n```", re.S)
 _COMMAND = re.compile(
-    r"(?:^|[`])\s*(?:python3|python|/usr/bin/env|cd|git|bash|sh|zsh|pytest|pip|curl|rm|mv|cp|sudo|chmod|chown|make|export|brew|npm|uv)\b|"
+    r"(?:^|[`])\s*(?:python3|python|/usr/bin/env|cd|git|bash|sh|zsh|pytest|pip|curl|rm|mv|cp|sudo|chmod|chown|make|export|brew|npm|uv|ls|test|pwd)\b|"
     r"(?:^|[`])\s*humanos\s+--|"
     r"(?:^|[`])\s*(?:\./|/Users/|/usr/bin/|/bin/)|"
-    r"\b(?:run|execute|paste|type)\s+(?:python3|python|git|cd|/usr/bin/|/bin/|\./)", re.M | re.I)
+    r"(?:^|[`])\s*(?:/[^\s`]+\.(?:sh|py)|~/[^\s`]+)|"
+    r"\b(?:run|execute|paste|type)\s+(?:python3|python|git|cd|/[^\s`]+|~/[^\s`]+|\./)", re.M | re.I)
 _PLACEHOLDER = re.compile(r"<[^>]+>|\{\{.*?\}\}|\b(?:TODO|REPLACE_ME|YOUR_PATH)\b", re.I)
 
 
@@ -95,6 +97,13 @@ def validate_terminal_delivery(response):
 
 def main():
     """External handoff filter: emit only a validated response from stdin."""
+    if sys.argv[1:] == ['--packet']:
+        sys.stdout.write(json.dumps({'policy_id': POLICY_ID, 'rule': POLICY,
+                                     'validator': 'terminal_delivery.validate_terminal_delivery'}, sort_keys=True) + '\n')
+        return 0
+    if len(sys.argv) != 1:
+        print('Unsupported terminal delivery option', file=sys.stderr)
+        return 2
     candidate = sys.stdin.read()
     try:
         sys.stdout.write(validate_terminal_delivery(candidate))
