@@ -152,7 +152,7 @@ class CodexImportCliTests(unittest.TestCase):
 
     def test_ambiguous_rollout_rejected_without_vault_or_ledger(self):
         for case in ("two_turns", "second_session", "orphan_assistant",
-                     "mismatched_thread", "missing_message_id"):
+                     "mismatched_thread", "missing_message_content"):
             with self.subTest(case=case):
                 with tempfile.TemporaryDirectory() as folder:
                     root = Path(folder)
@@ -170,7 +170,7 @@ class CodexImportCliTests(unittest.TestCase):
                     elif case == "mismatched_thread":
                         records[2]["payload"]["thread_id"] = "different"
                     else:
-                        records[1]["payload"].pop("id")
+                        records[1]["payload"]["content"] = [{"type": "unrecognized"}]
                     source.write_text("\n".join(json.dumps(row) for row in records) + "\n",
                                       encoding="utf-8")
                     code, stdout, stderr = self.run_cli(self.command(source, ledger, vault))
@@ -292,6 +292,88 @@ class CodexImportCliTests(unittest.TestCase):
             self.assertEqual([(x["role"], x["source_id"]) for x in report["messages"]],
                              [("HUMAN", "human-1"), ("ASSISTANT", "assistant-1"),
                               ("HUMAN", "human-2"), ("ASSISTANT", "assistant-2")])
+            self.assertFalse(ledger.exists())
+            self.assertFalse(vault.exists())
+
+    def test_realistic_idless_codex_record_selection_and_exact_provenance(self):
+        """OpenAI Codex rollout fixtures omit message IDs on response_item."""
+        from conversation_ledger import read_ledger
+        from notebook import Notebook
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source, ledger, vault = self.setup_paths(root)
+            records = [
+                {"type": "session_meta", "payload": {"id": "codex-idless-synthetic"}},
+                {"type": "response_item", "payload": {"type": "message", "role": "user",
+                    "content": [{"type": "input_text", "text": "idless human 🧭"}]}},
+                {"type": "event_msg", "payload": {"type": "task_started", "turn_id": "turn-synthetic"}},
+                {"type": "response_item", "payload": {"type": "message", "role": "assistant",
+                    "content": [{"type": "output_text", "text": "idless answer"}]}},
+                {"type": "event_msg", "payload": {"type": "task_complete", "turn_id": "turn-synthetic"}},
+            ]
+            source.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+            before_source = source.read_bytes()
+            code, out, err = self.run_cli(["inspect-codex", "--source", str(source)])
+            self.assertEqual(code, 0, err)
+            report = json.loads(out)
+            self.assertEqual(report["message_count"], 2)
+            self.assertNotIn("idless human", out)
+            self.assertNotIn("idless answer", out)
+            ids = [row["source_id"] for row in report["messages"]]
+            self.assertEqual(len(set(ids)), 2)
+            self.assertTrue(all(x.startswith("local-record-v1:") for x in ids))
+            self.assertTrue(all(x["source_id_origin"] == "LOCAL_DERIVED_RECORD_V1"
+                                for x in report["messages"]))
+
+            args = self.command(source, ledger, vault) + [
+                "--human-source-id", ids[0], "--assistant-source-id", ids[1],
+            ]
+            code, result_text, err = self.run_cli(args)
+            self.assertEqual(code, 0, err)
+            self.assertEqual(json.loads(result_text)["notebook"]["projected"], 1)
+            self.assertEqual(source.read_bytes(), before_source)
+            saved = read_ledger(ledger)
+            self.assertEqual([row["source_id"] for row in saved], ids)
+            self.assertEqual([row["source_line"] for row in saved], [2, 4])
+            self.assertEqual([row["source_id_origin"] for row in saved],
+                             ["LOCAL_DERIVED_RECORD_V1"] * 2)
+            self.assertEqual([row["text"] for row in saved],
+                             ["idless human 🧭", "idless answer"])
+            first_ledger = ledger.read_bytes()
+            code, result_text, err = self.run_cli(args)
+            self.assertEqual(code, 0, err)
+            self.assertEqual(json.loads(result_text)["notebook"]["skipped"], 1)
+            self.assertEqual(ledger.read_bytes(), first_ledger)
+            book = Notebook(vault)
+            try:
+                self.assertTrue(book.verify())
+                tx = "CAPTURE-" + ids[1]
+                self.assertEqual(book.get_transaction(tx)["input"], "idless human 🧭")
+                self.assertEqual(book.task(tx)["assistant_source_id"], ids[1])
+            finally:
+                book.close()
+
+    def test_local_record_reference_invalidated_by_source_edit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source, ledger, vault = self.setup_paths(Path(folder))
+            records = [
+                {"type": "session_meta", "payload": {"id": "synthetic-session"}},
+                {"type": "response_item", "payload": {"type": "message", "role": "user",
+                    "content": [{"type": "input_text", "text": "original"}]}},
+                {"type": "response_item", "payload": {"type": "message", "role": "assistant",
+                    "content": [{"type": "output_text", "text": "answer"}]}},
+            ]
+            source.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+            code, out, err = self.run_cli(["inspect-codex", "--source", str(source)])
+            self.assertEqual(code, 0, err)
+            ids = [row["source_id"] for row in json.loads(out)["messages"]]
+            records[1]["payload"]["content"][0]["text"] = "changed"
+            source.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+            code, out, err = self.run_cli(self.command(source, ledger, vault) + [
+                "--human-source-id", ids[0], "--assistant-source-id", ids[1],
+            ])
+            self.assertNotEqual(code, 0)
+            self.assertEqual(out, "")
             self.assertFalse(ledger.exists())
             self.assertFalse(vault.exists())
 

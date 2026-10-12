@@ -22,15 +22,20 @@ PR #115 proposes one **manual**, owner-confirmed capture path reusing the existi
 
 From the repository working directory with an explicitly chosen **local**
 Codex JSONL rollout and owner-only destination directories. First view only
-the source message IDs and roles (the inspection prints **no message content**):
+the source message references and roles (the inspection prints **no message content**):
 
 ```text
 python3 humanos.py inspect-codex --source /absolute/private/path/selected-rollout.jsonl
 ```
 
 This preview is `UNVERIFIED_METADATA_ONLY`: it does **not** certify that
-adjacent messages are a complete provider turn. Select one consecutive
-HUMAN/ASSISTANT pair from those IDs before importing a larger session.
+adjacent messages are a complete provider turn. When Codex omits original
+message IDs, it shows deterministic `local-record-v1:<sha256>` references
+labeled `LOCAL_DERIVED_RECORD_V1` (not provider IDs). These bind the session,
+source record line, and canonical original record; changing the source may
+invalidate the reference. They are fingerprints, **not anonymization or
+provider authenticity proofs**. Select one consecutive HUMAN/ASSISTANT pair
+by its displayed references before importing a larger session.
 
 Then import that one turn:
 

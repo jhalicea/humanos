@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from capture_current_conversation import capture_audit, capture_current, capture_status
-from conversation_ledger import _messages, read_ledger
+from conversation_ledger import _messages, _codex_source_id, read_ledger
 from local_kernel_capture import capture_turn
 from ledger_notebook_projection import project_all_pairs
 from conversation_ledger import verify_ledger
@@ -60,7 +60,9 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
     session = meta[0].get("session_id") or meta[0].get("id")
     if not isinstance(session, str) or not session:
         raise ValueError("Selected session is missing a stable ID")
-    relevant = [record["payload"] for record in raw
+    relevant = [(record["payload"],
+                 _codex_source_id(record, line_no, session))
+                for line_no, record in enumerate(raw, start=1)
                 if record.get("type") == "response_item"
                 and isinstance(record.get("payload"), dict)
                 and record["payload"].get("role") in ("user", "assistant")]
@@ -75,15 +77,15 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
         selected_ids = (human_source_id, assistant_source_id)
         # The IDs are an explicit owner selection, NOT permission to pair
         # unrelated messages across intervening HUMAN/ASSISTANT records.
-        positions = [i for i, row in enumerate(relevant)
-                     if row.get("id") in selected_ids]
+        positions = [i for i, (_payload, (source_id, _origin)) in enumerate(relevant)
+                     if source_id in selected_ids]
         if (len(positions) != 2 or positions[1] != positions[0] + 1
-                or [relevant[i].get("id") for i in positions] != list(selected_ids)
-                or [relevant[i].get("role") for i in positions] != ["user", "assistant"]):
+                or [relevant[i][1][0] for i in positions] != list(selected_ids)
+                or [relevant[i][0].get("role") for i in positions] != ["user", "assistant"]):
             raise ValueError("Selected messages must form one consecutive ordered pair")
-    elif [record.get("role") for record in relevant] != ["user", "assistant"]:
-        raise ValueError("Multiple turns require explicit original message IDs")
-    all_observed = list(_messages(source))
+    elif [payload.get("role") for payload, _id in relevant] != ["user", "assistant"]:
+        raise ValueError("Multiple turns require explicit source record IDs")
+    all_observed = list(_messages(source, allow_derived_ids=True))
     observed = ([row for row in all_observed if row["source_id"] in selected_ids]
                 if selected_ids is not None else all_observed)
     if (len(observed) != 2 or [row["role"] for row in observed] != ["HUMAN", "ASSISTANT"]
@@ -104,7 +106,8 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
 
     # The existing explicit capture path supplies append-only receipts. A
     # projection failure never rewrites the ledger or claims Notebook success.
-    captured = capture_current(ledger, source, selected_source_ids=selected_ids)
+    captured = capture_current(ledger, source, selected_source_ids=selected_ids,
+                               allow_derived_ids=True)
     projected = project_all_pairs(ledger, notebook)
     if projected["pending"] or projected["projected"] + projected["skipped"] != 1:
         raise RuntimeError("Selected source turn did not yield one verified Notebook projection")
@@ -139,18 +142,19 @@ def inspect_selected_codex_source(source):
     if not isinstance(session, str) or not session:
         raise ValueError("Source session ID is missing")
     messages = []
-    for row in rows:
+    for line_number, row in enumerate(rows, start=1):
         if row.get("type") != "response_item":
             continue
         payload = row.get("payload")
         if not isinstance(payload, dict) or payload.get("role") not in ("user", "assistant"):
             continue
-        source_id = payload.get("id")
+        source_id, origin = _codex_source_id(row, line_number, session)
         messages.append({
             "index": len(messages),
             "role": "HUMAN" if payload["role"] == "user" else "ASSISTANT",
-            "source_id": source_id if isinstance(source_id, str) and source_id else None,
-            "selectable": bool(isinstance(source_id, str) and source_id),
+            "source_id": source_id,
+            "source_id_origin": origin,
+            "selectable": True,
             "conversation_matches_session": (payload.get("thread_id") or session) == session,
         })
         if len(messages) > 1024:

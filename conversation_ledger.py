@@ -17,10 +17,28 @@ def _text(payload):
     return "".join(parts)
 
 
-def _messages(source):
+def _codex_source_id(record, line_number, conversation_id):
+    """Distinguish a genuine source ID from a stable *local* record reference."""
+    payload = record["payload"]
+    provider_id = payload.get("id")
+    if isinstance(provider_id, str) and provider_id:
+        return provider_id, "PROVIDER_MESSAGE_ID"
+    # A local record fingerprint is not a provider-issued message ID.
+    # Canonical JSON makes whitespace-only formatting changes harmless;
+    # source session, original line and entire record bind evidence position.
+    canonical = json.dumps(record, ensure_ascii=False, sort_keys=True,
+                           separators=(",", ":"))
+    fingerprint = hashlib.sha256(
+        ("codex-local-record-v1\\n" + str(conversation_id) + "\\n"
+         + str(line_number) + "\\n" + canonical).encode("utf-8")
+    ).hexdigest()
+    return "local-record-v1:" + fingerprint, "LOCAL_DERIVED_RECORD_V1"
+
+
+def _messages(source, allow_derived_ids=False):
     conversation_id = None
     with Path(source).open(encoding="utf-8") as stream:
-        for line in stream:
+        for line_number, line in enumerate(stream, start=1):
             record = json.loads(line)
             payload = record.get("payload", {})
             if record.get("type") == "session_meta":
@@ -28,19 +46,27 @@ def _messages(source):
             if record.get("type") != "response_item" or payload.get("role") not in ROLES:
                 continue
             text = _text(payload)
-            if not isinstance(payload.get("id"), str) or not text:
+            if not text:
                 continue
-            yield {
+            if not isinstance(payload.get("id"), str) or not payload.get("id"):
+                if not allow_derived_ids:
+                    continue
+            source_id, origin = _codex_source_id(record, line_number, conversation_id)
+            row = {
                 "source": "codex-rollout",
-                "source_id": payload["id"],
+                "source_id": source_id,
                 "conversation_id": payload.get("thread_id") or conversation_id,
                 "role": ROLES[payload["role"]],
                 "text": text,
                 "timestamp": record.get("timestamp"),
             }
+            if origin == "LOCAL_DERIVED_RECORD_V1":
+                row["source_id_origin"] = origin
+                row["source_line"] = line_number
+            yield row
 
 
-def import_messages(source, ledger, selected_source_ids=None):
+def import_messages(source, ledger, selected_source_ids=None, allow_derived_ids=False):
     """Append unseen source messages; optionally select one explicitly named pair.
 
     Existing rows are keyed by source/source_id and conflicting duplicates fail
@@ -59,7 +85,7 @@ def import_messages(source, ledger, selected_source_ids=None):
                 existing[key] = row
     pending = []
     pending_keys = set()
-    messages = list(_messages(source))
+    messages = list(_messages(source, allow_derived_ids=allow_derived_ids))
     if selected_source_ids is not None:
         if (not isinstance(selected_source_ids, (tuple, list))
                 or len(selected_source_ids) != 2
