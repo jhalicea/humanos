@@ -33,15 +33,17 @@ python3 humanos.py import-codex \
 
 This rejects files inside the repository, shared destination directories, missing
 confirmation, ambiguous/multiple source turns or sessions, unrecognized message
-evidence, and destination ledgers containing another session/provider. It only
-accepts a bounded **single** Codex session with exactly one complete observed
-HUMAN/ASSISTANT pair. It is idempotent for an exact previously imported turn.
+evidence, and destination ledgers containing another session/provider. It accepts one bounded selected Codex session, and imports **one** complete
+HUMAN/ASSISTANT pair. For longer rollouts you must specify the two *original*
+IDs from one consecutive pair; for example add `--human-source-id human-2
+--assistant-source-id assistant-2`. The selected source file has a 16 MiB
+upper size limit. It is idempotent for an exact previously imported turn.
 The command emits aggregate verification status, not transcript text.
 
 **Limitations:** This does not verify host provenance independently of the
 selected file, perform provider-side completeness attestation, protect a
-compromised operating system, support general/multi-turn rollout import, or
-silently capture any provider. An import error after ledger append can preserve
+compromised operating system, support automatic/multi-turn bulk rollout import,
+prove provider-defined turn completeness, or silently capture any provider. An import error after ledger append can preserve
 ledger evidence without having completed Notebook projection; rerun only with
 the same selected source and review the recovery evidence. Neither local owner
 installation nor private-vault restoration is qualified by repository CI.

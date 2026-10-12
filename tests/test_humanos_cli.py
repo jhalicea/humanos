@@ -200,6 +200,76 @@ class CodexImportCliTests(unittest.TestCase):
             self.assertFalse(vault.exists())
             self.assertFalse((shared / "capture-receipts.jsonl").exists())
 
+
+    def test_explicit_pair_selection_in_larger_rollout_preserves_original_source(self):
+        from conversation_ledger import read_ledger
+        from notebook import Notebook
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source, ledger, vault = self.setup_paths(root)
+            records = _one_turn_rollout(source)
+            records.extend([
+                {"type": "response_item", "payload": {"id": "human-2", "role": "user",
+                    "content": [{"type": "input_text", "text": "second human 🧭"}]}},
+                {"type": "response_item", "payload": {"id": "assistant-2", "role": "assistant",
+                    "content": [{"type": "output_text", "text": "second assistant."}]}},
+            ])
+            source.write_text("\n".join(json.dumps(row, ensure_ascii=False) for row in records) + "\n",
+                              encoding="utf-8")
+            source_bytes = source.read_bytes()
+            args = self.command(source, ledger, vault) + [
+                "--human-source-id", "human-2", "--assistant-source-id", "assistant-2",
+            ]
+            code, out, err = self.run_cli(args)
+            self.assertEqual(code, 0, err)
+            self.assertEqual(json.loads(out)["notebook"]["projected"], 1)
+            saved = read_ledger(ledger)
+            self.assertEqual([(x["source_id"], x["text"]) for x in saved],
+                             [("human-2", "second human 🧭"), ("assistant-2", "second assistant.")])
+            original_ledger = ledger.read_bytes()
+            code, out, err = self.run_cli(args)
+            self.assertEqual(code, 0, err)
+            self.assertEqual(json.loads(out)["notebook"]["skipped"], 1)
+            self.assertEqual(ledger.read_bytes(), original_ledger)
+            self.assertEqual(source.read_bytes(), source_bytes)
+            book = Notebook(vault)
+            try:
+                self.assertTrue(book.verify())
+                self.assertEqual(book.get_transaction("CAPTURE-assistant-2")["input"],
+                                 "second human 🧭")
+                self.assertIsNone(book.get_transaction("CAPTURE-assistant-1"))
+            finally:
+                book.close()
+
+    def test_explicit_pair_selection_must_be_complete_and_consecutive(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source, ledger, vault = self.setup_paths(root)
+            records = _one_turn_rollout(source)
+            records += [
+                {"type": "response_item", "payload": {"id": "human-2", "role": "user",
+                    "content": [{"type": "input_text", "text": "second human"}]}},
+                {"type": "response_item", "payload": {"id": "assistant-2", "role": "assistant",
+                    "content": [{"type": "output_text", "text": "second reply"}]}},
+            ]
+            source.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+            for selection in (
+                [],
+                ["--human-source-id", "human-1"],
+                ["--human-source-id", "human-1", "--assistant-source-id", "assistant-2"],
+                ["--human-source-id", "missing", "--assistant-source-id", "assistant-2"],
+                ["--human-source-id", "assistant-2", "--assistant-source-id", "human-2"],
+                ["--human-source-id", "human-2", "--assistant-source-id", "human-2"],
+            ):
+                with self.subTest(selection=selection):
+                    code, out, err = self.run_cli(self.command(source, ledger, vault) + selection)
+                    self.assertNotEqual(code, 0)
+                    self.assertEqual(out, "")
+                    self.assertIn("Selected Codex import failed", err)
+                    self.assertFalse(ledger.exists())
+                    self.assertFalse(vault.exists())
+                    self.assertFalse((root / "capture-receipts.jsonl").exists())
+
     def test_foreign_ledger_rejected_without_mutation(self):
         from ledger_capture_adapter import capture_observed_turn
 

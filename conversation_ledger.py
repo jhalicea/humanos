@@ -40,8 +40,8 @@ def _messages(source):
             }
 
 
-def import_messages(source, ledger):
-    """Append unseen source messages; return added and total counts.
+def import_messages(source, ledger, selected_source_ids=None):
+    """Append unseen source messages; optionally select one explicitly named pair.
 
     Existing rows are keyed by source/source_id and conflicting duplicates fail
     closed, so a rerun cannot silently change evidence.
@@ -59,7 +59,19 @@ def import_messages(source, ledger):
                 existing[key] = row
     pending = []
     pending_keys = set()
-    for row in _messages(source):
+    messages = list(_messages(source))
+    if selected_source_ids is not None:
+        if (not isinstance(selected_source_ids, (tuple, list))
+                or len(selected_source_ids) != 2
+                or any(not isinstance(item, str) or not item for item in selected_source_ids)
+                or selected_source_ids[0] == selected_source_ids[1]):
+            raise ValueError("Explicit source selection requires two distinct message IDs")
+        messages = [row for row in messages if row["source_id"] in selected_source_ids]
+        if (len(messages) != 2
+                or [row["source_id"] for row in messages] != list(selected_source_ids)
+                or [row["role"] for row in messages] != ["HUMAN", "ASSISTANT"]):
+            raise ValueError("Explicit selected messages are absent, duplicated or unordered")
+    for row in messages:
         if not row.get("conversation_id"):
             raise ValueError("source message has no conversation ID: " + row["source_id"])
         row["content_digest"] = hashlib.sha256(row["text"].encode("utf-8")).hexdigest()
