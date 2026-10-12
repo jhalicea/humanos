@@ -13,6 +13,68 @@ from conversation_ledger import append_conversation_id_correction, import_messag
 
 class ConversationLedgerTests(unittest.TestCase):
 
+    def test_failure_receipt_redacts_source_path_error_data_and_uses_mode_0600(self):
+        import stat
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "private-source-path-secret.jsonl"
+            source.write_text(json.dumps({
+                "type": "response_item", "payload": {
+                    "id": "secret-original-message-id", "role": "user",
+                    "content": [{"type": "input_text", "text": "private human text"}]}
+            }) + "\n", encoding="utf-8")
+            ledger = root / "ledger.jsonl"
+            earlier = os.umask(0)
+            try:
+                with self.assertRaisesRegex(ValueError, "conversation ID"):
+                    capture_current(ledger, source)
+            finally:
+                os.umask(earlier)
+            receipt = root / "capture-receipts.jsonl"
+            self.assertEqual(stat.S_IMODE(receipt.stat().st_mode), 0o600)
+            content = receipt.read_text(encoding="utf-8")
+            self.assertNotIn("private-source-path-secret", content)
+            self.assertNotIn("secret-original-message-id", content)
+            self.assertNotIn("private human text", content)
+            record = json.loads(content)
+            self.assertEqual(record["status"], "RECOVERY REQUIRED")
+            self.assertEqual(record["reason"], "capture_failed")
+            self.assertEqual(record["source"], "codex-rollout")
+            self.assertFalse(ledger.exists())
+
+    def test_existing_exposed_receipt_fails_before_ledger_append(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "source.jsonl"
+            source.write_text("\n".join(json.dumps(r) for r in [
+                {"type": "session_meta", "payload": {"id": "synthetic"}},
+                {"type": "response_item", "payload": {"id": "u1", "role": "user",
+                    "content": [{"type": "input_text", "text": "human"}]}},
+            ]) + "\n", encoding="utf-8")
+            receipt = root / "capture-receipts.jsonl"
+            receipt.write_text("old-legacy-data\n", encoding="utf-8")
+            receipt.chmod(0o644)
+            before = receipt.read_bytes()
+            ledger = root / "ledger.jsonl"
+            with self.assertRaises(PermissionError):
+                capture_current(ledger, source)
+            self.assertEqual(receipt.read_bytes(), before)
+            self.assertFalse(ledger.exists())
+
+    def test_receipt_symlink_rejected_before_ledger_or_external_mutation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / "source.jsonl"
+            source.write_text(json.dumps({"type": "session_meta",
+                "payload": {"id": "synthetic"}}) + "\n", encoding="utf-8")
+            external = root / "external-receipt-target"
+            external.write_text("unchanged", encoding="utf-8")
+            (root / "capture-receipts.jsonl").symlink_to(external)
+            with self.assertRaises(PermissionError):
+                capture_current(root / "ledger.jsonl", source)
+            self.assertEqual(external.read_text(encoding="utf-8"), "unchanged")
+            self.assertFalse((root / "ledger.jsonl").exists())
+
     def test_simultaneous_processes_only_append_each_selected_message_once(self):
         """Both writers queue on the same lock, then dedup against committed rows."""
         from conversation_ledger import _ledger_writer
