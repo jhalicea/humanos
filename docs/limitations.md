@@ -87,8 +87,16 @@ existing group- or other-readable ledger/lock files fail closed instead of
 silently changing their permissions or appending private evidence. Existing
 owners should review and remediate historical permissions separately.
 
+Capture receipts are additionally written through a bounded, owner-private (0600)
+append with an exclusive receipt-file lock. Both successful and failed receipts
+omit the selected source's absolute path; failures record a generic
+`capture_failed` reason rather than an exception string that might include
+user-controlled message identifiers or transcript fragments. Existing exposed
+receipt files and symlinks are refused before ledger mutation. Historical
+receipts are neither rewritten nor silently migrated.
+
 **Not yet covered:** direct file edits by non-cooperating processes, crash-safe
-multi-row appends, concurrent receipt writes and verification, unrestricted
+multi-row appends, atomic ledger/receipt cross-file commits and checkpoint verification, unrestricted
 filesystem adversaries, or end-to-end ledger/receipt/Notebook transactions.
 The shared ledger and any future receipt operation still require owner-host
 acceptance, independent review and explicit promotion approval. This is a
