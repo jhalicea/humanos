@@ -101,3 +101,28 @@ filesystem adversaries, or end-to-end ledger/receipt/Notebook transactions.
 The shared ledger and any future receipt operation still require owner-host
 acceptance, independent review and explicit promotion approval. This is a
 candidate, not part of canonical `runtime-0.1`.
+
+## PR #129 candidate: interruption and recovery qualification
+
+Synthetic subprocess fault injection at three boundaries: abrupt process exit
+after ledger+receipt append but before Notebook projection; abrupt exit after
+Notebook checkpoint but before CLI result; and abrupt exit after Notebook
+HUMAN transaction STARTED but before ASSISTANT append/checkpoint.
+
+- First boundary: the original ledger is durable and a replay should project
+  the selected pair exactly once. A ledger-only receipt can still report
+  CHECKPOINTED while the Notebook is absent; never interpret this status as
+  successful Notebook recovery.
+- Second boundary: an already checkpointed pair is verified and skipped on
+  replay, preserving ledger bytes and original Notebook transcript.
+- Third boundary: partially created Notebook evidence is preserved and
+  automatic re-import fails closed; this case **requires manual reconciliation**
+  under owner approval. Do not silently overwrite or pretend to automatically
+  recover every interruption.
+
+Tests use only generated synthetic fixtures in private temporary directories.
+They do not use owner conversation data, real Codex sessions, or owner vaults.
+No new recovery subsystem is introduced. Testing these three transitions does
+not establish crash-safe atomicity of physical ledger, receipt, and SQLite
+writes, nor full backup/restore guarantees. This is a candidate stacked on
+PR #128, not canonical or owner-host accepted until separately qualified.
