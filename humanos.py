@@ -10,7 +10,7 @@ from pathlib import Path
 from capture_current_conversation import capture_audit, capture_current, capture_status
 from conversation_ledger import _messages, _codex_source_id, read_ledger
 from local_kernel_capture import capture_turn
-from ledger_notebook_projection import project_all_pairs
+from ledger_notebook_projection import project_all_pairs, reconcile_one_codex_pair
 from conversation_ledger import verify_ledger
 
 DEFAULT_LEDGER = Path(__file__).resolve().parent / "var" / "current-conversation.jsonl"
@@ -130,6 +130,37 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
     }
 
 
+
+def reconcile_selected_codex_transaction(ledger, notebook, human_source_id,
+                                         assistant_source_id, *, confirm=False):
+    """Explicit local recovery ONLY for preexisting partial Codex Notebook work."""
+    if confirm is not True:
+        raise PermissionError("Operator must explicitly confirm reconciliation")
+    ledger, notebook = Path(ledger), Path(notebook)
+    original_paths = (ledger, notebook)
+    if any(not p.is_absolute() or p.is_symlink() for p in original_paths):
+        raise ValueError("Recovery requires absolute, non-symlink local paths")
+    ledger, notebook = ledger.resolve(), notebook.resolve()
+    repo = Path(__file__).resolve().parent
+    if any(p == repo or repo in p.parents for p in (ledger, notebook)):
+        raise ValueError("Recovery evidence must remain outside repository")
+    if ledger == notebook or notebook in ledger.parents:
+        raise ValueError("Evidence ledger and Notebook must remain separate")
+    if not ledger.is_file() or not notebook.is_dir():
+        raise ValueError("Existing ledger and Notebook are required")
+    for parent in (ledger.parent, notebook.parent):
+        if (not parent.is_dir() or parent.stat().st_uid != os.getuid()
+                or stat.S_IMODE(parent.stat().st_mode) & 0o077):
+            raise ValueError("Recovery evidence parents must be owner-only")
+    if (ledger.stat().st_uid != os.getuid()
+            or stat.S_IMODE(ledger.stat().st_mode) & 0o077):
+        raise ValueError("Recovery ledger must be owner-private")
+    return reconcile_one_codex_pair(ledger, notebook,
+                                    human_source_id, assistant_source_id,
+                                    confirm=True)
+
+
+
 def inspect_selected_codex_source(source):
     """Display original message IDs and roles, never conversation text."""
     source = Path(source)
@@ -185,7 +216,7 @@ def main(argv=None):
         return academy_main(raw_args[1:])
 
     parser = argparse.ArgumentParser(prog="humanos")
-    parser.add_argument("command", choices=("capture", "turn", "project", "verify", "status", "audit", "import-codex", "inspect-codex"))
+    parser.add_argument("command", choices=("capture", "turn", "project", "verify", "status", "audit", "import-codex", "inspect-codex", "reconcile-codex"))
     parser.add_argument("--ledger", type=Path)
     parser.add_argument("--source", type=Path)
     parser.add_argument("--conversation-id")
@@ -196,10 +227,24 @@ def main(argv=None):
     parser.add_argument("--pretty", action="store_true")
     parser.add_argument("--confirm-observed", action="store_true",
                         help="Explicit owner confirmation for the selected one-turn Codex import")
+    parser.add_argument("--confirm-reconcile", action="store_true",
+                        help="Explicit local-operator approval to complete one exact existing incomplete Codex turn")
     parser.add_argument("--human-source-id", help="Explicit original HUMAN message ID in a larger Codex rollout")
     parser.add_argument("--assistant-source-id", help="Explicit original ASSISTANT message ID in a larger Codex rollout")
     args = parser.parse_args(raw_args)
-    if args.command == "inspect-codex":
+    if args.command == "reconcile-codex":
+        if (not args.confirm_reconcile or any(value is None for value in (
+                args.ledger, args.notebook, args.human_source_id,
+                args.assistant_source_id))):
+            parser.error("reconcile-codex needs --ledger, --notebook, both source IDs and --confirm-reconcile")
+        try:
+            result = reconcile_selected_codex_transaction(
+                args.ledger, args.notebook, args.human_source_id,
+                args.assistant_source_id, confirm=True,
+            )
+        except (OSError, ValueError, RuntimeError, UnicodeError):
+            parser.error("Selected Codex reconciliation failed validation; evidence retained")
+    elif args.command == "inspect-codex":
         if args.source is None:
             parser.error("inspect-codex requires --source")
         try:

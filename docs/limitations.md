@@ -126,3 +126,57 @@ No new recovery subsystem is introduced. Testing these three transitions does
 not establish crash-safe atomicity of physical ledger, receipt, and SQLite
 writes, nor full backup/restore guarantees. This is a candidate stacked on
 PR #128, not canonical or owner-host accepted until separately qualified.
+
+## Manual evidence-only partial Codex reconciliation (new stacked candidate)
+
+The optional `reconcile-codex` command is **not automatic recovery** and has
+no permission to create a new source, ledger, or Notebook transaction. It
+requires the original local evidence ledger and existing partial Notebook,
+two exact owner-selected Codex message IDs, and `--confirm-reconcile`. It
+verifies the existing ledger and Notebook, original owner binding, conversation
+and text identity, and that only the original HUMAN record or an exact matching
+assistant record is already present. A confirmation event is appended before
+any missing assistant transcript is added; the existing Notebook checkpoint
+process verifies the exact final response. A retry on an already checkpointed,
+identically proven transaction reports ALREADY_RECONCILED and appends nothing.
+
+The command requires absolute paths to the existing private evidence ledger and
+Notebook root, both selected source IDs, and explicit confirmation. Instructions
+to an owner must supply complete verified paths and never rely on relative cwd.
+
+The bare CLI confirmation is **not cryptographic authentication** of the human
+operator. This manual action must only be used after explicit owner review of
+the specific synthetic/real ledger and verified partial Notebook. Conflicts
+or unknown states always fail closed; they are not overwritten or hidden.
+This does not prove provider authenticity, universal crash recovery, atomic
+cross-file commit, or access to private user data. The candidate is unmerged
+and not deployed.
+
+## Staged recovery crash semantics (manual reconciler candidate)
+
+The recovery confirmation event is idempotent: if the subprocess stops after
+recording its content-light approval and before adding an ASSISTANT message,
+a later explicitly confirmed retry uses the **existing** single approval
+rather than writing duplicates. More than one prior approval or any conflicting
+approval payload causes fail-closed rejection.
+
+A different crash—after the ASSISTANT transcript is appended to SQLite but
+before the derived Notebook page is projected—can leave derived page files
+stale. The current recovery command **does not silently repair** that
+integrity failure; retry stops without rewriting the source ledger or primary
+transcript. The owner must authorize independent inspection and a safe derived
+projection repair separately. Do not call all interruption states recovered.
+
+## Synthetic owner-host recovery rehearsal
+
+The candidate includes `scripts/smoke_codex_reconciliation.py`, which runs
+only the bounded existing synthetic Codex import smoke and all ten synthetic
+kill-point / manual-recovery unit tests. It rejects missing test files and
+prints a concise PASS marker only when all eleven acceptance checks pass
+(one import smoke plus ten recovery tests). Tests create temporary synthetic
+sources and Notebook roots; no owner archive, active Codex session, real
+conversation, or existing Notebook vault is discovered or accessed.
+
+The test is also executed by the existing regression CI workflow on macOS
+and Ubuntu. CI cannot substitute for owner-host validation of the exact
+selected candidate SHA.

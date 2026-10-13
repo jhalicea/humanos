@@ -7,6 +7,7 @@ shared turn key through the documented role-suffixed source IDs.
 """
 
 from pathlib import Path
+import json
 
 from conversation_ledger import read_ledger, verify_ledger
 from notebook import Notebook
@@ -113,6 +114,90 @@ def _project_new(book, tx, human, assistant, *, include_final_phase=False):
     book.save_task(tx, state)
     book.checkpoint(tx)
     return identity
+
+
+
+def reconcile_one_codex_pair(ledger, notebook_root, human_source_id,
+                             assistant_source_id, *, confirm=False):
+    """Owner-confirmed, evidence-only completion of an existing partial turn.
+
+    Never create a new transaction, silently rebind a page, invoke a provider,
+    or alter the original ledger. Ordinary project_all_pairs stays fail-closed.
+    """
+    if confirm is not True:
+        raise PermissionError("Explicit operator reconciliation confirmation required")
+    if (not isinstance(human_source_id, str) or not isinstance(assistant_source_id, str)
+            or not human_source_id or not assistant_source_id
+            or human_source_id == assistant_source_id):
+        raise ValueError("Select two distinct original source record references")
+    rows = _evidence_rows(ledger)
+    if (len(rows) != 2 or [row["role"] for row in rows] != ["HUMAN", "ASSISTANT"]
+            or any(row["source"] != "codex-rollout" for row in rows)):
+        raise ValueError("Reconciliation requires exactly one preserved Codex turn")
+    pairs, pending = _preflight_pairs(rows)
+    if (len(pairs) != 1 or pending != 0
+            or [rows[0]["source_id"], rows[1]["source_id"]]
+            != [human_source_id, assistant_source_id]):
+        raise ValueError("Selected recovery identities do not match ledger evidence")
+    human, assistant, tx = pairs[0]
+    # Do not permit Notebook(...) to create a vault during reconciliation.
+    root = Path(notebook_root)
+    if not root.is_dir() or not (root / "runtime" / "notebook.sqlite3").is_file():
+        raise ValueError("An existing incomplete Notebook is required")
+
+    book = Notebook(root)
+    try:
+        book.verify()
+        prior = book.get_transaction(tx)
+        if prior is None:
+            raise ValueError("Refuse to create a new Notebook transaction during recovery")
+        if prior["status"] == "CHECKPOINTED":
+            _existing_exact(book, tx, human, assistant)
+            return {"status": "ALREADY_RECONCILED", "transaction": tx, "appended": 0}
+        if prior["status"] != "STARTED" or prior["input"] != human["text"]:
+            raise ValueError("Notebook transaction status/input is not safe to reconcile")
+        identity = book.get_identity(prior["hcid"])
+        if (identity is None or identity["binding"] != "VERIFIED"
+                or identity["owner"] != "Jon"
+                or not book.digest_matches(identity["opening_hash"], human["text"])):
+            raise ValueError("Original Notebook binding is not verified")
+        expected_state = _projection_state(human, assistant)
+        old_state = book.task(tx)
+        if old_state is not None and old_state != expected_state:
+            raise ValueError("Existing Notebook task does not match selected evidence")
+        transcript = [(r["role"], r["text"]) for r in book.db.execute(
+            "SELECT role,text FROM transcript WHERE tx=? ORDER BY ordinal", (tx,)
+        )]
+        if transcript not in ([
+            ("HUMAN", human["text"])
+        ], [
+            ("HUMAN", human["text"]), ("ASSISTANT", assistant["text"])
+        ]):
+            raise ValueError("Incomplete Notebook transcript does not match ledger")
+        # Persist one bounded operator-confirmation event, even after a crash
+        # between recording approval and appending the missing assistant text.
+        # The flag is NOT cryptographic evidence of operator identity.
+        confirmation = {"source": "codex-rollout", "operator_confirmation": True}
+        prior_approvals = [dict(row) for row in book.db.execute(
+            "SELECT payload FROM events WHERE tx=? AND kind=? ORDER BY seq",
+            (tx, "CODEX_RECONCILIATION_CONFIRMED"),
+        )]
+        if len(prior_approvals) > 1 or any(
+                json.loads(row["payload"]) != confirmation for row in prior_approvals):
+            raise ValueError("Conflicting or duplicate recovery authorization evidence")
+        if not prior_approvals:
+            book.event(tx, "CODEX_RECONCILIATION_CONFIRMED", confirmation)
+        if len(transcript) == 1:
+            book.append(tx, 1, "ASSISTANT", assistant["text"])
+        book.save_task(tx, expected_state)
+        book.checkpoint(tx)
+        if not _existing_exact(book, tx, human, assistant):
+            raise RuntimeError("Reconciled Notebook verification failed")
+        return {"status": "MANUALLY_RECONCILED", "transaction": tx,
+                "appended": int(len(transcript) == 1)}
+    finally:
+        book.close()
+
 
 
 def project_one_pair(ledger, notebook_root):
