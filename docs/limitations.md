@@ -166,3 +166,17 @@ stale. The current recovery command **does not silently repair** that
 integrity failure; retry stops without rewriting the source ledger or primary
 transcript. The owner must authorize independent inspection and a safe derived
 projection repair separately. Do not call all interruption states recovered.
+
+## Synthetic owner-host recovery rehearsal
+
+The candidate includes `scripts/smoke_codex_reconciliation.py`, which runs
+only the bounded existing synthetic Codex import smoke and all ten synthetic
+kill-point / manual-recovery unit tests. It rejects missing test files and
+prints a concise PASS marker only when all eleven acceptance checks pass
+(one import smoke plus ten recovery tests). Tests create temporary synthetic
+sources and Notebook roots; no owner archive, active Codex session, real
+conversation, or existing Notebook vault is discovered or accessed.
+
+The test is also executed by the existing regression CI workflow on macOS
+and Ubuntu. CI cannot substitute for owner-host validation of the exact
+selected candidate SHA.
