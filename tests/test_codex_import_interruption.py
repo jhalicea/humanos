@@ -101,6 +101,98 @@ class SyntheticCodexImportInterruptionTests(unittest.TestCase):
         finally:
             book.close()
 
+    def test_explicit_operator_reconciliation_completes_exact_existing_partial(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, ledger, vault, args = _fixture(Path(tmp))
+            original_source = source.read_bytes()
+            crashed = _kill_at("MID_NOTEBOOK", args)
+            self.assertEqual(crashed.returncode, 73, crashed.stderr)
+            before = ledger.read_bytes()
+            recovery = ["reconcile-codex", "--ledger", str(ledger),
+                        "--notebook", str(vault), "--human-source-id",
+                        "synthetic-human-id", "--assistant-source-id",
+                        "synthetic-assistant-id"]
+            denied = _run_cli(recovery)
+            self.assertNotEqual(denied.returncode, 0)
+            self.assertEqual(denied.stdout, "")
+            self.assertEqual(ledger.read_bytes(), before)
+            accepted = _run_cli(recovery + ["--confirm-reconcile"])
+            self.assertEqual(accepted.returncode, 0, accepted.stderr)
+            reported = json.loads(accepted.stdout)
+            self.assertEqual(reported["status"], "MANUALLY_RECONCILED")
+            self.assertEqual(reported["appended"], 1)
+            self._assert_checkpoint(vault)
+            self.assertEqual(ledger.read_bytes(), before)
+            self.assertEqual(source.read_bytes(), original_source)
+            again = _run_cli(recovery + ["--confirm-reconcile"])
+            self.assertEqual(again.returncode, 0, again.stderr)
+            self.assertEqual(json.loads(again.stdout)["status"], "ALREADY_RECONCILED")
+            self.assertEqual(ledger.read_bytes(), before)
+            self._assert_checkpoint(vault)
+
+    def test_manual_reconcile_requires_exact_owner_selected_source_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, ledger, vault, args = _fixture(Path(tmp))
+            self.assertEqual(_kill_at("MID_NOTEBOOK", args).returncode, 73)
+            original_ledger = ledger.read_bytes()
+            wrong = _run_cli(["reconcile-codex", "--ledger", str(ledger),
+                "--notebook", str(vault), "--human-source-id", "incorrect-human",
+                "--assistant-source-id", "synthetic-assistant-id",
+                "--confirm-reconcile"])
+            self.assertNotEqual(wrong.returncode, 0)
+            self.assertEqual(wrong.stdout, "")
+            self.assertNotIn(HUMAN, wrong.stderr)
+            self.assertEqual(ledger.read_bytes(), original_ledger)
+            book = Notebook(vault)
+            try:
+                self.assertEqual(book.get_transaction(
+                    "CAPTURE-synthetic-assistant-id")["status"], "STARTED")
+                self.assertEqual(book.message_count("CAPTURE-synthetic-assistant-id"), 1)
+            finally:
+                book.close()
+
+    def test_manual_reconcile_rejects_existing_conflicting_assistant(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, ledger, vault, args = _fixture(Path(tmp))
+            self.assertEqual(_kill_at("MID_NOTEBOOK", args).returncode, 73)
+            original_ledger = ledger.read_bytes()
+            book = Notebook(vault)
+            try:
+                book.append("CAPTURE-synthetic-assistant-id", 1,
+                            "ASSISTANT", "conflicting assistant text")
+                book.project()
+                self.assertTrue(book.verify())
+            finally:
+                book.close()
+            failed = _run_cli(["reconcile-codex", "--ledger", str(ledger),
+                "--notebook", str(vault), "--human-source-id", "synthetic-human-id",
+                "--assistant-source-id", "synthetic-assistant-id",
+                "--confirm-reconcile"])
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertEqual(failed.stdout, "")
+            self.assertEqual(ledger.read_bytes(), original_ledger)
+            book = Notebook(vault)
+            try:
+                tx = "CAPTURE-synthetic-assistant-id"
+                self.assertEqual(book.get_transaction(tx)["status"], "STARTED")
+                self.assertEqual([r["text"] for r in book.db.execute(
+                    "SELECT text FROM transcript WHERE tx=? ORDER BY ordinal", (tx,)
+                )], [HUMAN, "conflicting assistant text"])
+            finally:
+                book.close()
+
+    def test_manual_reconcile_rejects_absent_notebook_without_creation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, ledger, vault, args = _fixture(Path(tmp))
+            result = _run_cli(["reconcile-codex", "--ledger", str(ledger),
+                "--notebook", str(vault), "--human-source-id", "synthetic-human-id",
+                "--assistant-source-id", "synthetic-assistant-id",
+                "--confirm-reconcile"])
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertFalse(ledger.exists())
+            self.assertFalse(vault.exists())
+
     def test_abrupt_exit_after_ledger_receipt_before_projection_replays_once(self):
         with tempfile.TemporaryDirectory() as tmp:
             source, ledger, vault, args = _fixture(Path(tmp))
