@@ -126,3 +126,27 @@ No new recovery subsystem is introduced. Testing these three transitions does
 not establish crash-safe atomicity of physical ledger, receipt, and SQLite
 writes, nor full backup/restore guarantees. This is a candidate stacked on
 PR #128, not canonical or owner-host accepted until separately qualified.
+
+## Manual evidence-only partial Codex reconciliation (new stacked candidate)
+
+The optional `reconcile-codex` command is **not automatic recovery** and has
+no permission to create a new source, ledger, or Notebook transaction. It
+requires the original local evidence ledger and existing partial Notebook,
+two exact owner-selected Codex message IDs, and `--confirm-reconcile`. It
+verifies the existing ledger and Notebook, original owner binding, conversation
+and text identity, and that only the original HUMAN record or an exact matching
+assistant record is already present. A confirmation event is appended before
+any missing assistant transcript is added; the existing Notebook checkpoint
+process verifies the exact final response. A retry on an already checkpointed,
+identically proven transaction reports ALREADY_RECONCILED and appends nothing.
+
+Example *shape* (not a ready-to-run command; replace all paths and IDs before use):
+`reconcile-codex --ledger <absolute-owner-private-ledger> --notebook <absolute-existing-vault> --human-source-id <selected-human-id> --assistant-source-id <selected-assistant-id> --confirm-reconcile`.
+
+The bare CLI confirmation is **not cryptographic authentication** of the human
+operator. This manual action must only be used after explicit owner review of
+the specific synthetic/real ledger and verified partial Notebook. Conflicts
+or unknown states always fail closed; they are not overwritten or hidden.
+This does not prove provider authenticity, universal crash recovery, atomic
+cross-file commit, or access to private user data. The candidate is unmerged
+and not deployed.
