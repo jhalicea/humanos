@@ -140,8 +140,9 @@ any missing assistant transcript is added; the existing Notebook checkpoint
 process verifies the exact final response. A retry on an already checkpointed,
 identically proven transaction reports ALREADY_RECONCILED and appends nothing.
 
-Example *shape* (not a ready-to-run command; replace all paths and IDs before use):
-`reconcile-codex --ledger <absolute-owner-private-ledger> --notebook <absolute-existing-vault> --human-source-id <selected-human-id> --assistant-source-id <selected-assistant-id> --confirm-reconcile`.
+The command requires absolute paths to the existing private evidence ledger and
+Notebook root, both selected source IDs, and explicit confirmation. Instructions
+to an owner must supply complete verified paths and never rely on relative cwd.
 
 The bare CLI confirmation is **not cryptographic authentication** of the human
 operator. This manual action must only be used after explicit owner review of
