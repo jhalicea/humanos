@@ -151,3 +151,18 @@ or unknown states always fail closed; they are not overwritten or hidden.
 This does not prove provider authenticity, universal crash recovery, atomic
 cross-file commit, or access to private user data. The candidate is unmerged
 and not deployed.
+
+## Staged recovery crash semantics (manual reconciler candidate)
+
+The recovery confirmation event is idempotent: if the subprocess stops after
+recording its content-light approval and before adding an ASSISTANT message,
+a later explicitly confirmed retry uses the **existing** single approval
+rather than writing duplicates. More than one prior approval or any conflicting
+approval payload causes fail-closed rejection.
+
+A different crash—after the ASSISTANT transcript is appended to SQLite but
+before the derived Notebook page is projected—can leave derived page files
+stale. The current recovery command **does not silently repair** that
+integrity failure; retry stops without rewriting the source ledger or primary
+transcript. The owner must authorize independent inspection and a safe derived
+projection repair separately. Do not call all interruption states recovered.

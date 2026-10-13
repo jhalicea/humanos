@@ -101,6 +101,125 @@ class SyntheticCodexImportInterruptionTests(unittest.TestCase):
         finally:
             book.close()
 
+    def test_crash_after_manual_confirmation_reuses_one_approval_event(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, ledger, vault, args = _fixture(Path(tmp))
+            self.assertEqual(_kill_at("MID_NOTEBOOK", args).returncode, 73)
+            before = ledger.read_bytes()
+            code = r'''
+import os, sys
+import notebook
+import humanos
+original = notebook.Notebook.event
+def die_after_approval(self, tx, kind, payload):
+    outcome = original(self, tx, kind, payload)
+    if kind == "CODEX_RECONCILIATION_CONFIRMED":
+        os._exit(74)
+    return outcome
+notebook.Notebook.event = die_after_approval
+humanos.main(sys.argv[1:])
+'''
+            recovery = ["reconcile-codex", "--ledger", str(ledger),
+                        "--notebook", str(vault), "--human-source-id",
+                        "synthetic-human-id", "--assistant-source-id",
+                        "synthetic-assistant-id", "--confirm-reconcile"]
+            interrupted = subprocess.run([PYTHON, "-c", code, *recovery],
+                                         cwd=str(REPO), capture_output=True, text=True, timeout=30)
+            self.assertEqual(interrupted.returncode, 74, interrupted.stderr)
+            book = Notebook(vault)
+            try:
+                self.assertTrue(book.verify())
+                self.assertEqual(book.message_count("CAPTURE-synthetic-assistant-id"), 1)
+                self.assertEqual(book.db.execute(
+                    "SELECT COUNT(*) FROM events WHERE kind='CODEX_RECONCILIATION_CONFIRMED'"
+                ).fetchone()[0], 1)
+            finally:
+                book.close()
+            restarted = _run_cli(recovery)
+            self.assertEqual(restarted.returncode, 0, restarted.stderr)
+            self.assertEqual(json.loads(restarted.stdout)["status"], "MANUALLY_RECONCILED")
+            self._assert_checkpoint(vault)
+            book = Notebook(vault)
+            try:
+                self.assertEqual(book.db.execute(
+                    "SELECT COUNT(*) FROM events WHERE kind='CODEX_RECONCILIATION_CONFIRMED'"
+                ).fetchone()[0], 1)
+            finally:
+                book.close()
+            self.assertEqual(ledger.read_bytes(), before)
+
+    def test_crash_after_assistant_append_stays_fail_closed_and_preserves_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, ledger, vault, args = _fixture(Path(tmp))
+            self.assertEqual(_kill_at("MID_NOTEBOOK", args).returncode, 73)
+            prior_ledger = ledger.read_bytes()
+            script = r'''
+import os, sys
+import notebook
+import humanos
+old = notebook.Notebook.append
+def die_after_append(self, tx, ordinal, role, text):
+    value = old(self, tx, ordinal, role, text)
+    if tx == "CAPTURE-synthetic-assistant-id" and ordinal == 1:
+        os._exit(75)
+    return value
+notebook.Notebook.append = die_after_append
+humanos.main(sys.argv[1:])
+'''
+            recovery = ["reconcile-codex", "--ledger", str(ledger),
+                        "--notebook", str(vault), "--human-source-id",
+                        "synthetic-human-id", "--assistant-source-id",
+                        "synthetic-assistant-id", "--confirm-reconcile"]
+            interrupted = subprocess.run([PYTHON, "-c", script, *recovery],
+                                         cwd=str(REPO), capture_output=True, text=True, timeout=30)
+            self.assertEqual(interrupted.returncode, 75, interrupted.stderr)
+            book = Notebook(vault)
+            try:
+                tx = "CAPTURE-synthetic-assistant-id"
+                self.assertEqual(book.get_transaction(tx)["status"], "STARTED")
+                rows = [r["text"] for r in book.db.execute(
+                    "SELECT text FROM transcript WHERE tx=? ORDER BY ordinal", (tx,))]
+                self.assertEqual(rows, [HUMAN, ASSISTANT])
+            finally:
+                book.close()
+            retried = _run_cli(recovery)
+            self.assertNotEqual(retried.returncode, 0)
+            self.assertEqual(retried.stdout, "")
+            self.assertEqual(ledger.read_bytes(), prior_ledger)
+            book = Notebook(vault)
+            try:
+                self.assertEqual(book.get_transaction(
+                    "CAPTURE-synthetic-assistant-id")["status"], "STARTED")
+                self.assertEqual(book.message_count("CAPTURE-synthetic-assistant-id"), 2)
+            finally:
+                book.close()
+
+    def test_reconcile_refuses_conflicting_or_duplicate_prior_confirmation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, ledger, vault, args = _fixture(Path(tmp))
+            self.assertEqual(_kill_at("MID_NOTEBOOK", args).returncode, 73)
+            prior = ledger.read_bytes()
+            book = Notebook(vault)
+            try:
+                book.event("CAPTURE-synthetic-assistant-id",
+                           "CODEX_RECONCILIATION_CONFIRMED",
+                           {"source": "codex-rollout", "operator_confirmation": False})
+            finally:
+                book.close()
+            cmd = ["reconcile-codex", "--ledger", str(ledger),
+                   "--notebook", str(vault), "--human-source-id",
+                   "synthetic-human-id", "--assistant-source-id",
+                   "synthetic-assistant-id", "--confirm-reconcile"]
+            rejected = _run_cli(cmd)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, "")
+            self.assertEqual(ledger.read_bytes(), prior)
+            book = Notebook(vault)
+            try:
+                self.assertEqual(book.message_count("CAPTURE-synthetic-assistant-id"), 1)
+            finally:
+                book.close()
+
     def test_explicit_operator_reconciliation_completes_exact_existing_partial(self):
         with tempfile.TemporaryDirectory() as tmp:
             source, ledger, vault, args = _fixture(Path(tmp))

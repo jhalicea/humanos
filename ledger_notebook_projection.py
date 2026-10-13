@@ -7,6 +7,7 @@ shared turn key through the documented role-suffixed source IDs.
 """
 
 from pathlib import Path
+import json
 
 from conversation_ledger import read_ledger, verify_ledger
 from notebook import Notebook
@@ -173,10 +174,19 @@ def reconcile_one_codex_pair(ledger, notebook_root, human_source_id,
             ("HUMAN", human["text"]), ("ASSISTANT", assistant["text"])
         ]):
             raise ValueError("Incomplete Notebook transcript does not match ledger")
-        # Append an evidence-only approval marker before attempting completion.
-        # Command confirmation is NOT a cryptographic proof of operator identity.
-        book.event(tx, "CODEX_RECONCILIATION_CONFIRMED",
-                   {"source": "codex-rollout", "operator_confirmation": True})
+        # Persist one bounded operator-confirmation event, even after a crash
+        # between recording approval and appending the missing assistant text.
+        # The flag is NOT cryptographic evidence of operator identity.
+        confirmation = {"source": "codex-rollout", "operator_confirmation": True}
+        prior_approvals = [dict(row) for row in book.db.execute(
+            "SELECT payload FROM events WHERE tx=? AND kind=? ORDER BY seq",
+            (tx, "CODEX_RECONCILIATION_CONFIRMED"),
+        )]
+        if len(prior_approvals) > 1 or any(
+                json.loads(row["payload"]) != confirmation for row in prior_approvals):
+            raise ValueError("Conflicting or duplicate recovery authorization evidence")
+        if not prior_approvals:
+            book.event(tx, "CODEX_RECONCILIATION_CONFIRMED", confirmation)
         if len(transcript) == 1:
             book.append(tx, 1, "ASSISTANT", assistant["text"])
         book.save_task(tx, expected_state)
