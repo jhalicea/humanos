@@ -67,7 +67,8 @@ elif sys.argv[1] == "MID_NOTEBOOK":
     import ledger_notebook_projection as projection
     def half_project(book, tx, human, assistant, *, include_final_phase=False):
         identity = book.bind("Jon", human["text"])
-        book.start(identity["hcid"], tx, human["text"])
+        book.start(identity["hcid"], tx, human["text"],
+                   source_binding=projection._source_evidence_binding(human, assistant))
         os._exit(73)
     projection._project_new = half_project
 else:
@@ -217,6 +218,83 @@ humanos.main(sys.argv[1:])
             book = Notebook(vault)
             try:
                 self.assertEqual(book.message_count("CAPTURE-synthetic-assistant-id"), 1)
+            finally:
+                book.close()
+
+    def test_recovery_rejects_foreign_same_id_and_same_human_text(self):
+        """Matching transaction ID + HUMAN text cannot authorize foreign grafting."""
+        with tempfile.TemporaryDirectory() as tmp:
+            source, ledger, vault, args = _fixture(Path(tmp))
+            self.assertEqual(_kill_at("BEFORE_PROJECTION", args).returncode, 71)
+            from notebook import Notebook
+            book = Notebook(vault)
+            try:
+                identity = book.bind("Jon", HUMAN)
+                book.start(identity["hcid"], "CAPTURE-synthetic-assistant-id", HUMAN)
+            finally:
+                book.close()
+            original = ledger.read_bytes()
+            retry = ["reconcile-codex", "--ledger", str(ledger),
+                     "--notebook", str(vault), "--human-source-id",
+                     "synthetic-human-id", "--assistant-source-id",
+                     "synthetic-assistant-id", "--confirm-reconcile"]
+            rejected = _run_cli(retry)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, "")
+            self.assertEqual(ledger.read_bytes(), original)
+            book = Notebook(vault)
+            try:
+                self.assertEqual(book.get_transaction("CAPTURE-synthetic-assistant-id")["status"],
+                                 "STARTED")
+                self.assertEqual(book.message_count("CAPTURE-synthetic-assistant-id"), 1)
+                self.assertEqual(book.db.execute(
+                    "SELECT COUNT(*) FROM events WHERE kind='CODEX_RECONCILIATION_CONFIRMED'"
+                ).fetchone()[0], 0)
+            finally:
+                book.close()
+
+    def test_recovery_rejects_source_conversation_identity_replacement(self):
+        """A ledger with matching message IDs/text but different source session fails."""
+        with tempfile.TemporaryDirectory() as tmp:
+            source, ledger, vault, args = _fixture(Path(tmp))
+            self.assertEqual(_kill_at("MID_NOTEBOOK", args).returncode, 73)
+            from conversation_ledger import read_ledger, verify_ledger
+            original = read_ledger(ledger)
+            different = [dict(item, conversation_id="foreign-synthetic-session")
+                         for item in original]
+            ledger.write_text("\n".join(json.dumps(x) for x in different) + "\n",
+                              encoding="utf-8")
+            self.assertEqual(verify_ledger(ledger)["rows"], 2)
+            rejected = _run_cli(["reconcile-codex", "--ledger", str(ledger),
+                        "--notebook", str(vault), "--human-source-id",
+                        "synthetic-human-id", "--assistant-source-id",
+                        "synthetic-assistant-id", "--confirm-reconcile"])
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, "")
+            book = Notebook(vault)
+            try:
+                self.assertEqual(book.get_transaction("CAPTURE-synthetic-assistant-id")["status"],
+                                 "STARTED")
+                self.assertEqual(book.message_count("CAPTURE-synthetic-assistant-id"), 1)
+            finally:
+                book.close()
+
+    def test_crash_started_capture_has_atomic_source_evidence_binding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, ledger, vault, args = _fixture(Path(tmp))
+            self.assertEqual(_kill_at("MID_NOTEBOOK", args).returncode, 73)
+            book = Notebook(vault)
+            try:
+                tx = "CAPTURE-synthetic-assistant-id"
+                self.assertEqual(book.get_transaction(tx)["status"], "STARTED")
+                self.assertTrue(book.verify())
+                proof = [json.loads(item["payload"]) for item in book.db.execute(
+                    "SELECT payload FROM events WHERE tx=? AND kind='CODEX_SOURCE_EVIDENCE_BOUND'",
+                    (tx,))]
+                self.assertEqual(len(proof), 1)
+                self.assertEqual(proof[0]["binding_version"], 1)
+                self.assertEqual(proof[0]["source"], "codex-rollout")
+                self.assertEqual(len(proof[0]["evidence_sha256"]), 64)
             finally:
                 book.close()
 

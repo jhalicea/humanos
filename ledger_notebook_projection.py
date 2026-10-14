@@ -6,6 +6,8 @@ rollouts may use opaque message IDs; non-Codex observed turns must supply a
 shared turn key through the documented role-suffixed source IDs.
 """
 
+import hashlib
+import json
 from pathlib import Path
 import json
 
@@ -103,10 +105,30 @@ def _existing_exact(book, tx, human, assistant):
     return True
 
 
+def _source_evidence_binding(human, assistant):
+    """Bounded source association; digest is not provider authentication."""
+    record = [
+        {"role": row["role"], "source": row["source"],
+         "source_id": row["source_id"], "conversation_id": row["conversation_id"],
+         "content_digest": row["content_digest"],
+         "source_id_origin": row.get("source_id_origin"),
+         "source_line": row.get("source_line")}
+        for row in (human, assistant)
+    ]
+    fingerprint = hashlib.sha256(
+        json.dumps(record, sort_keys=True, ensure_ascii=False,
+                   separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return {"binding_version": 1, "source": "codex-rollout",
+            "evidence_sha256": fingerprint}
+
+
 def _project_new(book, tx, human, assistant, *, include_final_phase=False):
     # Caller has already preflighted every existing tx in the full batch.
     identity = book.bind("Jon", human["text"])
-    book.start(identity["hcid"], tx, human["text"])
+    book.start(identity["hcid"], tx, human["text"],
+               source_binding=(_source_evidence_binding(human, assistant)
+                               if human["source"] == "codex-rollout" else None))
     book.append(tx, 1, "ASSISTANT", assistant["text"])
     state = _projection_state(human, assistant)
     if include_final_phase:
@@ -161,6 +183,16 @@ def reconcile_one_codex_pair(ledger, notebook_root, human_source_id,
                 or identity["owner"] != "Jon"
                 or not book.digest_matches(identity["opening_hash"], human["text"])):
             raise ValueError("Original Notebook binding is not verified")
+        # Matching text and CAPTURE-<assistant-id> are not sufficient:
+        # a foreign STARTED transaction could share both. Demand a provenance
+        # event inserted atomically with the original STARTED transaction.
+        binding = _source_evidence_binding(human, assistant)
+        bound = [json.loads(row["payload"]) for row in book.db.execute(
+            "SELECT payload FROM events WHERE tx=? AND kind=? ORDER BY seq",
+            (tx, "CODEX_SOURCE_EVIDENCE_BOUND"),
+        )]
+        if len(bound) != 1 or bound[0] != binding:
+            raise ValueError("Incomplete Notebook lacks exact original source binding")
         expected_state = _projection_state(human, assistant)
         old_state = book.task(tx)
         if old_state is not None and old_state != expected_state:

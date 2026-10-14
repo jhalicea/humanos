@@ -573,7 +573,15 @@ class Notebook:
         self.project()
         return record
 
-    def start(self, hcid, tx, user_input):
+    def start(self, hcid, tx, user_input, *, source_binding=None):
+        if source_binding is not None:
+            if (not isinstance(source_binding, dict)
+                    or source_binding.get('binding_version') != 1
+                    or source_binding.get('source') != 'codex-rollout'
+                    or not isinstance(source_binding.get('evidence_sha256'), str)
+                    or len(source_binding['evidence_sha256']) != 64):
+                raise ValueError('Invalid source evidence binding')
+            assert_content_light(source_binding)
         try:
             identity = self.db.execute('SELECT * FROM identities WHERE hcid=?', (hcid,)).fetchone()
             if not identity or identity['binding'] != 'VERIFIED':
@@ -592,6 +600,9 @@ class Notebook:
                 self.db.execute('INSERT INTO transactions VALUES(?,?,?,?,?)',
                                 (tx, hcid, user_input, 'STARTED', now()))
                 self._insert_transcript(tx, 0, 'HUMAN', user_input)
+                # Atomic STARTED + HUMAN transcript + source-evidence association.
+                if source_binding is not None:
+                    self._append_event(tx, 'CODEX_SOURCE_EVIDENCE_BOUND', source_binding)
             self.project()
             self.verify()
             return dict(self.db.execute('SELECT * FROM transactions WHERE tx=?', (tx,)).fetchone())
