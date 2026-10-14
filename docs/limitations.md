@@ -180,3 +180,21 @@ conversation, or existing Notebook vault is discovered or accessed.
 The test is also executed by the existing regression CI workflow on macOS
 and Ubuntu. CI cannot substitute for owner-host validation of the exact
 selected candidate SHA.
+
+
+## Candidate Codex crash-source identity binding
+
+A partially written Notebook must not be reconciled merely because its
+transaction ID and HUMAN text match a selected ledger pair: a foreign
+conversation can have the same values. For new opt-in Codex projections,
+the Notebook's original STARTED transaction, HUMAN transcript, and one
+CODEX_SOURCE_EVIDENCE_BOUND event are now committed in the **same SQLite
+transaction**. The event holds only a bounded digest of source identity,
+session, line/provenance metadata, and original content digests.
+
+Explicit reconciliation refuses any STARTED transaction without exactly one
+matching binding event. Legacy partial transactions without this proof are
+**not silently upgraded**, even if text and transaction ID match; they require
+a separate owner-controlled evidence investigation. Hash binding is not
+provider cryptographic attestation or proof against a fully compromised host.
+Normal non-Codex Notebook transaction creation is unchanged.
