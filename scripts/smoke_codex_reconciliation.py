@@ -38,11 +38,11 @@ def main():
                   "-s", str(REPO / "tests"), "-p",
                   "test_codex_import_interruption.py", "-v"])
     match = re.search(r"Ran (\d+) tests in", second.stderr)
-    must(second.returncode == 0 and match is not None and int(match.group(1)) == 10
+    must(second.returncode == 0 and match is not None and int(match.group(1)) == 13
          and re.search(r"^OK$", second.stderr, re.MULTILINE),
          "Codex recovery interruption tests failed:\n" + second.stderr)
     print("synthetic Codex import smoke: PASS")
-    print("synthetic Codex recovery and reconciliation: 10/10 PASS")
+    print("synthetic Codex recovery and reconciliation: 13/13 PASS")
     print("SYNTHETIC OWNER-HOST REHEARSAL: PASS")
 
 
