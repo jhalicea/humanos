@@ -122,7 +122,7 @@ class SelectedConversationCustodyTests(unittest.TestCase):
         self.source.write_text("\n".join(json.dumps(row) for row in rows) + "\n",
                                encoding="utf-8")
         self.source.chmod(0o600)
-        with self.assertRaisesRegex(CustodyError, "other messages"):
+        with self.assertRaisesRegex(CustodyError, "isolated source records"):
             self.backup()
         self.assertFalse(self.encrypted.exists())
 
