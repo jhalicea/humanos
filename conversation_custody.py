@@ -196,6 +196,15 @@ def create_custody_backup(source, ledger, receipts, vault, encrypted, passphrase
     encrypted = Path(encrypted)
     if not encrypted.is_absolute() or encrypted.exists() or encrypted.is_symlink():
         raise CustodyError("Custody destination must be a new absolute file")
+    vault_path = Path(vault)
+    if not vault_path.is_absolute() or vault_path.is_symlink():
+        raise CustodyError("Existing vault must be specified by an absolute non-symlink path")
+    try:
+        encrypted.resolve(strict=False).relative_to(vault_path.resolve())
+    except ValueError:
+        pass
+    else:
+        raise CustodyError("Encrypted custody output must remain outside the source vault")
     if Path(receipts) != Path(ledger).parent / "capture-receipts.jsonl":
         raise CustodyError("Capture receipts must belong to this evidence ledger")
     if any(Path(p).resolve() == encrypted.resolve() for p in (source, ledger, receipts)):
@@ -203,7 +212,6 @@ def create_custody_backup(source, ledger, receipts, vault, encrypted, passphrase
     encrypted.parent.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix=".humanos-custody-", dir=encrypted.parent))
     os.chmod(work, 0o700)
-    created = False
     try:
         blobs = {name: _private_existing(path) for name, path in
                  zip(EXTERNAL, (source, ledger, receipts))}
@@ -224,19 +232,20 @@ def create_custody_backup(source, ledger, receipts, vault, encrypted, passphrase
         blobs[CUSTODY_MANIFEST] = (_encode(manifest) + "\n").encode("utf-8")
         tar_path = work / "custody.tar"
         _archive(tar_path, blobs)
-        _encrypt_tar(tar_path, encrypted, passphrase, payload=ENCRYPTED_PAYLOAD)
-        created = True
+        # Encrypt and independently staged-restore-verify under the private
+        # temporary root. Only then publish a non-overwriting hard link to
+        # the owner-selected final output path (atomic existence).
+        sealed = work / "sealed.hosenc"
+        _encrypt_tar(tar_path, sealed, passphrase, payload=ENCRYPTED_PAYLOAD)
         check = work / "proof"
         check.mkdir(mode=0o700)
-        _, restored_linkage = _decrypt_and_check(encrypted, passphrase, check)
+        _, restored_linkage = _decrypt_and_check(sealed, passphrase, check)
         if restored_linkage != linkage:
             raise CustodyError("Encrypted custody staged restore lost its source linkage")
+        os.link(sealed, encrypted)
+        _fsync_directory(encrypted.parent)
         return {"status": "ENCRYPTED_CUSTODY_VERIFIED", "verified": True,
                 "transaction": linkage["transaction"], "staged_restore": True}
-    except BaseException:
-        if created:
-            encrypted.unlink(missing_ok=True)
-        raise
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
