@@ -10,6 +10,7 @@ from pathlib import Path
 
 from capture_current_conversation import DEFAULT_LEDGER, capture_audit, capture_current, capture_status, resolve_source
 from conversation_ledger import append_conversation_id_correction, import_messages, read_ledger, verify_ledger
+from vault_portability import VaultBackupError
 
 
 class ConversationLedgerTests(unittest.TestCase):
@@ -108,7 +109,7 @@ class ConversationLedgerTests(unittest.TestCase):
             surrogate.write_bytes(original_tail)
             surrogate.chmod(0o600)
             tail.symlink_to(surrogate)
-            with self.assertRaises((ValueError, PermissionError)):
+            with self.assertRaises(VaultBackupError):
                 verify_ledger(ledger)
             self.assertEqual(ledger.read_bytes(), raw)
             tail.unlink()
@@ -121,7 +122,7 @@ class ConversationLedgerTests(unittest.TestCase):
             metadata_copy.write_bytes(original_meta)
             metadata_copy.chmod(0o600)
             meta.symlink_to(metadata_copy)
-            with self.assertRaises((ValueError, PermissionError)):
+            with self.assertRaises(VaultBackupError):
                 verify_ledger(ledger)
             self.assertEqual(ledger.read_bytes(), raw)
 
