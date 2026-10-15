@@ -6,6 +6,7 @@ from pathlib import Path
 import stat
 import tempfile
 import unittest
+from unittest import mock
 
 try:
     import cryptography  # noqa: F401
@@ -86,6 +87,30 @@ class SelectedConversationCustodyTests(unittest.TestCase):
                              "CHECKPOINTED")
         finally:
             restored_vault.close()
+
+    def test_interrupted_encryption_never_publishes_partial_output(self):
+        def simulated_crash(tar_path, output, passphrase, *, payload):
+            Path(output).write_bytes(b"SYNTHETIC-UNTRUSTED-PARTIAL")
+            raise OSError("synthetic encryption interruption")
+        with mock.patch("conversation_custody._encrypt_tar",
+                        side_effect=simulated_crash):
+            with self.assertRaises(OSError):
+                self.backup()
+        self.assertFalse(self.encrypted.exists())
+
+    def test_staged_restore_failure_never_publishes_output(self):
+        with mock.patch("conversation_custody._decrypt_and_check",
+                        side_effect=CustodyError("synthetic staged restore mismatch")):
+            with self.assertRaises(CustodyError):
+                self.backup()
+        self.assertFalse(self.encrypted.exists())
+
+    def test_custody_output_inside_vault_is_denied(self):
+        with self.assertRaises(CustodyError):
+            create_custody_backup(
+                self.source, self.ledger, self.receipts, self.vault,
+                self.vault / "untrusted.hosenc", self.passphrase)
+        self.assertFalse((self.vault / "untrusted.hosenc").exists())
 
     def test_missing_receipts_denies_create_without_partial_artifact(self):
         self.receipts.unlink()
