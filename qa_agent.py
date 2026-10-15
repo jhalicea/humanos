@@ -132,11 +132,17 @@ def _model_advice(model, facts):
         "Return a JSON object with exactly summary (string) and findings "
         "(array of objects with severity LOW/MEDIUM/HIGH, hypothesis, test_idea)."
     )
-    answer = model.structured([
-        {"role": "system", "content": instructions},
-        {"role": "user", "content": json.dumps(facts, sort_keys=True)},
-    ], 25)
-    return {"state": "ADVISORY_ONLY", **_validate_advice(answer)}
+    try:
+        answer = model.structured([
+            {"role": "system", "content": instructions},
+            {"role": "user", "content": json.dumps(facts, sort_keys=True)},
+        ], 25)
+        return {"state": "ADVISORY_ONLY", **_validate_advice(answer)}
+    except Exception as error:
+        # A missing/offline/malformed advisory model must never erase
+        # deterministic test evidence or masquerade as a passed review.
+        return {"state": "MODEL_FAILED", "error_type": type(error).__name__,
+                "findings": [], "summary": None}
 
 
 def evaluate(repo, baseline, target, *, model=None, python=None, timeout=120):

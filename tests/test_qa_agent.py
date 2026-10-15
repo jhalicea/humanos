@@ -127,6 +127,18 @@ class FirstQAWorkerTests(unittest.TestCase):
             _validate_advice({"summary": "x", "findings": [
                 {"severity": "CRITICAL", "hypothesis": "x", "test_idea": "x"}]})
 
+
+    def test_model_failure_keeps_test_evidence_and_denies_approval(self):
+        class OfflineQA:
+            def structured(self, messages, timeout):
+                raise OSError("synthetic local provider unavailable")
+        report = self.evaluate(OfflineQA())
+        self.assertEqual(report["test_status"], "PASS")
+        self.assertEqual(report["qa_status"], "INCONCLUSIVE")
+        self.assertEqual(report["model_advisory"]["state"], "MODEL_FAILED")
+        self.assertEqual(report["model_advisory"]["error_type"], "OSError")
+        self.assertFalse(report["release_authorized"])
+
     def test_report_is_digest_bound_but_not_signed(self):
         report = self.evaluate(ScriptedQA())
         digest = report.pop("evidence_sha256")
