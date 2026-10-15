@@ -242,3 +242,39 @@ host, cloud archival and arbitrary multi-turn backup remain outside this
 narrowly bounded initial custody contract. The candidate is unmerged and
 requires both independent code/security review and owner-host synthetic
 acceptance before any real use.
+
+## Advisory release-blocker corrections: custody scope and quarantine reuse
+
+A selected-turn custody archive includes the **entire** named Codex source
+file, **entire** receipt file and **entire** portable Notebook vault, not only
+matching rows. Therefore one-turn custody now fails closed if the source
+contains any additional extracted HUMAN/ASSISTANT message, if receipts contain
+more than one history record, or if the Notebook vault holds more than the
+selected transaction and its one bound identity. This reduces inadvertent
+backup of unrelated personal history; it is intentionally stricter than normal
+multi-turn Codex import and will reject ordinary accumulated vaults or session
+files. No automatic truncation/filtering/rewrite is performed.
+
+An existing torn-ledger quarantine artifact is now read through the already
+available safe private-file reader and refuses symbolic links, hardlinks,
+unsafe modes, and metadata/hash conflicts. This only protects repeat-read
+quarantine reuse in the current cooperative-writer threat model and is not a
+general defense against adversarial directory replacement or a compromised
+owner host. Both controls require independent review and exact-head retest.
+
+## One-turn raw-record and Notebook bundle isolation (candidate)
+
+The selected-turn encrypted custody adapter preserves whole source and portable
+vault bytes without rewriting them. It now admits only one session identity
+record and two literal user/assistant response records with bounded, explicitly
+permitted fields; unknown raw tool, event, provider or metadata records are
+**rejected**, not silently ignored. A normal multi-record Codex rollout is not
+eligible for this narrow backup format. The Notebook check additionally rejects
+out-of-scope SQLite tables, runtime metadata, transaction-associated rows,
+unrelated or global audit events, recovery records and any recovery fallback
+file. Verified vault-only integrity metadata remains permitted. These checks
+protect only the admitted isolated synthetic single-turn subset, not generic
+historical migrations or authenticated provider origin. They may require a
+future separately approved archival format for real provider rollout files.
+No owner-vault access, independent security approval or release authorization
+is implied by this draft change.

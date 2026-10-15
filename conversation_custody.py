@@ -60,10 +60,114 @@ def _private_existing(path):
     return _read_private_file(path)
 
 
+
+def _require_isolated_source(source_bytes):
+    """Fail closed on raw records outside the exact one-turn custody contract.
+
+    The archive retains original source bytes. Parsed-message counts alone
+    cannot establish the scope of records ignored by the message importer.
+    """
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise CustodyError("Duplicate JSON object key in custody source")
+            result[key] = value
+        return result
+
+    try:
+        lines = source_bytes.decode("utf-8").splitlines()
+        if len(lines) != 3 or not all(line.strip() for line in lines):
+            raise CustodyError("Custody requires exactly three isolated source records")
+        records = [json.loads(line, object_pairs_hook=unique_object) for line in lines]
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise CustodyError("Custody source has invalid JSONL") from error
+    for record in records:
+        if (not isinstance(record, dict)
+                or set(record) - {"type", "payload", "timestamp"}
+                or not isinstance(record.get("payload"), dict)):
+            raise CustodyError("Custody source contains unapproved raw record fields")
+        if "timestamp" in record and (not isinstance(record["timestamp"], str)
+                                      or len(record["timestamp"]) > 64):
+            raise CustodyError("Custody source has unapproved timestamp")
+    metadata = records[0]
+    if (metadata["type"] != "session_meta"
+            or set(metadata["payload"]) not in ({"id"}, {"session_id"})
+            or not all(isinstance(v, str) and bool(v) for v in metadata["payload"].values())):
+        raise CustodyError("Custody source contains unapproved session metadata")
+    for record, role, types in (
+            (records[1], "user", {"input_text", "text"}),
+            (records[2], "assistant", {"output_text", "text"})):
+        payload = record["payload"]
+        if (record["type"] != "response_item" or payload.get("role") != role
+                or set(payload) - {"id", "role", "content", "thread_id"}
+                or ("id" in payload and
+                    (not isinstance(payload["id"], str) or not payload["id"]))
+                or ("thread_id" in payload and
+                    (not isinstance(payload["thread_id"], str) or not payload["thread_id"]))):
+            raise CustodyError("Custody source contains unapproved response metadata")
+        content = payload.get("content")
+        if (not isinstance(content, list) or not content
+                or any(not isinstance(item, dict)
+                       or set(item) != {"type", "text"}
+                       or item.get("type") not in types
+                       or not isinstance(item.get("text"), str)
+                       for item in content)):
+            raise CustodyError("Custody source contains unapproved response content")
+
+
+def _require_isolated_notebook(book, tx):
+    """Reject out-of-scope SQLite state and fallback material before backup."""
+    permitted_tables = {
+        "identities", "transactions", "transcript", "tasks", "events",
+        "recovery", "privacy_state", "privacy_operations", "privacy_receipts",
+        "runtime_meta", "transcript_sequence", "sqlite_sequence",
+    }
+    tables = {row["name"] for row in book.db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")}
+    if tables - permitted_tables:
+        raise CustodyError("Selected-turn Notebook contains unapproved database tables")
+    permitted_meta = {
+        "integrity_key_id", "integrity_key_policy",
+        "record_integrity_policy", "record_integrity_activation_seq",
+        "record_integrity_legacy_row_count", "record_integrity_policy_proof",
+    }
+    if any(row["key"] not in permitted_meta for row in
+           book.db.execute("SELECT key FROM runtime_meta")):
+        raise CustodyError("Selected-turn Notebook contains unrelated runtime metadata")
+    if any(row["name"] not in {"transcript", "events", "recovery"} for row in
+           book.db.execute("SELECT name FROM sqlite_sequence")):
+        raise CustodyError("Selected-turn Notebook contains unrelated sequence metadata")
+    for table in ("transcript", "tasks", "privacy_state", "privacy_operations"):
+        if book.db.execute(
+                "SELECT 1 FROM " + table + " WHERE tx IS NULL OR tx != ? LIMIT 1",
+                (tx,)).fetchone():
+            raise CustodyError("Selected-turn Notebook contains unrelated " + table)
+    if book.db.execute("""SELECT 1 FROM privacy_receipts AS r
+          LEFT JOIN privacy_operations AS p ON r.op_id=p.op_id
+          WHERE p.tx IS NULL OR p.tx != ? LIMIT 1""", (tx,)).fetchone():
+        raise CustodyError("Selected-turn Notebook contains unrelated privacy receipts")
+    if book.db.execute("SELECT 1 FROM recovery LIMIT 1").fetchone():
+        raise CustodyError("Selected-turn Notebook contains recovery records")
+    fallback = book.root / RECOVERY_FILE
+    if fallback.exists() or fallback.is_symlink():
+        raise CustodyError("Selected-turn Notebook has a recovery fallback file")
+    identity = dict(book.db.execute("SELECT * FROM identities").fetchone())
+    expected_binding = dict(identity, evidence="E1: HumanOS-issued identity")
+    for row in book.db.execute("SELECT tx,kind,payload FROM events"):
+        if row["tx"] == tx:
+            continue
+        if (row["tx"] is None and row["kind"] == "IDENTITY_AND_BINDING_CREATED"
+                and json.loads(row["payload"]) == expected_binding):
+            continue
+        raise CustodyError("Selected-turn Notebook contains unrelated audit events")
+
+
 def _validate_linkage(source_bytes, ledger_bytes, receipts_bytes, vault):
     """Require one verified source pair, capture receipt, and Notebook identity."""
     if len(source_bytes) > MAX_SOURCE:
         raise CustodyError("Selected Codex source exceeds allowed bound")
+    _require_isolated_source(source_bytes)
     # Parse source without searching for host sessions or changing its path.
     parsed = list(_messages("explicit-snapshot.jsonl", allow_derived_ids=True,
                             snapshot_bytes=source_bytes))
@@ -82,11 +186,20 @@ def _validate_linkage(source_bytes, ledger_bytes, receipts_bytes, vault):
                 {evidence_rows[0]["source_id"], evidence_rows[1]["source_id"]}]
     if relevant != ledger:
         raise CustodyError("Selected source is not identical to ledger evidence")
+    # An encrypted custody artifact includes the entire raw source file.
+    # Do not silently export other extracted messages from that file.
+    if len(parsed) != 2:
+        raise CustodyError("Selected-turn custody source contains other messages")
     if any(r["conversation_id"] != ledger[0]["conversation_id"] for r in ledger):
         raise CustodyError("Ledger pair crosses original conversations")
     receipts = [json.loads(line) for line in receipts_bytes.splitlines()]
     if not receipts or not all(isinstance(x, dict) for x in receipts):
         raise CustodyError("Capture receipt history is incomplete")
+    # The archive stores exact receipt bytes, not a filtered last receipt.
+    # Historical receipts may refer to other conversations and cannot be
+    # included under a one-turn custody authorization.
+    if len(receipts) != 1:
+        raise CustodyError("Selected-turn custody contains other capture receipts")
     latest = receipts[-1]
     if (latest.get("status") != "CHECKPOINTED"
             or latest.get("ledger_digest") != _digest(ledger_bytes)
@@ -101,6 +214,16 @@ def _validate_linkage(source_bytes, ledger_bytes, receipts_bytes, vault):
     book = Notebook(root)
     try:
         book.verify()
+        transactions = [
+            row["tx"] for row in book.db.execute("SELECT tx FROM transactions")
+        ]
+        identities = [
+            row["hcid"] for row in book.db.execute("SELECT hcid FROM identities")
+        ]
+        if transactions != [tx] or len(identities) != 1:
+            raise CustodyError(
+                "Selected-turn custody vault contains unrelated Notebook records")
+        _require_isolated_notebook(book, tx)
         if not _existing_exact(book, tx, ledger[0], ledger[1]):
             raise CustodyError("Notebook does not contain checkpointed source pair")
     finally:

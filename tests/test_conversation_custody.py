@@ -112,6 +112,119 @@ class SelectedConversationCustodyTests(unittest.TestCase):
                 self.vault / "untrusted.hosenc", self.passphrase)
         self.assertFalse((self.vault / "untrusted.hosenc").exists())
 
+    def test_extra_unselected_source_message_is_not_archived(self):
+        # Extra evidence remains in the explicitly named source file.
+        # It must never hitchhike into a "one selected turn" backup.
+        rows = [json.loads(x) for x in self.source.read_text(encoding="utf-8").splitlines()]
+        rows.append({"type": "response_item", "payload": {
+            "id": "unrelated-user", "role": "user",
+            "content": [{"type": "input_text", "text": "SYNTHETIC OTHER SECRET"}]}})
+        self.source.write_text("\n".join(json.dumps(row) for row in rows) + "\n",
+                               encoding="utf-8")
+        self.source.chmod(0o600)
+        with self.assertRaisesRegex(CustodyError, "isolated source records"):
+            self.backup()
+        self.assertFalse(self.encrypted.exists())
+
+    def test_old_unselected_receipt_is_not_archived(self):
+        previous = {"captured_at": "2026-01-01T00:00:00Z",
+                    "source": "codex-rollout", "conversation_id": "other-chat",
+                    "status": "CHECKPOINTED", "ledger_digest": "f" * 64,
+                    "added": 2, "total": 2}
+        history = self.receipts.read_bytes()
+        self.receipts.write_bytes((json.dumps(previous) + "\n").encode("utf-8") + history)
+        self.receipts.chmod(0o600)
+        with self.assertRaisesRegex(CustodyError, "other capture receipts"):
+            self.backup()
+        self.assertFalse(self.encrypted.exists())
+
+    def test_unrelated_notebook_turn_is_not_archived(self):
+        book = Notebook(self.vault)
+        try:
+            identity = book.bind("Jon", "SYNTHETIC UNRELATED HUMAN")
+            book.start(identity["hcid"], "other-turn", "SYNTHETIC UNRELATED HUMAN")
+            book.append("other-turn", 1, "ASSISTANT", "SYNTHETIC UNRELATED ASSISTANT")
+            book.save_task("other-turn", {"phase": "COMPLETE",
+                "final": "SYNTHETIC UNRELATED ASSISTANT", "final_ordinal": 1})
+            book.checkpoint("other-turn")
+            self.assertTrue(book.verify())
+        finally:
+            book.close()
+        with self.assertRaisesRegex(CustodyError, "unrelated Notebook"):
+            self.backup()
+        self.assertFalse(self.encrypted.exists())
+
+
+    def test_tool_or_event_raw_source_cannot_hitchhike(self):
+        for extra in (
+            {"type": "response_item", "payload": {"type": "function_call",
+                "name": "SYNTHETIC_UNSELECTED_TOOL", "arguments": "PRIVATE"}},
+            {"type": "event_msg", "payload": {"message": "SYNTHETIC_OTHER_SECRET"}},
+        ):
+            with self.subTest(extra=extra["type"]):
+                original = self.source.read_bytes()
+                self.source.write_bytes(original + (json.dumps(extra) + "\n").encode())
+                try:
+                    with self.assertRaisesRegex(CustodyError, "isolated source records"):
+                        self.backup()
+                    self.assertFalse(self.encrypted.exists())
+                finally:
+                    self.source.write_bytes(original)
+
+    def test_unapproved_session_metadata_cannot_hitchhike(self):
+        original = self.source.read_bytes()
+        rows = [json.loads(line) for line in original.splitlines()]
+        rows[0]["payload"]["private_tool_output"] = "SYNTHETIC_UNSELECTED_PRIVATE"
+        self.source.write_bytes(("\n".join(json.dumps(row) for row in rows) + "\n").encode())
+        with self.assertRaisesRegex(CustodyError, "unapproved session metadata"):
+            self.backup()
+        self.assertFalse(self.encrypted.exists())
+
+    def test_unrelated_null_transaction_event_cannot_be_archived(self):
+        book = Notebook(self.vault)
+        try:
+            book.event(None, "SYNTHETIC_OTHER_GLOBAL_EVENT", {"status": "UNRELATED"})
+            self.assertTrue(book.verify())
+        finally:
+            book.close()
+        with self.assertRaisesRegex(CustodyError, "unrelated audit events"):
+            self.backup()
+        self.assertFalse(self.encrypted.exists())
+
+    def test_unrelated_runtime_metadata_or_sqlite_table_cannot_be_archived(self):
+        for statement in (
+            "INSERT INTO runtime_meta(key,value) VALUES('unrelated','PRIVATE')",
+            "CREATE TABLE unrelated_private_history(secret TEXT)",
+        ):
+            with self.subTest(statement=statement):
+                book = Notebook(self.vault)
+                try:
+                    with book.db:
+                        book.db.execute(statement)
+                    self.assertTrue(book.verify())
+                finally:
+                    book.close()
+                with self.assertRaisesRegex(CustodyError, "unrelated runtime metadata|unapproved database tables"):
+                    self.backup()
+                self.assertFalse(self.encrypted.exists())
+                book = Notebook(self.vault)
+                try:
+                    with book.db:
+                        if statement.startswith("INSERT"):
+                            book.db.execute("DELETE FROM runtime_meta WHERE key='unrelated'")
+                        else:
+                            book.db.execute("DROP TABLE unrelated_private_history")
+                finally:
+                    book.close()
+
+    def test_recovery_fallback_cannot_hitchhike(self):
+        fallback = self.vault / "runtime" / "recovery.jsonl"
+        fallback.write_text('{"tx":"other","error":"SYNTHETIC_OTHER_SECRET"}\n')
+        fallback.chmod(0o600)
+        with self.assertRaisesRegex(CustodyError, "recovery fallback file"):
+            self.backup()
+        self.assertFalse(self.encrypted.exists())
+
     def test_missing_receipts_denies_create_without_partial_artifact(self):
         self.receipts.unlink()
         with self.assertRaises((FileNotFoundError, CustodyError)):

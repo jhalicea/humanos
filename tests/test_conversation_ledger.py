@@ -10,6 +10,7 @@ from pathlib import Path
 
 from capture_current_conversation import DEFAULT_LEDGER, capture_audit, capture_current, capture_status, resolve_source
 from conversation_ledger import append_conversation_id_correction, import_messages, read_ledger, verify_ledger
+from vault_portability import VaultBackupError
 
 
 class ConversationLedgerTests(unittest.TestCase):
@@ -91,6 +92,39 @@ class ConversationLedgerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "changed since recovery"):
                 export_verified_conversation_prefix(ledger, export, "0" * 64, confirm=True)
             self.assertFalse(export.exists())
+
+    def test_existing_quarantine_symlinks_cannot_fake_tail_preservation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            ledger = root / "evidence.jsonl"
+            raw = b'{"source":"codex-rollout","source_id":"u1"'
+            ledger.write_bytes(raw)
+            with self.assertRaisesRegex(ValueError, "unterminated"):
+                verify_ledger(ledger)
+            q = root / "conversation-quarantine" / hashlib.sha256(raw).hexdigest()
+            tail = q / "tail.bin"
+            original_tail = tail.read_bytes()
+            tail.unlink()
+            surrogate = root / "surrogate.bin"
+            surrogate.write_bytes(original_tail)
+            surrogate.chmod(0o600)
+            tail.symlink_to(surrogate)
+            with self.assertRaises(VaultBackupError):
+                verify_ledger(ledger)
+            self.assertEqual(ledger.read_bytes(), raw)
+            tail.unlink()
+            tail.write_bytes(original_tail)
+            tail.chmod(0o600)
+            meta = q / "metadata.json"
+            original_meta = meta.read_bytes()
+            meta.unlink()
+            metadata_copy = root / "metadata-copy.json"
+            metadata_copy.write_bytes(original_meta)
+            metadata_copy.chmod(0o600)
+            meta.symlink_to(metadata_copy)
+            with self.assertRaises(VaultBackupError):
+                verify_ledger(ledger)
+            self.assertEqual(ledger.read_bytes(), raw)
 
     def test_failure_receipt_redacts_source_path_error_data_and_uses_mode_0600(self):
         import stat
