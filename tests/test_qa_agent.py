@@ -173,6 +173,7 @@ class FirstQAWorkerTests(unittest.TestCase):
         self.head = self.git("rev-parse", "HEAD")
         unsafe = self.root / "world-readable"
         unsafe.mkdir(mode=0o755)
+        unsafe.chmod(0o755)  # Override restrictive CI umask for the unsafe fixture.
         with self.assertRaisesRegex(QAError, "owner-private"):
             evaluate(self.repo, self.base, self.head,
                      model=ScriptedQA(), python=sys.executable,
