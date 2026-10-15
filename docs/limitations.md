@@ -261,3 +261,20 @@ unsafe modes, and metadata/hash conflicts. This only protects repeat-read
 quarantine reuse in the current cooperative-writer threat model and is not a
 general defense against adversarial directory replacement or a compromised
 owner host. Both controls require independent review and exact-head retest.
+
+## One-turn raw-record and Notebook bundle isolation (candidate)
+
+The selected-turn encrypted custody adapter preserves whole source and portable
+vault bytes without rewriting them. It now admits only one session identity
+record and two literal user/assistant response records with bounded, explicitly
+permitted fields; unknown raw tool, event, provider or metadata records are
+**rejected**, not silently ignored. A normal multi-record Codex rollout is not
+eligible for this narrow backup format. The Notebook check additionally rejects
+out-of-scope SQLite tables, runtime metadata, transaction-associated rows,
+unrelated or global audit events, recovery records and any recovery fallback
+file. Verified vault-only integrity metadata remains permitted. These checks
+protect only the admitted isolated synthetic single-turn subset, not generic
+historical migrations or authenticated provider origin. They may require a
+future separately approved archival format for real provider rollout files.
+No owner-vault access, independent security approval or release authorization
+is implied by this draft change.
