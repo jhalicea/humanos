@@ -217,3 +217,28 @@ exported prefix needs independent evidence review before selection for use.
 This only addresses a torn **final** conversation ledger physical record and
 validated prefix export, not all possible device-failure corruption, arbitrary
 file tampering, malicious providers, or cross-file atomicity.
+
+## Selected-conversation encrypted custody (draft adapter)
+
+The original portable/encrypted vault-only backup remains unchanged. The
+opt-in `conversation_custody.py` adapter composes its verified portable vault
+bundle with the **explicit owner-selected source JSONL, private ledger JSONL
+and matching capture-receipts.jsonl** into one AES-256-GCM encrypted custody
+artifact. It records a content-digest manifest and validates exact selected
+HUMAN/ASSISTANT source rows against the ledger, latest ledger receipt digest,
+and an already CHECKPOINTED Notebook transaction. An encrypted artifact is
+verified by a fresh staged decrypt+restore before creation is reported
+successful. Restore places a **new** directory containing `vault/` and
+`evidence/` together, never overwrites an existing Notebook, and checks
+cross-file continuity before the final directory rename. The AES-GCM envelope
+uses a separate typed payload from legacy vault backups; each rejects the
+other's type.
+
+This feature neither searches active sessions nor captures chats automatically.
+It is opt-in and encrypts selected evidence; passphrases are entered with
+getpass, not command-line args. Only a fully checkpointed, exactly selected
+Codex turn is eligible. Provider authenticity, independence from a malicious
+host, cloud archival and arbitrary multi-turn backup remain outside this
+narrowly bounded initial custody contract. The candidate is unmerged and
+requires both independent code/security review and owner-host synthetic
+acceptance before any real use.
