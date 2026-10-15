@@ -242,3 +242,22 @@ host, cloud archival and arbitrary multi-turn backup remain outside this
 narrowly bounded initial custody contract. The candidate is unmerged and
 requires both independent code/security review and owner-host synthetic
 acceptance before any real use.
+
+## Advisory release-blocker corrections: custody scope and quarantine reuse
+
+A selected-turn custody archive includes the **entire** named Codex source
+file, **entire** receipt file and **entire** portable Notebook vault, not only
+matching rows. Therefore one-turn custody now fails closed if the source
+contains any additional extracted HUMAN/ASSISTANT message, if receipts contain
+more than one history record, or if the Notebook vault holds more than the
+selected transaction and its one bound identity. This reduces inadvertent
+backup of unrelated personal history; it is intentionally stricter than normal
+multi-turn Codex import and will reject ordinary accumulated vaults or session
+files. No automatic truncation/filtering/rewrite is performed.
+
+An existing torn-ledger quarantine artifact is now read through the already
+available safe private-file reader and refuses symbolic links, hardlinks,
+unsafe modes, and metadata/hash conflicts. This only protects repeat-read
+quarantine reuse in the current cooperative-writer threat model and is not a
+general defense against adversarial directory replacement or a compromised
+owner host. Both controls require independent review and exact-head retest.

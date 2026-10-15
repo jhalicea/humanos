@@ -9,6 +9,7 @@ import fcntl
 import uuid
 from datetime import datetime, timezone
 from recovery_ledger import _write_new_file, _fsync_directory, TAIL_SIZE_LIMIT
+from vault_portability import _read_private_file
 from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
@@ -274,11 +275,17 @@ def _quarantine_torn_conversation_tail(path, raw):
                 or existing.st_uid != os.getuid()
                 or stat.S_IMODE(existing.st_mode) & 0o077):
             raise PermissionError("Existing conversation quarantine artifact is unsafe")
-        prior_tail = (final / "tail.bin").read_bytes()
-        prior_meta = json.loads((final / "metadata.json").read_text(encoding="utf-8"))
-        if (prior_tail != tail or prior_meta.get("original_sha256") != original_hash
-                or prior_meta.get("valid_prefix_bytes") != offset
-                or prior_meta.get("tail_sha256") != meta["tail_sha256"]):
+        # A preexisting quarantine can be substituted with linked files.
+        # Never follow links, accept hardlinks, or trust exposed/tampered mode.
+        prior_tail = _read_private_file(final / "tail.bin")
+        prior_meta = json.loads(
+            _read_private_file(final / "metadata.json").decode("utf-8")
+        )
+        expected = {key: value for key, value in meta.items()
+                    if key != "detected_at_utc"}
+        if (prior_tail != tail or not isinstance(prior_meta, dict)
+                or any(prior_meta.get(key) != value
+                       for key, value in expected.items())):
             raise ValueError("Existing conversation quarantine evidence conflicts")
     else:
         pending = root / (".pending-" + uuid.uuid4().hex)

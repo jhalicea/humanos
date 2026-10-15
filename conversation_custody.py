@@ -82,11 +82,20 @@ def _validate_linkage(source_bytes, ledger_bytes, receipts_bytes, vault):
                 {evidence_rows[0]["source_id"], evidence_rows[1]["source_id"]}]
     if relevant != ledger:
         raise CustodyError("Selected source is not identical to ledger evidence")
+    # An encrypted custody artifact includes the entire raw source file.
+    # Do not silently export other extracted messages from that file.
+    if len(parsed) != 2:
+        raise CustodyError("Selected-turn custody source contains other messages")
     if any(r["conversation_id"] != ledger[0]["conversation_id"] for r in ledger):
         raise CustodyError("Ledger pair crosses original conversations")
     receipts = [json.loads(line) for line in receipts_bytes.splitlines()]
     if not receipts or not all(isinstance(x, dict) for x in receipts):
         raise CustodyError("Capture receipt history is incomplete")
+    # The archive stores exact receipt bytes, not a filtered last receipt.
+    # Historical receipts may refer to other conversations and cannot be
+    # included under a one-turn custody authorization.
+    if len(receipts) != 1:
+        raise CustodyError("Selected-turn custody contains other capture receipts")
     latest = receipts[-1]
     if (latest.get("status") != "CHECKPOINTED"
             or latest.get("ledger_digest") != _digest(ledger_bytes)
@@ -101,6 +110,15 @@ def _validate_linkage(source_bytes, ledger_bytes, receipts_bytes, vault):
     book = Notebook(root)
     try:
         book.verify()
+        transactions = [
+            row["tx"] for row in book.db.execute("SELECT tx FROM transactions")
+        ]
+        identities = [
+            row["hcid"] for row in book.db.execute("SELECT hcid FROM identities")
+        ]
+        if transactions != [tx] or len(identities) != 1:
+            raise CustodyError(
+                "Selected-turn custody vault contains unrelated Notebook records")
         if not _existing_exact(book, tx, ledger[0], ledger[1]):
             raise CustodyError("Notebook does not contain checkpointed source pair")
     finally:

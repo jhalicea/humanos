@@ -112,6 +112,48 @@ class SelectedConversationCustodyTests(unittest.TestCase):
                 self.vault / "untrusted.hosenc", self.passphrase)
         self.assertFalse((self.vault / "untrusted.hosenc").exists())
 
+    def test_extra_unselected_source_message_is_not_archived(self):
+        # Extra evidence remains in the explicitly named source file.
+        # It must never hitchhike into a "one selected turn" backup.
+        rows = [json.loads(x) for x in self.source.read_text(encoding="utf-8").splitlines()]
+        rows.append({"type": "response_item", "payload": {
+            "id": "unrelated-user", "role": "user",
+            "content": [{"type": "input_text", "text": "SYNTHETIC OTHER SECRET"}]}})
+        self.source.write_text("\n".join(json.dumps(row) for row in rows) + "\n",
+                               encoding="utf-8")
+        self.source.chmod(0o600)
+        with self.assertRaisesRegex(CustodyError, "other messages"):
+            self.backup()
+        self.assertFalse(self.encrypted.exists())
+
+    def test_old_unselected_receipt_is_not_archived(self):
+        previous = {"captured_at": "2026-01-01T00:00:00Z",
+                    "source": "codex-rollout", "conversation_id": "other-chat",
+                    "status": "CHECKPOINTED", "ledger_digest": "f" * 64,
+                    "added": 2, "total": 2}
+        history = self.receipts.read_bytes()
+        self.receipts.write_bytes((json.dumps(previous) + "\n").encode("utf-8") + history)
+        self.receipts.chmod(0o600)
+        with self.assertRaisesRegex(CustodyError, "other capture receipts"):
+            self.backup()
+        self.assertFalse(self.encrypted.exists())
+
+    def test_unrelated_notebook_turn_is_not_archived(self):
+        book = Notebook(self.vault)
+        try:
+            identity = book.bind("Jon", "SYNTHETIC UNRELATED HUMAN")
+            book.start(identity["hcid"], "other-turn", "SYNTHETIC UNRELATED HUMAN")
+            book.append("other-turn", 1, "ASSISTANT", "SYNTHETIC UNRELATED ASSISTANT")
+            book.save_task("other-turn", {"phase": "COMPLETE",
+                "final": "SYNTHETIC UNRELATED ASSISTANT", "final_ordinal": 1})
+            book.checkpoint("other-turn")
+            self.assertTrue(book.verify())
+        finally:
+            book.close()
+        with self.assertRaisesRegex(CustodyError, "unrelated Notebook"):
+            self.backup()
+        self.assertFalse(self.encrypted.exists())
+
     def test_missing_receipts_denies_create_without_partial_artifact(self):
         self.receipts.unlink()
         with self.assertRaises((FileNotFoundError, CustodyError)):
