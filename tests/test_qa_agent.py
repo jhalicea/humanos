@@ -139,6 +139,45 @@ class FirstQAWorkerTests(unittest.TestCase):
         self.assertEqual(report["model_advisory"]["error_type"], "OSError")
         self.assertFalse(report["release_authorized"])
 
+
+    def test_failure_log_is_private_and_not_sent_to_model(self):
+        (self.repo / "tests/test_sample.py").write_text(
+            "import unittest\nclass Case(unittest.TestCase):\n"
+            "    def test_fail(self): self.fail('SYNTHETIC_EXPECTED_FAILURE')\n")
+        self.git("add", ".")
+        self.git("commit", "-qm", "synthetic failing regression for diagnostics")
+        self.head = self.git("rev-parse", "HEAD")
+        evidence_dir = self.root / "private-evidence"
+        evidence_dir.mkdir(mode=0o700)
+        model = ScriptedQA()
+        report = evaluate(self.repo, self.base, self.head, model=model,
+                          python=sys.executable,
+                          failure_log_base=evidence_dir / "qa-report-v2.json")
+        self.assertEqual(report["qa_status"], "FAIL")
+        fail_entry = next(c for c in report["checks"]
+                          if c["name"] == "native_regression")
+        log = Path(fail_entry["failure_log_path"])
+        self.assertEqual(log.parent, evidence_dir)
+        self.assertEqual(log.stat().st_mode & 0o077, 0)
+        self.assertIn(b"SYNTHETIC_EXPECTED_FAILURE", log.read_bytes())
+        self.assertNotIn("SYNTHETIC_EXPECTED_FAILURE", json.dumps(model.calls))
+        self.assertNotIn("failure_log_path", json.dumps(model.calls))
+        self.assertFalse(report["release_authorized"])
+
+    def test_unsafe_diagnostic_path_refused(self):
+        (self.repo / "tests/test_sample.py").write_text(
+            "import unittest\nclass Case(unittest.TestCase):\n"
+            "    def test_fail(self): self.fail('FIXTURE')\n")
+        self.git("add", ".")
+        self.git("commit", "-qm", "synthetic failure")
+        self.head = self.git("rev-parse", "HEAD")
+        unsafe = self.root / "world-readable"
+        unsafe.mkdir(mode=0o755)
+        with self.assertRaisesRegex(QAError, "owner-private"):
+            evaluate(self.repo, self.base, self.head,
+                     model=ScriptedQA(), python=sys.executable,
+                     failure_log_base=unsafe / "qa-report-v2.json")
+
     def test_report_is_digest_bound_but_not_signed(self):
         report = self.evaluate(ScriptedQA())
         digest = report.pop("evidence_sha256")

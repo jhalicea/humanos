@@ -72,7 +72,52 @@ def _candidate(repo, baseline, target):
     return repo, changed
 
 
-def _run_checks(checkout, environment, python, timeout):
+
+def _owner_private_parent(path):
+    """Verify a preexisting owner-private evidence directory."""
+    parent = Path(path)
+    if not parent.is_absolute() or parent.is_symlink():
+        raise QAError("Evidence directory must be an absolute non-symlink path")
+    info = parent.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+            or stat.S_IMODE(info.st_mode) & 0o077):
+        raise QAError("Evidence directory must be owner-private")
+    return parent
+
+
+def _save_failure_log(report_path, name, raw):
+    """Keep a bounded local test failure record; never pass it to the model."""
+    base = Path(report_path)
+    parent = _owner_private_parent(base.parent)
+    if not re.fullmatch(r"[a-z][a-z0-9_]+", name):
+        raise QAError("Unexpected diagnostic identifier")
+    target = parent / (base.stem + "-" + name + ".log")
+    if target.exists() or target.is_symlink():
+        raise QAError("Diagnostic file already exists")
+    maximum = 1024 * 1024
+    if len(raw) > maximum:
+        marker = b"\n[HUMANOS-QA-001: intermediate output truncated; full log hash in report]\n"
+        half = (maximum - len(marker)) // 2
+        data = raw[:half] + marker + raw[-half:]
+    else:
+        data = raw
+    fd = os.open(str(target), os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                 | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    try:
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+            out.flush()
+            os.fsync(out.fileno())
+    except BaseException:
+        try:
+            target.unlink()
+        except OSError:
+            pass
+        raise
+    return str(target)
+
+
+def _run_checks(checkout, environment, python, timeout, failure_log_base=None):
     results = []
     for name, args in TESTS:
         if args[0].endswith(".py") and not (checkout / args[0]).is_file():
@@ -86,13 +131,16 @@ def _run_checks(checkout, environment, python, timeout):
                 capture_output=True, timeout=timeout, check=False,
             )
             raw = completed.stdout + b"\n" + completed.stderr
-            results.append({
+            entry = {
                 "name": name,
                 "status": "PASS" if completed.returncode == 0 else "FAIL",
                 "exit_code": completed.returncode,
                 "log_sha256": hashlib.sha256(raw).hexdigest(),
                 "seconds": round(time.monotonic() - start, 3),
-            })
+            }
+            if completed.returncode and failure_log_base is not None:
+                entry["failure_log_path"] = _save_failure_log(failure_log_base, name, raw)
+            results.append(entry)
         except subprocess.TimeoutExpired:
             results.append({
                 "name": name, "status": "TIMEOUT", "exit_code": None,
@@ -145,7 +193,8 @@ def _model_advice(model, facts):
                 "findings": [], "summary": None}
 
 
-def evaluate(repo, baseline, target, *, model=None, python=None, timeout=120):
+def evaluate(repo, baseline, target, *, model=None, python=None, timeout=120,
+             failure_log_base=None):
     """Evaluate one locally available immutable target. Never promote or merge."""
     if not isinstance(timeout, int) or not 1 <= timeout <= 180:
         raise QAError("Test timeout must be a bounded integer")
@@ -174,7 +223,8 @@ def evaluate(repo, baseline, target, *, model=None, python=None, timeout=120):
             _git(repo, "worktree", "add", "--detach", str(checkout), target)
             if _git(checkout, "rev-parse", "HEAD") != target:
                 raise QAError("Detached worktree changed commit")
-            checks = _run_checks(checkout, env, python, timeout)
+            checks = _run_checks(checkout, env, python, timeout,
+                                 failure_log_base=failure_log_base)
         finally:
             if checkout.exists():
                 _git(repo, "worktree", "remove", "--force", str(checkout))
@@ -183,7 +233,9 @@ def evaluate(repo, baseline, target, *, model=None, python=None, timeout=120):
     test_status = "PASS" if checks and all(c["status"] == "PASS" for c in checks) else "FAIL"
     facts = {
         "agent_id": AGENT_ID, "target": target, "baseline": baseline,
-        "changed_paths": changed, "test_results": checks,
+        "changed_paths": changed,
+        "test_results": [{k: v for k, v in check.items()
+                          if k != "failure_log_path"} for check in checks],
         "evidence_limit": "No source diff, secret, personal record, or raw test output supplied.",
     }
     advisory = _model_advice(model, facts)
@@ -207,12 +259,7 @@ def _write_report(path, report):
     target = Path(path)
     if not target.is_absolute() or target.is_symlink() or target.exists():
         raise QAError("Report requires an unused absolute file path")
-    parent = target.parent
-    metadata = parent.lstat()
-    if (not stat.S_ISDIR(metadata.st_mode) or parent.is_symlink()
-            or metadata.st_uid != os.getuid()
-            or stat.S_IMODE(metadata.st_mode) & 0o077):
-        raise QAError("Report directory must already be owner-private")
+    _owner_private_parent(target.parent)
     fd = os.open(str(target), os.O_CREAT | os.O_EXCL | os.O_WRONLY
                  | getattr(os, "O_NOFOLLOW", 0), 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as out:
@@ -237,8 +284,15 @@ def main(argv=None):
             model = OllamaModel(args.model, args.endpoint)
         else:
             model = None
+        if args.report:
+            report_path = Path(args.report)
+            if (not report_path.is_absolute() or report_path.exists()
+                    or report_path.is_symlink()):
+                raise QAError("Report requires an unused absolute file path")
+            _owner_private_parent(report_path.parent)
         result = evaluate(args.repo, args.baseline, args.target,
-                          model=model, python=args.python)
+                          model=model, python=args.python,
+                          failure_log_base=args.report)
         if args.report:
             _write_report(args.report, result)
         print(json.dumps(result, indent=2, sort_keys=True))
