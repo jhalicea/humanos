@@ -395,6 +395,23 @@ class FileIntegrationTests(unittest.TestCase):
                 self.assertEqual(server.main(), 1)
                 self.assertIn('HumanOS RECOVERY REQUIRED', errors.getvalue())
 
+
+    def test_home_symlink_alias_and_canonical_home_are_denied(self):
+        # Regression: on macOS /var/... can resolve to /private/var/... .
+        # A workspace root is already canonicalized by Tools, so HOME must be
+        # canonicalized too before checking the prohibited broad root.
+        actual_home = self.root / 'synthetic-home-real'
+        actual_home.mkdir()
+        alias = self.root / 'synthetic-home-alias'
+        alias.symlink_to(actual_home, target_is_directory=True)
+        with patch.dict('os.environ', {'HOME': str(alias)}):
+            self.assertNotEqual(Path.home(), Path.home().resolve())
+            for candidate in (alias, actual_home):
+                with self.subTest(candidate=str(candidate)):
+                    with self.assertRaisesRegex(PermissionError, 'dedicated work folder'):
+                        Tools(candidate)
+        self.assertFalse((actual_home / 'HumanOS_Vault').exists())
+
     def test_cli_explicit_workspace_is_used_without_changing_config(self):
         (self.workspace / 'selected-evidence.txt').write_text('evidence', encoding='utf-8')
         config = self.root / 'config.json'
