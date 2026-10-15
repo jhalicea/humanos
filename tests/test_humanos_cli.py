@@ -471,3 +471,26 @@ class CodexImportCliTests(unittest.TestCase):
             self.assertEqual(stdout, "")
             self.assertEqual(ledger.read_bytes(), initial)
             self.assertFalse(vault.exists())
+
+    def test_interleaved_foreign_writer_cannot_project_unselected_turn(self):
+        from unittest.mock import patch
+        from conversation_ledger import append_observed_turn, read_ledger
+        from humanos import import_selected_codex_turn
+
+        with tempfile.TemporaryDirectory() as folder:
+            source, ledger, vault = self.setup_paths(Path(folder))
+            _one_turn_rollout(source)
+            import humanos
+            original_capture = humanos.capture_current
+
+            def interleave(*args, **kwargs):
+                append_observed_turn(ledger, "foreign-provider", "foreign-session",
+                                     "foreign-turn", "foreign human", "foreign assistant")
+                return original_capture(*args, **kwargs)
+
+            with patch("humanos.capture_current", side_effect=interleave):
+                with self.assertRaisesRegex(ValueError, "only the selected source turn"):
+                    import_selected_codex_turn(source, ledger, vault)
+
+            self.assertEqual(len(read_ledger(ledger)), 4)
+            self.assertFalse(vault.exists(), "Failed selected import must not project foreign evidence")
