@@ -77,7 +77,9 @@ class Tools:
     """
     def __init__(self, workspace, browser=None, browser_search_url=None):
         self.workspace = Path(workspace).resolve()
-        if self.workspace in (Path('/'), Path.home(), Path(__file__).resolve().parent):
+        # Compare canonical paths on platforms where HOME may be spelled
+        # through a symlinked ancestor (e.g. macOS /var -> /private/var).
+        if self.workspace in (Path('/'), Path.home().resolve(), Path(__file__).resolve().parent):
             raise PermissionError('Select a dedicated work folder, not your home, system root, or HumanOS source directory')
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.manager = None
