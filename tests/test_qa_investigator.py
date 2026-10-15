@@ -46,6 +46,10 @@ class QAInvestigationTests(unittest.TestCase):
         self.git("config", "user.email", "local@example.invalid")
         self.git("remote", "add", "origin", "https://github.com/jhalicea/humanos.git")
         (self.repo / "tests").mkdir()
+        (self.repo / "scripts").mkdir()
+        for name in ("smoke_codex_import.py", "smoke_codex_reconciliation.py"):
+            (self.repo / "scripts" / name).write_text(
+                "print('SYNTHETIC QA SMOKE PASS')\n", encoding="utf-8")
         (self.repo / "tests/test_synthetic.py").write_text(
             "import unittest\nclass Demo(unittest.TestCase):\n"
             "    def test_example(self): self.assertTrue(True)\n", encoding="utf-8")
