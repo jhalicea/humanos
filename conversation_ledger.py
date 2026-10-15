@@ -6,6 +6,9 @@ import json
 import os
 import stat
 import fcntl
+import uuid
+from datetime import datetime, timezone
+from recovery_ledger import _write_new_file, _fsync_directory, TAIL_SIZE_LIMIT
 from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
@@ -131,13 +134,11 @@ def import_messages(source, ledger, selected_source_ids=None, allow_derived_ids=
     with _ledger_writer(path):
         existing = {}
         if path.exists():
-            with path.open(encoding="utf-8") as stream:
-                for line in stream:
-                    row = json.loads(line)
-                    key = (row["source"], row["source_id"])
-                    if key in existing and existing[key] != row:
-                        raise ValueError("conflicting ledger duplicate: " + row["source_id"])
-                    existing[key] = row
+            for row in read_ledger(path):
+                key = (row["source"], row["source_id"])
+                if key in existing and existing[key] != row:
+                    raise ValueError("conflicting ledger duplicate: " + row["source_id"])
+                existing[key] = row
         pending = []
         pending_keys = set()
         messages = list(_messages(source, allow_derived_ids=allow_derived_ids,
@@ -233,15 +234,104 @@ def append_conversation_id_correction(ledger, source_id, conversation_id):
     return correction
 
 
+
+def _quarantine_torn_conversation_tail(path, raw):
+    """Copy final physical tail to a separate durable 0700 forensic artifact.
+
+    Never modify the source ledger. A matching artifact is reused; a
+    suspicious preexisting quarantine path causes a hard stop.
+    """
+    path = Path(path)
+    offset = raw.rfind(b"\n") + 1
+    tail = raw[offset:]
+    if not tail:
+        raise ValueError("Expected a nonempty unterminated ledger tail")
+    if len(tail) > TAIL_SIZE_LIMIT:
+        raise ValueError("Conversation ledger tail too large to quarantine safely")
+    root = path.parent / "conversation-quarantine"
+    if not root.exists():
+        root.mkdir(mode=0o700)
+    info = root.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or root.is_symlink()
+            or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077):
+        raise PermissionError("Conversation evidence quarantine directory is not owner-private")
+    original_hash = hashlib.sha256(raw).hexdigest()
+    final = root / original_hash
+    meta = {
+        "schema": "humanos-conversation-torn-tail-v1",
+        "original_sha256": original_hash,
+        "original_bytes": len(raw),
+        "valid_prefix_bytes": offset,
+        "valid_prefix_sha256": hashlib.sha256(raw[:offset]).hexdigest(),
+        "tail_bytes": len(tail),
+        "tail_sha256": hashlib.sha256(tail).hexdigest(),
+        "classification": "UNTERMINATED_FINAL_RECORD",
+        "detected_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    if final.exists() or final.is_symlink():
+        existing = final.lstat()
+        if (not stat.S_ISDIR(existing.st_mode) or final.is_symlink()
+                or existing.st_uid != os.getuid()
+                or stat.S_IMODE(existing.st_mode) & 0o077):
+            raise PermissionError("Existing conversation quarantine artifact is unsafe")
+        prior_tail = (final / "tail.bin").read_bytes()
+        prior_meta = json.loads((final / "metadata.json").read_text(encoding="utf-8"))
+        if (prior_tail != tail or prior_meta.get("original_sha256") != original_hash
+                or prior_meta.get("valid_prefix_bytes") != offset
+                or prior_meta.get("tail_sha256") != meta["tail_sha256"]):
+            raise ValueError("Existing conversation quarantine evidence conflicts")
+    else:
+        pending = root / (".pending-" + uuid.uuid4().hex)
+        pending.mkdir(mode=0o700)
+        try:
+            _write_new_file(pending / "tail.bin", tail)
+            _write_new_file(pending / "metadata.json",
+                            (json.dumps(meta, sort_keys=True) + "\n").encode("utf-8"))
+            _fsync_directory(pending)
+            # Under the cooperative ledger lock, the quarantine name is
+            # content-addressed; never intentionally overwrite an artifact.
+            if final.exists() or final.is_symlink():
+                raise ValueError("Conversation quarantine was replaced during creation")
+            os.rename(pending, final)
+            _fsync_directory(root)
+        finally:
+            if pending.exists():
+                # Only our uniquely named staging directory is removed.
+                import shutil
+                shutil.rmtree(pending)
+    if path.read_bytes() != raw:
+        raise RuntimeError("Conversation ledger changed during tail preservation")
+    return meta
+
+
+def _read_physical_conversation_rows(raw, path, *, quarantine=True):
+    if not raw:
+        return []
+    if not raw.endswith(b"\n"):
+        if quarantine:
+            _quarantine_torn_conversation_tail(path, raw)
+        raise ValueError("Conversation ledger has an unterminated final record; operator recovery required")
+    rows = []
+    for line in raw.split(b"\n")[:-1]:
+        if not line:
+            raise ValueError("Conversation ledger contains a blank physical record")
+        value = json.loads(line.decode("utf-8"))
+        if not isinstance(value, dict):
+            raise ValueError("Conversation ledger record must be a JSON object")
+        rows.append(value)
+    return rows
+
 def read_ledger(ledger):
     path = Path(ledger)
-    with path.open(encoding="utf-8") as stream:
-        return [json.loads(line) for line in stream]
+    return _read_physical_conversation_rows(path.read_bytes(), path)
 
 
 def verify_ledger(ledger):
     """Read back evidence and fail closed on malformed or unverifiable rows."""
-    rows = read_ledger(ledger)
+    return _verify_conversation_rows(read_ledger(ledger))
+
+
+def _verify_conversation_rows(rows):
     evidence = [row for row in rows if row.get("event_type") != "METADATA_CORRECTION"]
     seen = set()
     for row in evidence:
@@ -256,6 +346,46 @@ def verify_ledger(ledger):
         if hashlib.sha256(row["text"].encode("utf-8")).hexdigest() != row.get("content_digest"):
             raise ValueError("ledger digest mismatch: " + row["source_id"])
     return {"rows": len(evidence), "status": "CHECKPOINTED"}
+
+
+def export_verified_conversation_prefix(ledger, destination, expected_sha256, *, confirm=False):
+    """Owner-confirmed, non-destructive salvage to a NEW private evidence file.
+
+    Never rewrites a torn ledger, advances receipts, or projects Notebook data.
+    """
+    source, target = Path(ledger), Path(destination)
+    if confirm is not True:
+        raise PermissionError("Explicit owner approval required to export a ledger prefix")
+    if (not source.is_absolute() or not target.is_absolute() or source == target
+            or source.is_symlink() or target.is_symlink()
+            or target.parent != source.parent or target.exists()):
+        raise ValueError("Export requires a new absolute nonlinked file beside the original ledger")
+    parent = source.parent
+    info = parent.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or parent.is_symlink()
+            or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077):
+        raise PermissionError("Conversation ledger prefix export parent must be owner-private")
+    if (not isinstance(expected_sha256, str) or len(expected_sha256) != 64):
+        raise ValueError("Exact SHA-256 of original torn evidence is required")
+    with _ledger_writer(source):
+        raw = source.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != expected_sha256:
+            raise ValueError("Original ledger changed since recovery was approved")
+        if not raw or raw.endswith(b"\n"):
+            raise ValueError("No torn final physical record to recover")
+        _quarantine_torn_conversation_tail(source, raw)
+        prefix = raw[:raw.rfind(b"\n") + 1]
+        if not prefix:
+            raise ValueError("No complete evidence rows to export")
+        rows = _read_physical_conversation_rows(prefix, source, quarantine=False)
+        _verify_conversation_rows(rows)
+        _write_new_file(target, prefix)
+        _fsync_directory(target.parent)
+        if target.read_bytes() != prefix:
+            raise RuntimeError("Exported conversation prefix did not read back exactly")
+    return {"status": "EXPORTED_NOT_PROMOTED", "rows": len(rows),
+            "source_sha256": expected_sha256,
+            "export_sha256": hashlib.sha256(prefix).hexdigest()}
 
 
 def main():

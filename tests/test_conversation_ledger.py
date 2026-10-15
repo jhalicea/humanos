@@ -1,4 +1,5 @@
 import json
+import hashlib
 import os
 import subprocess
 import sys
@@ -12,6 +13,84 @@ from conversation_ledger import append_conversation_id_correction, import_messag
 
 
 class ConversationLedgerTests(unittest.TestCase):
+
+    def test_torn_tail_is_quarantined_and_existing_import_refuses_append(self):
+        from conversation_ledger import export_verified_conversation_prefix
+        import hashlib
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            ledger = root / "ledger.jsonl"
+            src = root / "source.jsonl"
+            src.write_text("\n".join(json.dumps(row) for row in [
+                {"type": "session_meta", "payload": {"id": "synthetic-torn"}},
+                {"type": "response_item", "payload": {"id": "u1", "role": "user",
+                    "content": [{"type": "input_text", "text": "message one"}]}},
+                {"type": "response_item", "payload": {"id": "a1", "role": "assistant",
+                    "content": [{"type": "output_text", "text": "message two"}]}},
+            ]) + "\n", encoding="utf-8")
+            first = import_messages(src, ledger)
+            self.assertEqual(first["added"], 2)
+            valid_prefix = ledger.read_bytes()
+            torn = valid_prefix + b'{"source":"codex-rollout","text":"torn'
+            ledger.write_bytes(torn)
+            with self.assertRaisesRegex(ValueError, "unterminated final record"):
+                verify_ledger(ledger)
+            with self.assertRaisesRegex(ValueError, "unterminated final record"):
+                import_messages(src, ledger)
+            self.assertEqual(ledger.read_bytes(), torn)
+            q = root / "conversation-quarantine" / hashlib.sha256(torn).hexdigest()
+            self.assertEqual((q / "tail.bin").read_bytes(), torn[len(valid_prefix):])
+            meta = json.loads((q / "metadata.json").read_text(encoding="utf-8"))
+            self.assertEqual(meta["original_sha256"], hashlib.sha256(torn).hexdigest())
+            self.assertEqual(meta["valid_prefix_bytes"], len(valid_prefix))
+            self.assertEqual(meta["tail_sha256"], hashlib.sha256(torn[len(valid_prefix):]).hexdigest())
+            target = root / "verified-prefix.jsonl"
+            with self.assertRaises(PermissionError):
+                export_verified_conversation_prefix(ledger, target,
+                    hashlib.sha256(torn).hexdigest())
+            result = export_verified_conversation_prefix(
+                ledger, target, hashlib.sha256(torn).hexdigest(), confirm=True)
+            self.assertEqual(result["status"], "EXPORTED_NOT_PROMOTED")
+            self.assertEqual(result["rows"], 2)
+            self.assertEqual(target.read_bytes(), valid_prefix)
+            self.assertEqual(verify_ledger(target)["rows"], 2)
+            self.assertEqual(ledger.read_bytes(), torn)
+            self.assertEqual((q / "tail.bin").read_bytes(), torn[len(valid_prefix):])
+
+    def test_valid_json_without_final_lf_remains_untrusted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            ledger = Path(folder) / "ledger.jsonl"
+            ledger.write_bytes(json.dumps({"source": "s", "source_id": "x",
+                "conversation_id": "c", "role": "HUMAN", "text": "hello",
+                "content_digest": hashlib.sha256(b"hello").hexdigest()}).encode("utf-8"))
+            with self.assertRaisesRegex(ValueError, "unterminated final record"):
+                verify_ledger(ledger)
+            self.assertEqual(len(list((Path(folder) / "conversation-quarantine").iterdir())), 1)
+
+    def test_corrupt_complete_record_is_not_silently_skipped_or_salvaged(self):
+        from conversation_ledger import export_verified_conversation_prefix
+        import hashlib
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            ledger, export = root / "ledger.jsonl", root / "export.jsonl"
+            ledger.write_bytes(b'{"broken":}\n{"text":"tail')
+            with self.assertRaises((ValueError, json.JSONDecodeError)):
+                verify_ledger(ledger)
+            with self.assertRaises((ValueError, json.JSONDecodeError)):
+                export_verified_conversation_prefix(
+                    ledger, export, hashlib.sha256(ledger.read_bytes()).hexdigest(),
+                    confirm=True)
+            self.assertFalse(export.exists())
+
+    def test_prefix_export_rejects_wrong_source_digest(self):
+        from conversation_ledger import export_verified_conversation_prefix
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            ledger, export = root / "ledger.jsonl", root / "export.jsonl"
+            ledger.write_bytes(b'{"source":"a","source_id":"x"')
+            with self.assertRaisesRegex(ValueError, "changed since recovery"):
+                export_verified_conversation_prefix(ledger, export, "0" * 64, confirm=True)
+            self.assertFalse(export.exists())
 
     def test_failure_receipt_redacts_source_path_error_data_and_uses_mode_0600(self):
         import stat

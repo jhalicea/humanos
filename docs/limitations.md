@@ -198,3 +198,22 @@ matching binding event. Legacy partial transactions without this proof are
 a separate owner-controlled evidence investigation. Hash binding is not
 provider cryptographic attestation or proof against a fully compromised host.
 Normal non-Codex Notebook transaction creation is unchanged.
+
+
+## Candidate torn conversation ledger handling
+
+A conversational evidence ledger is a sequence of **LF-terminated** JSON object
+records; a syntactically valid but unterminated last object is still untrusted.
+All conversation import/verification paths use the strict physical parser.
+A torn final tail is preserved unchanged in a private, content-addressed
+`conversation-quarantine` artifact with full-original/prefix/tail digests.
+The original ledger remains untouched. Corruption of an earlier completed row
+is rejected, not silently skipped. A separate explicitly approved prefix
+export requires the expected SHA-256 of the entire original evidence and writes
+a NEW owner-private file beside the original. It does not overwrite the source,
+promote receipts, project Notebook records, or authenticate its origin. The
+exported prefix needs independent evidence review before selection for use.
+
+This only addresses a torn **final** conversation ledger physical record and
+validated prefix export, not all possible device-failure corruption, arbitrary
+file tampering, malicious providers, or cross-file atomicity.
