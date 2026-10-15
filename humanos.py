@@ -1,6 +1,7 @@
 """Thin local command surface for the verified conversation kernel."""
 
 import argparse
+import hashlib
 import json
 import os
 import stat
@@ -8,9 +9,9 @@ import sys
 from pathlib import Path
 
 from capture_current_conversation import capture_audit, capture_current, capture_status
-from conversation_ledger import _messages, _codex_source_id, read_ledger
+from conversation_ledger import _messages, _codex_source_id, _ledger_writer, read_ledger
 from local_kernel_capture import capture_turn
-from ledger_notebook_projection import project_all_pairs, reconcile_one_codex_pair
+from ledger_notebook_projection import project_all_pairs, project_one_pair, reconcile_one_codex_pair
 from conversation_ledger import verify_ledger
 
 DEFAULT_LEDGER = Path(__file__).resolve().parent / "var" / "current-conversation.jsonl"
@@ -118,9 +119,17 @@ def import_selected_codex_turn(source, ledger, notebook, human_source_id=None, a
     # projection failure never rewrites the ledger or claims Notebook success.
     captured = capture_current(ledger, source, selected_source_ids=selected_ids,
                                allow_derived_ids=True, snapshot_bytes=snapshot_bytes)
-    projected = project_all_pairs(ledger, notebook)
-    if projected["pending"] or projected["projected"] + projected["skipped"] != 1:
-        raise RuntimeError("Selected source turn did not yield one verified Notebook projection")
+    # Another cooperative writer can append after the earlier preflight or
+    # capture. Hold its lock through final validation and the selected write.
+    with _ledger_writer(ledger):
+        verify_ledger(ledger)
+        expected = [dict(row, content_digest=hashlib.sha256(row["text"].encode("utf-8")).hexdigest())
+                    for row in observed]
+        if read_ledger(ledger) != expected:
+            raise ValueError("Ledger no longer contains only the selected source turn")
+        one = project_one_pair(ledger, notebook)
+    projected = {"status": "CHECKPOINTED", "projected": int(one["status"] == "CHECKPOINTED"),
+                 "skipped": int(one["status"] == "ALREADY_PROJECTED"), "pending": 0}
     return {
         "status": "CHECKPOINTED",
         "source": "codex-rollout",

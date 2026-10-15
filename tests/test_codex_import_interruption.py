@@ -56,13 +56,13 @@ import os
 import sys
 import humanos
 if sys.argv[1] == "BEFORE_PROJECTION":
-    humanos.project_all_pairs = lambda *a, **kw: os._exit(71)
+    humanos.project_one_pair = lambda *a, **kw: os._exit(71)
 elif sys.argv[1] == "AFTER_CHECKPOINT":
-    real = humanos.project_all_pairs
+    real = humanos.project_one_pair
     def finish_then_die(*a, **kw):
         real(*a, **kw)
         os._exit(72)
-    humanos.project_all_pairs = finish_then_die
+    humanos.project_one_pair = finish_then_die
 elif sys.argv[1] == "MID_NOTEBOOK":
     import ledger_notebook_projection as projection
     def half_project(book, tx, human, assistant, *, include_final_phase=False):
