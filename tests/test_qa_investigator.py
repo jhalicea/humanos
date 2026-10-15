@@ -5,6 +5,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from contextlib import redirect_stdout
+import io
+import qa_agent
 
 from qa_agent import QAError
 from qa_investigator import investigate, _proposal, SYSTEM
@@ -180,3 +184,32 @@ class QAInvestigationTests(unittest.TestCase):
         self.assertIn(b"SYNTHETIC_FAILURE", logs[0].read_bytes())
         self.assertNotIn(str(evidence), json.dumps(result))
         self.assertIn("OBS-001", model.calls[1])
+
+    def test_cli_agentic_executes_real_tool_loop_and_reports_advisory_status(self):
+        private = self.root / "evidence"
+        private.mkdir(mode=0o700)
+        output_path = private / "investigation-v2.json"
+        proposals = [
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            final("OBS-002"),
+        ]
+        argv = [
+            "qa_agent.py", "--agentic", "--model", "synthetic-local-fixture",
+            "--repo", str(self.repo), "--baseline", self.base,
+            "--target", self.head, "--python", sys.executable,
+            "--report", str(output_path),
+        ]
+        with patch("sys.argv", argv), patch(
+            "engine.OllamaModel.structured", side_effect=proposals
+        ), redirect_stdout(io.StringIO()):
+            code = qa_agent.main()
+        self.assertEqual(code, 0)
+        report = json.loads(output_path.read_text())
+        self.assertEqual(report["test_status"], "PASS")
+        self.assertEqual(report["qa_status"], "INCONCLUSIVE")
+        self.assertEqual(report["agentic"]["state"], "COMPLETED")
+        self.assertEqual([x["tool"] for x in report["agentic"]["actions"]],
+                         ["read_file", "run_test"])
+        self.assertFalse(report["release_authorized"])
+        self.assertFalse(report["agentic"]["release_authorized"])

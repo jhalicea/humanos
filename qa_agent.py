@@ -274,11 +274,14 @@ def main(argv=None):
     parser.add_argument("--baseline", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--model", help="Opt-in local Ollama model; never sends source to hosted provider")
+    parser.add_argument("--agentic", action="store_true", help="Model-directed bounded source/test investigation (QA v2)")
     parser.add_argument("--endpoint", default="http://127.0.0.1:11434")
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument("--report")
     args = parser.parse_args(argv)
     try:
+        if args.agentic and not args.model:
+            raise QAError("Agentic mode requires an explicit local model")
         if args.model:
             from engine import OllamaModel
             model = OllamaModel(args.model, args.endpoint)
@@ -291,11 +294,29 @@ def main(argv=None):
                 raise QAError("Report requires an unused absolute file path")
             _owner_private_parent(report_path.parent)
         result = evaluate(args.repo, args.baseline, args.target,
-                          model=model, python=args.python,
+                          model=None if args.agentic else model, python=args.python,
                           failure_log_base=args.report)
+        if args.agentic:
+            from qa_investigator import investigate
+            result["agentic"] = investigate(
+                args.repo, args.baseline, args.target, model,
+                python=args.python, mandatory_checks=result["checks"],
+                failure_log_base=args.report,
+            )
+            result["qa_status"] = result["agentic"]["qa_verdict"]
+            result["review_scope"] = (
+                "Model-directed read/test/probe investigation in an isolated "
+                "checkout; no OS sandbox, independent approval or release authority")
+            body = {k: v for k, v in result.items() if k != "evidence_sha256"}
+            raw = json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+            result["evidence_sha256"] = hashlib.sha256(raw).hexdigest()
         if args.report:
             _write_report(args.report, result)
         print(json.dumps(result, indent=2, sort_keys=True))
+        if args.agentic:
+            return 0 if (result["test_status"] == "PASS"
+                         and result["agentic"]["state"] == "COMPLETED"
+                         and result["agentic"]["qa_verdict"] == "INCONCLUSIVE") else 1
         return 0 if result["test_status"] == "PASS" else 1
     except (QAError, OSError, subprocess.SubprocessError, ValueError) as error:
         print(json.dumps({"agent_id": AGENT_ID, "qa_status": "INCONCLUSIVE",

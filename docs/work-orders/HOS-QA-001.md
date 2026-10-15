@@ -46,3 +46,27 @@ owner-host repo mismatch until separately reconciled.
 3. Owner-host trial with verified optional local Ollama model, if desired.
 4. Owner approval to integrate first worker; no automatic change to
    HOS-CONV-001 release gates or PR #135.
+
+## v2 agentic increment — separate unpromoted candidate
+
+Owner specifically requested a genuine QA agent rather than one-shot advisory.
+This increment extends v1 in `qa_investigator.py`; the existing deterministic
+QA harness stays in `qa_agent.py` and remains the mandatory first gate.
+
+Acceptance:
+- model selects a tool, receives actual host observation, chooses a different
+  tool, examines targeted tests, and submits findings with valid observation IDs;
+- host rejects arbitrary shell, untracked sources, path traversal, unsafe
+  test names, invented observations and unsupported probe requests;
+- host executes a **declarative model-selected** HOME-alias probe using a
+  fixed reviewed implementation, and fails when a synthetic vulnerable
+  implementation accepts HOME as a workspace;
+- step/time limits, local-model errors and missing conclusions yield
+  `INCONCLUSIVE` or `FAIL`, never release approval;
+- repository origin/commit/worktree checks and synthetic HOME isolation
+  remain in force; no merge or deployment capability;
+- exact-head matrix CI plus owner-Mac actual-model trial required.
+
+Non-goals: arbitrary model-authored executable tests, autonomous patches,
+generalized sandboxing, public deployment, running production data,
+or overriding release gates for Life Notebook PR #137.
