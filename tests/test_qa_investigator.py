@@ -204,8 +204,13 @@ class QAInvestigationTests(unittest.TestCase):
             "engine.OllamaModel.structured", side_effect=proposals
         ), redirect_stdout(io.StringIO()):
             code = qa_agent.main()
-        self.assertEqual(code, 0)
         report = json.loads(output_path.read_text())
+        self.assertEqual(code, 0, msg=json.dumps({
+            "test_status": report.get("test_status"),
+            "checks": report.get("checks"),
+            "agentic_state": report.get("agentic", {}).get("state"),
+            "agentic_actions": report.get("agentic", {}).get("actions"),
+        }, sort_keys=True))
         self.assertEqual(report["test_status"], "PASS")
         self.assertEqual(report["qa_status"], "INCONCLUSIVE")
         self.assertEqual(report["agentic"]["state"], "COMPLETED")
