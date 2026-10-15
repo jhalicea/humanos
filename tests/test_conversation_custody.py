@@ -94,8 +94,10 @@ class SelectedConversationCustodyTests(unittest.TestCase):
         self.assertFalse(self.encrypted.exists())
 
     def test_changed_source_denies_capture_custody(self):
-        data = self.source.read_text(encoding="utf-8")
-        self.source.write_text(data.replace(self.human, "DIFFERENT HUMAN"), encoding="utf-8")
+        records = [json.loads(line) for line in self.source.read_text(encoding="utf-8").splitlines()]
+        records[1]["payload"]["content"][0]["text"] = "DIFFERENT HUMAN"
+        self.source.write_text("\n".join(json.dumps(row) for row in records) + "\n",
+                               encoding="utf-8")
         self.source.chmod(0o600)
         with self.assertRaises(CustodyError):
             self.backup()
