@@ -101,14 +101,14 @@ def _new_private_file(path):
     return os.fdopen(fd, 'wb', closefd=True)
 
 
-def _header(salt, nonce):
+def _header(salt, nonce, *, payload='humanos-portable-vault-v1-tar'):
     return {
         'format': FORMAT,
         'version': VERSION,
         'kdf': {'name': 'scrypt', 'n': KDF_N, 'r': KDF_R, 'p': KDF_P,
                 'salt': base64.b64encode(salt).decode('ascii')},
         'cipher': {'name': 'AES-256-GCM', 'nonce': base64.b64encode(nonce).decode('ascii')},
-        'payload': 'humanos-portable-vault-v1-tar',
+        'payload': payload,
     }
 
 
@@ -119,7 +119,9 @@ def _parse_header(raw):
         raise EncryptedBackupError('Encrypted backup header is unreadable') from error
     if not isinstance(value, dict) or set(value) != {'format', 'version', 'kdf', 'cipher', 'payload'}:
         raise EncryptedBackupError('Encrypted backup header is malformed')
-    if value['format'] != FORMAT or value['version'] != VERSION or value['payload'] != 'humanos-portable-vault-v1-tar':
+    if (value['format'] != FORMAT or value['version'] != VERSION
+            or value['payload'] not in ('humanos-portable-vault-v1-tar',
+                                        'humanos-conversation-custody-v1-tar')):
         raise EncryptedBackupError('Unsupported encrypted backup format')
     kdf, cipher = value['kdf'], value['cipher']
     if (not isinstance(kdf, dict) or set(kdf) != {'name', 'n', 'r', 'p', 'salt'} or
@@ -208,10 +210,10 @@ def _safe_tar_to_bundle(tar_path, bundle):
         raise
 
 
-def _encrypt_tar(tar_path, destination, passphrase):
+def _encrypt_tar(tar_path, destination, passphrase, *, payload='humanos-portable-vault-v1-tar'):
     Cipher, algorithms, modes = _crypto()
     salt, nonce = os.urandom(SALT_BYTES), os.urandom(NONCE_BYTES)
-    header = _header(salt, nonce)
+    header = _header(salt, nonce, payload=payload)
     raw_header = _encode(header)
     if len(raw_header) > 65535:
         raise EncryptedBackupError('Encrypted backup header is unexpectedly large')
@@ -234,7 +236,7 @@ def _encrypt_tar(tar_path, destination, passphrase):
     _fsync_dir(Path(destination).parent)
 
 
-def _decrypt_to_tar(encrypted_path, tar_path, passphrase):
+def _decrypt_to_tar(encrypted_path, tar_path, passphrase, *, expected_payload='humanos-portable-vault-v1-tar'):
     Cipher, algorithms, modes = _crypto()
     with _open_private_read(encrypted_path) as source:
         if source.read(len(MAGIC)) != MAGIC:
@@ -248,7 +250,9 @@ def _decrypt_to_tar(encrypted_path, tar_path, passphrase):
         raw_header = source.read(header_length)
         if len(raw_header) != header_length:
             raise EncryptedBackupError('Encrypted backup header is truncated')
-        _, salt, nonce = _parse_header(raw_header)
+        header, salt, nonce = _parse_header(raw_header)
+        if header['payload'] != expected_payload:
+            raise EncryptedBackupError('Encrypted backup payload type does not match requested restore')
         payload_start = len(MAGIC) + 4 + header_length
         source.seek(0, os.SEEK_END)
         total = source.tell()
