@@ -131,3 +131,41 @@ Qualify exact-head CI and a NEW owner-host live-model run. If the small local
 model still cannot satisfy the contract, label it a model capability/format
 limitation, choose a capable reviewed local model or improve parsing in a
 separate candidate; never weaken permission gates to force PASS.
+
+## v2.3 live-run evidence — investigation passed, reporting still blocked
+
+Owner-host v2.2 exact SHA `01bd89c830ea80be4962dbf108e19afce8d02f69`
+against unchanged Life Notebook candidate `303a24644e709e076dfe3a19da7fca9de0f22a4b`:
+- Mandatory regression/import/recovery checks: all PASS.
+- Local `llama3.2:latest` chose `read_file`, `inspect_diff`,
+  `run_test`, `run_probe`, and a second `read_file`.
+  Targeted test and security probe both PASS.
+- Host `investigation_coverage.complete=true`; however the model first
+  submitted a placeholder final, then duplicated `read_file), then sent
+  arguments not matching an allowlisted tool schema.
+- Host recorded `POLICY_DENIED` and `qa_verdict=INCONCLUSIVE`.
+  **No unauthorized command/tool was executed; no final security approval**.
+- Owner-provided SHA-256 for local JSON report (not authenticated):
+  `582e2a25c183c6e243e9eca7336130e0eff98e6b898b18291fc6e6ac8adf9e03`.
+
+**v2.3 candidate narrow remediation:**
+1. When independent coverage is already complete but the model proposes a
+   non-substantive final, enter a **host-owned REPORT_ONLY phase**.
+   Require a specific, evidence-linked final. Further tool requests are not
+   executed and consume the existing finite step budget.
+2. A recognized tool with malformed argument *shape* can receive a bounded
+   schema correction without executing the request. Before classifying it
+   as a format-only mistake, validate any provided security-sensitive path,
+   test name, probe identity and expected outcome. Unknown tools, path escapes,
+   and unapproved probe behavior still fail closed as `POLICY_DENIED`.
+3. Preserve the mandatory QA results, existing observation IDs, original
+   immutable target, synthetic-only data policy, owner release authority,
+   restricted token/model budgets, and original v2 completion criteria.
+4. Add tests for report-only tool refusal, correctable extra argument without
+   execution, malicious extra fields with unsafe path/probe, and truthful
+   exhaustion if the model never submits an acceptable final.
+
+**Not yet proven:** live Llama behavior at the v2.3 head. Exact-head CI and
+subsequent owner-host real-model acceptance are required; scripted fixtures
+are not proof of production readiness. Do not merge canonical HumanOS
+or touch owner records on this authority alone.
