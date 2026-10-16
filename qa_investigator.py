@@ -107,7 +107,21 @@ def _proposal(value, observations):
         }
         if not isinstance(name, str) or name not in schemas:
             raise QAError("QA tool is not allowlisted")
-        if not isinstance(args, dict) or set(args) != schemas[name]:
+        if not isinstance(args, dict):
+            raise QAError("QA tool arguments are not allowlisted")
+        if set(args) != schemas[name]:
+            # Never dispatch malformed proposals. Validate critical fields
+            # first so path escapes/unapproved probes remain hard denials.
+            if name in ("read_file", "inspect_diff") and "path" in args:
+                _valid_rel(args["path"])
+            if name == "run_test" and "file" in args:
+                candidate = _valid_rel(args["file"])
+                if "/" in candidate or not re.fullmatch(r"test_[a-zA-Z0-9_]+\.py", candidate):
+                    raise QAError("QA test pattern is not supported")
+            if name == "run_probe" and (
+                    ("case" in args and args["case"] != "home_alias_guard")
+                    or ("expect" in args and args["expect"] != "DENY")):
+                raise QAError("QA probe is outside its preapproved scope")
             raise QAError("QA tool arguments are not allowlisted")
         if name in ("read_file", "inspect_diff"):
             _valid_rel(args["path"])
@@ -261,6 +275,7 @@ MAX_SCHEMA_REPAIRS = 2
 RECOVERABLE_PROPOSAL_ERRORS = frozenset({
     "QA proposal is not an object",
     "Tool proposal has unsupported keys",
+    "QA tool arguments are not allowlisted",
     "QA final schema invalid",
     "QA final size outside bounds",
     "QA finding has no valid observed evidence",
@@ -342,6 +357,7 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
     state, final = "STEP_BUDGET_EXHAUSTED", None
     requested_actions = set()
     schema_repairs = 0
+    report_only = False
     with tempfile.TemporaryDirectory(prefix="humanos-qa-agentic-") as root:
         stage = Path(root)
         checkout = stage / "checkout"
@@ -430,8 +446,12 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                     messages.append({"role": "user", "content": json.dumps({
                         "host_decision": "INVALID_PROPOSAL_SHAPE",
                         "reason": reason,
-                        "next": "Do not repeat the malformed response. Use the "
-                                "exact JSON tool schema in the system contract.",
+                        "next": ("Submit final JSON only; inspection and a "
+                                 "targeted test are complete. No new tools."
+                                 if report_only else
+                                 "Do not repeat the malformed response. Use the "
+                                 "exact JSON tool schema in the system contract."),
+                        "report_only": report_only,
                         **_next_step_guidance(timeline, set(changed),
                                               sorted(broker.tests)),
                     }, sort_keys=True)})
@@ -444,16 +464,27 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                             "findings grounded in the observed evidence"
                         )
                     if missing:
+                        # Both investigative requirements fulfilled but report
+                        # is weak: switch to a host-owned synthesis phase.
+                        if not _required_coverage(timeline, set(changed)):
+                            report_only = True
+                            task = json.loads(messages[1]["content"])
+                            task["phase"] = "REPORT_ONLY"
+                            messages[1]["content"] = json.dumps(task, sort_keys=True)
                         timeline.append({"event": "PREMATURE_FINAL",
                                          "missing": missing})
                         messages.append({
                             "role": "user",
                             "content": json.dumps({
                                 "host_decision": "NOT_ACCEPTED",
-                                "reason": "The requested investigation is incomplete.",
+                                "reason": "Evidence complete; report needs revision."
+                                          if report_only else "Investigation incomplete.",
                                 "missing_evidence": missing,
                                 "remaining_tool_actions": max_steps - step,
-                                "next": "Choose a fresh authorized investigation tool. "
+                                "next": "Submit only one final JSON report with a specific "
+                                        "summary and evidence-linked findings. No more tools."
+                                        if report_only else
+                                        "Choose a fresh authorized investigation tool. "
                                         "Do not claim QA completed without host evidence."
                             }, sort_keys=True),
                         })
@@ -465,6 +496,18 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                     state = "STEP_BUDGET_EXHAUSTED"
                     break
                 tool = action["tool"]
+                if report_only:
+                    timeline.append({"event": "REPORT_PHASE_TOOL_REJECTED",
+                                     "tool": tool["name"]})
+                    messages.append({"role": "user", "content": json.dumps({
+                        "host_decision": "REPORT_ONLY",
+                        "reason": "Required inspection and test already observed. "
+                                  "Tool request was not executed.",
+                        "next": "Return a specific final JSON summary (at least 40 "
+                                "characters) and supported findings with OBS-IDs.",
+                        "remaining": max_steps - step,
+                    }, sort_keys=True)})
+                    continue
                 fingerprint = json.dumps(tool, sort_keys=True)
                 if fingerprint in requested_actions:
                     timeline.append({"event": "REPEATED_ACTION_REJECTED",
@@ -517,6 +560,7 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
     failed_mandatory = any(c.get("status") != "PASS" for c in mandatory_checks)
     result = {
         "agent_id": AGENT_ID, "runtime": "MODEL_DIRECTED_QA_V2",
+        "report_phase_entered": report_only,
         "baseline_sha": baseline, "target_sha": target,
         "state": state, "actions": timeline, "final": final,
         "schema_repair_attempts": schema_repairs,
