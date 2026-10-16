@@ -351,6 +351,80 @@ class QAInvestigationTests(unittest.TestCase):
         self.assertIn("Choose a fresh run_test", model.calls[1])
         self.assertNotIn("SYNTHETIC_FAILURE", json.dumps(result))
 
+
+    def test_weak_final_enters_report_only_and_blocks_unneeded_tools(self):
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            {"final": {"summary": "bounded assessment", "findings": []}},
+            tool("read_file", path="feature.py"),
+            final("OBS-002"),
+        )
+        result = self.run_agent(model, max_steps=5)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertTrue(result["report_phase_entered"])
+        self.assertIn("REPORT_PHASE_TOOL_REJECTED",
+                      [row["event"] for row in result["actions"]])
+        self.assertEqual([row["tool"] for row in result["actions"]
+                          if row["event"] == "TOOL_OBSERVED"],
+                         ["read_file", "run_test"])
+        self.assertIn("REPORT_ONLY", model.calls[4])
+        self.assertFalse(result["release_authorized"])
+
+    def test_extra_tool_argument_is_correctable_without_execution(self):
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            {"final": {"summary": "bounded assessment", "findings": []}},
+            {"tool": {"name": "read_file",
+                      "arguments": {"path": "feature.py", "note": "extraneous"}}},
+            final("OBS-002"),
+        )
+        result = self.run_agent(model, max_steps=5)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertEqual(result["schema_repair_attempts"], 1)
+        self.assertTrue(result["report_phase_entered"])
+        self.assertEqual(sum(item["event"] == "TOOL_OBSERVED"
+                             for item in result["actions"]), 2)
+        self.assertIn("QA tool arguments are not allowlisted",
+                      [item["reason"] for item in result["actions"]
+                       if item["event"] == "REJECTED_PROPOSAL"])
+
+    def test_extraneous_arguments_cannot_hide_unsafe_path(self):
+        model = ScriptedInvestigator(
+            {"tool": {"name": "read_file", "arguments": {
+                "path": "../secrets.txt", "note": "extra"}}})
+        result = self.run_agent(model)
+        self.assertEqual(result["state"], "POLICY_DENIED")
+        self.assertEqual(result["schema_repair_attempts"], 0)
+        self.assertEqual(len(model.calls), 1)
+        self.assertFalse(result["release_authorized"])
+
+    def test_extraneous_arguments_cannot_hide_unapproved_probe(self):
+        model = ScriptedInvestigator(
+            {"tool": {"name": "run_probe", "arguments": {
+                "case": "unapproved_probe", "expect": "DENY",
+                "rationale": "Synthetic", "note": "extra"}}})
+        result = self.run_agent(model)
+        self.assertEqual(result["state"], "POLICY_DENIED")
+        self.assertEqual(result["schema_repair_attempts"], 0)
+        self.assertFalse(result["release_authorized"])
+
+    def test_reports_cannot_complete_if_model_keeps_asking_for_tools(self):
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            {"final": {"summary": "bounded assessment", "findings": []}},
+            tool("inspect_diff", path="feature.py"),
+            tool("list_files"),
+        )
+        result = self.run_agent(model, max_steps=4)
+        self.assertEqual(result["state"], "STEP_BUDGET_EXHAUSTED")
+        self.assertTrue(result["report_phase_entered"])
+        self.assertIsNone(result["final"])
+        self.assertEqual(result["qa_verdict"], "INCONCLUSIVE")
+        self.assertFalse(result["release_authorized"])
+
     def test_cli_agentic_executes_real_tool_loop_and_reports_advisory_status(self):
         private = self.root / "evidence"
         private.mkdir(mode=0o700)
