@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "status": "CANDIDATE_NOT_ADOPTED",
+  "workspace": "WS-HUMANOS",
+  "authority": "HUMAN_OWNER",
+  "mirror": {
+    "kind": "HUMAN_INTERFACE",
+    "architect": false,
+    "worker": false,
+    "authorization_granted": false
+  },
+  "roles": [
+    {
+      "agent_id": "QA-CHAT-001",
+      "role": "INDEPENDENT_QA_INVESTIGATOR",
+      "runtime": "CHATGPT_CONNECTED_TOOLS",
+      "parent_workstream": "HOS-AGENTS-CHAT-001",
+      "hine_qualification": "NOT_ASSESSED",
+      "capability_claims": [
+        "github.read_selected_repo",
+        "review_diff",
+        "propose_focused_tests"
+      ],
+      "risk_lane": "GREEN_READ_ONLY",
+      "automatic_authority": false,
+      "merge": false,
+      "deploy": false,
+      "owner_data": false
+    },
+    {
+      "agent_id": "ARCH-CHAT-001",
+      "role": "SOFTWARE_ARCHITECT",
+      "runtime": "CHATGPT_CONNECTED_TOOLS",
+      "parent_workstream": "HOS-ARCH-001",
+      "hine_qualification": "NOT_ASSESSED",
+      "capability_claims": [
+        "read_architecture",
+        "propose_adr",
+        "review_boundaries"
+      ],
+      "risk_lane": "GREEN_READ_ONLY",
+      "automatic_authority": false,
+      "merge": false,
+      "deploy": false,
+      "owner_data": false
+    },
+    {
+      "agent_id": "HOS-QA-001",
+      "role": "LOCAL_QA_INVESTIGATOR",
+      "runtime": "OLLAMA_LOCAL_CANDIDATE",
+      "parent_workstream": "HOS-QA-001",
+      "hine_qualification": "NOT_ASSESSED",
+      "capability_claims": [
+        "source_read",
+        "inspect_diff",
+        "synthetic_test"
+      ],
+      "risk_lane": "GREEN_SYNTHETIC_ONLY",
+      "automatic_authority": false,
+      "merge": false,
+      "deploy": false,
+      "owner_data": false
+    }
+  ],
+  "policy": {
+    "registry_is_descriptive_only": true,
+    "hine_auto_qualifies_agent": false,
+    "role_grants_permissions": false,
+    "model_choice_grants_permissions": false,
+    "external_enforcement_required": true,
+    "release_requires_owner": true,
+    "provider_portability_required": true,
+    "approval_state": "PENDING"
+  }
+}
