@@ -246,12 +246,10 @@ class QAInvestigationTests(unittest.TestCase):
         )
         result = self.run_agent(model, max_steps=4)
         self.assertEqual(result["state"], "COMPLETED")
-        self.assertIn("PREMATURE_FINAL",
-                      [row["event"] for row in result["actions"]])
+        self.assertEqual(result["report_origin"], "HOST_VERIFIED_OBSERVATIONS")
+        self.assertEqual(result["model_advisory"]["state"], "UNUSABLE_ADVISORY")
         self.assertTrue(result["investigation_coverage"]["complete"])
-        self.assertTrue(any("non-placeholder" in phrase for row in result["actions"]
-                            if row["event"] == "PREMATURE_FINAL"
-                            for phrase in row["missing"]))
+        self.assertIn("HOST-VERIFIED QA", result["final"]["summary"])
 
     def test_duplicate_inspection_is_rejected_and_model_can_recover(self):
         model = ScriptedInvestigator(
@@ -363,12 +361,12 @@ class QAInvestigationTests(unittest.TestCase):
         result = self.run_agent(model, max_steps=5)
         self.assertEqual(result["state"], "COMPLETED")
         self.assertTrue(result["report_phase_entered"])
-        self.assertIn("REPORT_PHASE_TOOL_REJECTED",
-                      [row["event"] for row in result["actions"]])
+        self.assertEqual(result["model_advisory"]["state"], "UNUSABLE_ADVISORY")
         self.assertEqual([row["tool"] for row in result["actions"]
                           if row["event"] == "TOOL_OBSERVED"],
                          ["read_file", "run_test"])
-        self.assertIn("REPORT_ONLY", model.calls[4])
+        self.assertEqual(len(model.calls), 3)
+        self.assertEqual(result["report_origin"], "HOST_VERIFIED_OBSERVATIONS")
         self.assertFalse(result["release_authorized"])
 
     def test_extra_tool_argument_is_correctable_without_execution(self):
@@ -382,13 +380,12 @@ class QAInvestigationTests(unittest.TestCase):
         )
         result = self.run_agent(model, max_steps=5)
         self.assertEqual(result["state"], "COMPLETED")
-        self.assertEqual(result["schema_repair_attempts"], 1)
+        self.assertEqual(result["schema_repair_attempts"], 0)
         self.assertTrue(result["report_phase_entered"])
         self.assertEqual(sum(item["event"] == "TOOL_OBSERVED"
                              for item in result["actions"]), 2)
-        self.assertIn("QA tool arguments are not allowlisted",
-                      [item["reason"] for item in result["actions"]
-                       if item["event"] == "REJECTED_PROPOSAL"])
+        self.assertEqual(result["model_advisory"]["state"], "UNUSABLE_ADVISORY")
+        self.assertEqual(result["report_origin"], "HOST_VERIFIED_OBSERVATIONS")
 
     def test_extraneous_arguments_cannot_hide_unsafe_path(self):
         model = ScriptedInvestigator(
@@ -419,10 +416,79 @@ class QAInvestigationTests(unittest.TestCase):
             tool("list_files"),
         )
         result = self.run_agent(model, max_steps=4)
-        self.assertEqual(result["state"], "STEP_BUDGET_EXHAUSTED")
+        self.assertEqual(result["state"], "COMPLETED")
         self.assertTrue(result["report_phase_entered"])
-        self.assertIsNone(result["final"])
+        self.assertEqual(result["report_origin"], "HOST_VERIFIED_OBSERVATIONS")
+        self.assertIsNotNone(result["final"])
         self.assertEqual(result["qa_verdict"], "INCONCLUSIVE")
+        self.assertEqual(result["model_advisory"]["state"], "EXTRA_TOOL_IGNORED")
+        self.assertFalse(result["release_authorized"])
+
+
+    def test_bad_model_advisory_cannot_overrule_verified_qa(self):
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            {"final": {"summary": "bounded assessment", "findings": []}},
+        )
+        result = self.run_agent(model, max_steps=2)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertEqual(result["report_origin"], "HOST_VERIFIED_OBSERVATIONS")
+        self.assertEqual(result["model_advisory"]["state"], "UNUSABLE_ADVISORY")
+        self.assertIn("feature.py", result["final"]["summary"])
+        self.assertIn("OBS-002", result["final"]["summary"])
+        self.assertEqual(result["final"]["findings"], [])
+        self.assertFalse(result["release_authorized"])
+
+    def test_offline_during_synthesis_preserves_verified_observations(self):
+        class FailsSynthesis(ScriptedInvestigator):
+            def structured(self, messages, timeout):
+                self.calls.append(json.dumps(messages))
+                if len(self.calls) == 3:
+                    raise OSError("Synthetic local model unavailable")
+                return self.actions.pop(0)
+        model = FailsSynthesis(
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"))
+        result = self.run_agent(model, max_steps=2)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertEqual(result["model_advisory"]["state"],
+                         "MODEL_FORMAT_OR_PROVIDER_FAILED")
+        self.assertEqual(result["report_origin"], "HOST_VERIFIED_OBSERVATIONS")
+        self.assertFalse(result["release_authorized"])
+
+    def test_shell_request_after_coverage_still_hard_denied(self):
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            tool("shell", command="rm -rf /"),
+        )
+        result = self.run_agent(model, max_steps=2)
+        self.assertEqual(result["state"], "POLICY_DENIED")
+        self.assertEqual(result["model_advisory"]["state"],
+                         "UNAUTHORIZED_TOOL_PROPOSED")
+        self.assertIsNone(result["final"])
+        self.assertFalse(result["release_authorized"])
+
+    def test_failed_focused_check_cannot_be_promoted_by_host_report(self):
+        (self.repo / "tests/test_synthetic.py").write_text(
+            "import unittest\nclass Demo(unittest.TestCase):\n"
+            "    def test_example(self): self.fail('SYNTHETIC_BUG')\n")
+        self.git("add", ".")
+        self.git("commit", "-qm", "known broken target")
+        self.head = self.git("rev-parse", "HEAD")
+        model = ScriptedInvestigator(
+            tool("read_file", path="tests/test_synthetic.py"),
+            tool("run_test", file="test_synthetic.py"),
+            {"final": {"summary": "The tested build passed completely.",
+                       "findings": []}},
+        )
+        result = self.run_agent(model, max_steps=2)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertTrue(result["tests_failed"])
+        self.assertEqual(result["qa_verdict"], "FAIL")
+        self.assertEqual(result["final"]["findings"][0]["severity"], "HIGH")
+        self.assertEqual(result["final"]["findings"][0]["observations"], ["OBS-002"])
         self.assertFalse(result["release_authorized"])
 
     def test_cli_agentic_executes_real_tool_loop_and_reports_advisory_status(self):
