@@ -103,13 +103,14 @@ class QAInvestigationTests(unittest.TestCase):
 
     def test_model_authored_declarative_probe_checks_guard(self):
         model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
             tool("run_probe", case="home_alias_guard", expect="DENY",
                  rationale="Prove canonical home alias is denied"),
-            final(),
+            final("OBS-002"),
         )
-        result = self.run_agent(model, max_steps=2)
+        result = self.run_agent(model, max_steps=3)
         self.assertEqual(result["state"], "COMPLETED")
-        self.assertEqual(result["actions"][0]["status"], "PASS")
+        self.assertEqual(result["actions"][1]["status"], "PASS")
         self.assertEqual(result["qa_verdict"], "INCONCLUSIVE")
 
     def test_probe_detects_unsafe_alias_even_if_model_claims_pass(self):
@@ -120,12 +121,13 @@ class QAInvestigationTests(unittest.TestCase):
         self.git("commit", "-qm", "synthetic vulnerable tool")
         self.head = self.git("rev-parse", "HEAD")
         model = ScriptedInvestigator(
+            tool("read_file", path="engine.py"),
             tool("run_probe", case="home_alias_guard", expect="DENY",
                  rationale="Verify HOME is forbidden"),
-            final(),
+            final("OBS-002"),
         )
-        result = self.run_agent(model, max_steps=2)
-        self.assertEqual(result["actions"][0]["status"], "FAIL")
+        result = self.run_agent(model, max_steps=3)
+        self.assertEqual(result["actions"][1]["status"], "FAIL")
         self.assertEqual(result["qa_verdict"], "FAIL")
         self.assertTrue(result["tests_failed"])
         self.assertFalse(result["release_authorized"])
@@ -178,8 +180,11 @@ class QAInvestigationTests(unittest.TestCase):
         self.git("add", ".")
         self.git("commit", "-qm", "synthetic failing test")
         self.head = self.git("rev-parse", "HEAD")
-        model = ScriptedInvestigator(tool("run_test", file="test_synthetic.py"), final())
-        result = self.run_agent(model, max_steps=2,
+        model = ScriptedInvestigator(
+            tool("read_file", path="tests/test_synthetic.py"),
+            tool("run_test", file="test_synthetic.py"),
+            final("OBS-002"))
+        result = self.run_agent(model, max_steps=3,
                                 failure_log_base=evidence / "qa-v2.json")
         self.assertEqual(result["qa_verdict"], "FAIL")
         logs = list(evidence.glob("*.log"))
@@ -188,6 +193,69 @@ class QAInvestigationTests(unittest.TestCase):
         self.assertIn(b"SYNTHETIC_FAILURE", logs[0].read_bytes())
         self.assertNotIn(str(evidence), json.dumps(result))
         self.assertIn("OBS-001", model.calls[1])
+        self.assertIn("OBS-002", model.calls[2])
+
+
+    def test_premature_final_rejected_until_independent_test_performed(self):
+        empty = {"final": {"summary": "I am finished, tests have passed.",
+                           "findings": []}}
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            empty,
+            tool("run_test", file="test_synthetic.py"),
+            final("OBS-002"),
+        )
+        result = self.run_agent(model, max_steps=4)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertTrue(result["investigation_coverage"]["complete"])
+        self.assertIn("PREMATURE_FINAL",
+                      [step["event"] for step in result["actions"]])
+        self.assertIn("missing_evidence", model.calls[2])
+        self.assertEqual([step["tool"] for step in result["actions"]
+                          if step["event"] == "TOOL_OBSERVED"],
+                         ["read_file", "run_test"])
+        self.assertFalse(result["release_authorized"])
+
+    def test_no_targeted_test_never_counts_as_completed(self):
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            {"final": {"summary": "Source inspected. No new test was run.",
+                       "findings": []}},
+            {"final": {"summary": "Repeating a claim of completion.",
+                       "findings": []}},
+        )
+        result = self.run_agent(model, max_steps=2)
+        self.assertEqual(result["state"], "STEP_BUDGET_EXHAUSTED")
+        self.assertIsNone(result["final"])
+        self.assertFalse(result["investigation_coverage"]["complete"])
+        self.assertFalse(result["release_authorized"])
+
+    def test_duplicate_inspection_is_rejected_and_model_can_recover(self):
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            final("OBS-002"),
+        )
+        result = self.run_agent(model, max_steps=4)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertIn("REPEATED_ACTION_REJECTED",
+                      [step["event"] for step in result["actions"]])
+        self.assertEqual(sum(step["event"] == "TOOL_OBSERVED"
+                             for step in result["actions"]), 2)
+
+    def test_system_policy_stays_present_with_rolling_observations(self):
+        model = ScriptedInvestigator(
+            tool("list_files"), tool("inspect_diff", path="feature.py"),
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            final("OBS-004"),
+        )
+        result = self.run_agent(model, max_steps=5)
+        self.assertEqual(result["state"], "COMPLETED")
+        import json as _json
+        self.assertTrue(all(_json.loads(call)[0]["role"] == "system"
+                            for call in model.calls))
 
     def test_cli_agentic_executes_real_tool_loop_and_reports_advisory_status(self):
         private = self.root / "evidence"
