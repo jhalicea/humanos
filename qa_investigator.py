@@ -45,8 +45,10 @@ discover eligible tests. Never repeat an identical action. If asked to
 continue, use the remaining actions to satisfy the missing check.
 Test outputs are evidence of only the behavior exercised. Do not call a passing
 test proof of universal security. If evidence is inadequate, report limitations.
-Do not copy examples as findings; state the actual verified outcomes and
-evidence IDs. An unverified hypothesis must be identified as unverified.
+Do not copy examples as findings; your summary must be at least 40 characters,
+and each finding description at least 25 characters and specific to the
+observations. Name real inspected files and observed test outcomes. Do not
+invent vulnerabilities. An unverified hypothesis must be identified as unverified.
 """
 
 # Trusted-host probe source is immutable and never assembled from model text.
@@ -254,6 +256,23 @@ class BoundedQATools:
 
 
 
+
+def _report_specificity(final):
+    """Reject a non-report that merely repeats the schema example."""
+    summary = final["summary"].strip()
+    if len(summary) < 40 or summary.lower() in {
+        "bounded assessment", "done", "qa complete", "all good",
+    }:
+        return False
+    for item in final["findings"]:
+        description = item["description"].strip()
+        if len(description) < 25 or description.lower() in {
+            "falsifiable concern", "some concern", "possible issue",
+        }:
+            return False
+    return True
+
+
 def _required_coverage(timeline, changed):
     """Host-owned acceptance gate; model text never supplies these booleans."""
     inspected = any(
@@ -348,6 +367,11 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                     break
                 if "final" in action:
                     missing = _required_coverage(timeline, set(changed))
+                    if not _report_specificity(action["final"]):
+                        missing.append(
+                            "a specific >=40-character summary and non-placeholder "
+                            "findings grounded in the observed evidence"
+                        )
                     if missing:
                         timeline.append({"event": "PREMATURE_FINAL",
                                          "missing": missing})
