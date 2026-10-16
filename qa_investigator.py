@@ -396,14 +396,14 @@ def _one_shot_model_advisory(model, timeline, observations):
         return {"state": "MODEL_FORMAT_OR_PROVIDER_FAILED",
                 "error_type": type(error).__name__, "analysis": None}
     if isinstance(raw, dict) and set(raw) == {"tool"}:
-        item = raw["tool"]
-        name = item.get("name") if isinstance(item, dict) else None
-        if name not in ("list_files", "read_file", "inspect_diff", "run_test",
-                        "run_probe"):
+        try:
+            checked = _proposal(raw, observations)
+        except QAError:
             return {"state": "UNAUTHORIZED_TOOL_PROPOSED",
                     "error_type": "QAError", "analysis": None}
-        return {"state": "EXTRA_TOOL_IGNORED",
-                "error_type": None, "analysis": None}
+        if "tool" in checked:
+            return {"state": "EXTRA_TOOL_IGNORED",
+                    "error_type": None, "analysis": None}
     try:
         value = _proposal(raw, observations)
         if "final" in value and _report_specificity(value["final"]):
