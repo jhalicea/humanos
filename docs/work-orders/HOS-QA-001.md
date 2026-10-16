@@ -70,3 +70,29 @@ Acceptance:
 Non-goals: arbitrary model-authored executable tests, autonomous patches,
 generalized sandboxing, public deployment, running production data,
 or overriding release gates for Life Notebook PR #137.
+
+## v2.1 completion gate — owner-host acceptance failure correction
+
+Owner-host live Llama run on `9965f36` completed four `read_file` actions
+and produced a generic report, but **never ran any independently selected
+test or probe**. The CLI correctly printed `NOT YET QUALIFIED` even
+though the model-run status was `COMPLETED`. This is a QA workflow defect,
+not a Life Notebook code regression.
+
+Bounded acceptance for a real model-directed QA session now requires:
+1. Host observes `read_file` or `inspect_diff` against an **actually changed,
+   tracked** source path. Merely listing files is not inspection.
+2. Host observes at least one independently model-selected `run_test` or
+   `run_probe` action, with a real PASS/FAIL/TIMEOUT result. Mandatory
+   regression/smoke tests do not satisfy this second requirement.
+3. The final report is specific rather than parroting prompt placeholders.
+4. The host rejects early/inadequate finals, explains missing evidence,
+   rejects duplicate actions and allows bounded further attempts. If the
+   step/time budget expires or the model errors, no artificial success.
+5. System policy is pinned through rolling tool-observation context.
+6. Model output is advisory; the host owns `investigation_coverage`,
+   the observed test outcomes, and release authorization.
+
+The v2.1 implementation is a draft. Exact-head GitHub CI and a fresh
+owner-host local-model test must pass before qualification. A locally
+successful no-merge run is not production acceptance.
