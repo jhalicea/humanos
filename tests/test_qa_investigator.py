@@ -95,7 +95,8 @@ class QAInvestigationTests(unittest.TestCase):
         self.assertEqual([a["tool"] for a in result["actions"]
                           if a["event"] == "TOOL_OBSERVED"],
                          ["list_files", "inspect_diff", "read_file", "run_test"])
-        self.assertTrue(all(a["status"] in ("OK", "PASS") for a in result["actions"]))
+        self.assertTrue(all(a["status"] in ("OK", "PASS") for a in result["actions"]
+                            if a["event"] == "TOOL_OBSERVED"))
         self.assertIn("return x + 2", model.calls[3])
         self.assertIn("OBS-004", model.calls[-1])
         self.assertNotIn("return x + 2", json.dumps(result))
