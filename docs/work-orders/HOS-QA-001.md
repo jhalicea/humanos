@@ -96,3 +96,38 @@ Bounded acceptance for a real model-directed QA session now requires:
 The v2.1 implementation is a draft. Exact-head GitHub CI and a fresh
 owner-host local-model test must pass before qualification. A locally
 successful no-merge run is not production acceptance.
+
+## v2.2 owner-host schema failure — bounded repair, not a waived gate
+
+Owner-host live Llama v2.1 at `ec2f5a4d` against Life Notebook
+`303a24644e709e076dfe3a19da7fca9de0f22a4b`:
+mandatory regression/import/recovery checks all PASS. The local model chose
+two source reads, then its third proposal was rejected as `QAError` and
+the agent halted in `MODEL_OR_SCHEMA_FAILURE`. No targeted test/probe was
+executed. JSON evidence digest (ordinary integrity hash, not signature):
+`cee77f2db9ac0a7e96a3ff17047ab98057fc61a735127a9190f4f32ddfb8cc72`.
+This does NOT qualify the live model as a QA worker, and does not establish a
+Life Notebook regression. The previous v2.1 receipt recorded only the
+exception type, not the exact shape of the rejected model output.
+
+v2.2 remedies model-format brittleness *without* broadening tool authority:
+- Up to **two** repair turns for malformed JSON or explicitly allowlisted
+  proposal-shape issues. Each rejected attempt consumes the existing bounded
+  investigation loop and is recorded in evidence. A third failure stops.
+- Unauthorized tool names, unsafe paths, unapproved probes and other policy
+  violations immediately stop with `POLICY_DENIED`; no model retry can
+  turn the unauthorized request into an executed action.
+- After each observed action, trusted host guidance identifies the missing
+  inspection/test coverage and a bounded list of tracked test filenames.
+- Keep the original HumanOS system policy pinned and shrink source excerpts
+  for the local model context budget. Do not show model output/raw private
+  files in the public receipt.
+- **Unchanged completion contract:** inspect a genuinely changed tracked
+  source file + independently choose and run a targeted test or approved
+  probe + write a specific evidence-linked report. Otherwise no `COMPLETED`
+  signoff or release permission.
+
+Qualify exact-head CI and a NEW owner-host live-model run. If the small local
+model still cannot satisfy the contract, label it a model capability/format
+limitation, choose a capable reviewed local model or improve parsing in a
+separate candidate; never weaken permission gates to force PASS.
