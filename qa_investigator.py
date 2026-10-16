@@ -36,8 +36,17 @@ budget. JSON only. Choose EITHER:
 {"tool":{"name":"run_probe","arguments":{"case":"home_alias_guard","expect":"DENY","rationale":"specific hypothesis"}}}
 OR
 {"final":{"summary":"bounded assessment","findings":[{"severity":"LOW","description":"falsifiable concern","observations":["OBS-001"]}]}}
+The host accepts final ONLY after you (A) inspect an actual changed source
+file using read_file or inspect_diff and (B) run one targeted run_test or
+run_probe. The three mandatory host tests are NOT a substitute for your
+independently selected test. Start by inspecting a relevant changed file,
+then choose a suitable test or security probe; use list_files if needed to
+discover eligible tests. Never repeat an identical action. If asked to
+continue, use the remaining actions to satisfy the missing check.
 Test outputs are evidence of only the behavior exercised. Do not call a passing
 test proof of universal security. If evidence is inadequate, report limitations.
+Do not copy examples as findings; state the actual verified outcomes and
+evidence IDs. An unverified hypothesis must be identified as unverified.
 """
 
 # Trusted-host probe source is immutable and never assembled from model text.
@@ -244,6 +253,29 @@ class BoundedQATools:
         raise QAError("Unrecognized trusted tool")
 
 
+
+def _required_coverage(timeline, changed):
+    """Host-owned acceptance gate; model text never supplies these booleans."""
+    inspected = any(
+        entry["event"] == "TOOL_OBSERVED" and entry["status"] == "OK"
+        and entry["tool"] in ("read_file", "inspect_diff")
+        and entry["arguments"]["path"] in changed
+        for entry in timeline
+    )
+    tested = any(
+        entry["event"] == "TOOL_OBSERVED"
+        and entry["tool"] in ("run_test", "run_probe")
+        and entry["status"] in ("PASS", "FAIL", "TIMEOUT")
+        for entry in timeline
+    )
+    needs = []
+    if not inspected:
+        needs.append("inspect a CHANGED tracked source file via read_file or inspect_diff")
+    if not tested:
+        needs.append("run one targeted test or approved security probe")
+    return needs
+
+
 def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STEPS,
                 max_seconds=MAX_SECONDS, failure_log_base=None,
                 mandatory_checks=()):
@@ -261,6 +293,7 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
     started = time.monotonic()
     timeline, observations = [], {}
     state, final = "STEP_BUDGET_EXHAUSTED", None
+    requested_actions = set()
     with tempfile.TemporaryDirectory(prefix="humanos-qa-agentic-") as root:
         stage = Path(root)
         checkout = stage / "checkout"
@@ -287,7 +320,9 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                 {"role": "system", "content": SYSTEM},
                 {"role": "user", "content": json.dumps({
                     "objective": "Investigate this immutable synthetic software candidate; "
-                                 "choose authorized read/test/probe actions and report evidence.",
+                                 "choose authorized read/test/probe actions and report evidence. "
+                                 "Before final, independently inspect a changed source file AND "
+                                 "run a targeted test or probe, citing genuine observation IDs.",
                     "baseline": baseline, "target": target,
                     "changed_paths": changed,
                     "mandatory_checks": [{k: v for k, v in c.items()
@@ -301,7 +336,10 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                     state = "TIME_BUDGET_EXHAUSTED"
                     break
                 try:
-                    raw = model.structured(messages[-12:], MODEL_TIMEOUT)
+                    # Pin the system contract and approved task despite rolling
+                    # observation context; never silently drop policy instructions.
+                    raw = model.structured(messages[:2] + messages[2:][-10:],
+                                           MODEL_TIMEOUT)
                     action = _proposal(raw, observations)
                 except Exception as error:
                     state = "MODEL_OR_SCHEMA_FAILURE"
@@ -309,6 +347,22 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                                      "error_type": type(error).__name__})
                     break
                 if "final" in action:
+                    missing = _required_coverage(timeline, set(changed))
+                    if missing:
+                        timeline.append({"event": "PREMATURE_FINAL",
+                                         "missing": missing})
+                        messages.append({
+                            "role": "user",
+                            "content": json.dumps({
+                                "host_decision": "NOT_ACCEPTED",
+                                "reason": "The requested investigation is incomplete.",
+                                "missing_evidence": missing,
+                                "remaining_tool_actions": max_steps - step,
+                                "next": "Choose a fresh authorized investigation tool. "
+                                        "Do not claim QA completed without host evidence."
+                            }, sort_keys=True),
+                        })
+                        continue
                     final = action["final"]
                     state = "COMPLETED"
                     break
@@ -316,6 +370,18 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                     state = "STEP_BUDGET_EXHAUSTED"
                     break
                 tool = action["tool"]
+                fingerprint = json.dumps(tool, sort_keys=True)
+                if fingerprint in requested_actions:
+                    timeline.append({"event": "REPEATED_ACTION_REJECTED",
+                                     "tool": tool["name"]})
+                    messages.append({
+                        "role": "user",
+                        "content": "HOST: duplicate tool call was not executed. "
+                                   "Select a different authorized tool; "
+                                   "read changed code then run an investigative test."
+                    })
+                    continue
+                requested_actions.add(fingerprint)
                 try:
                     observed = broker.execute(tool)
                 except (QAError, OSError, subprocess.SubprocessError) as error:
@@ -354,6 +420,10 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
         "agent_id": AGENT_ID, "runtime": "MODEL_DIRECTED_QA_V2",
         "baseline_sha": baseline, "target_sha": target,
         "state": state, "actions": timeline, "final": final,
+        "investigation_coverage": {
+            "required": ["changed_source_inspection", "targeted_test_or_probe"],
+            "complete": not _required_coverage(timeline, set(changed)),
+        },
         "tests_failed": failed_mandatory or failed_tools,
         "qa_verdict": "FAIL" if failed_mandatory or failed_tools else "INCONCLUSIVE",
         "independent_human_review": False, "release_authorized": False,
