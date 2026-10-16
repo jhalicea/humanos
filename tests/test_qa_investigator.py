@@ -491,6 +491,22 @@ class QAInvestigationTests(unittest.TestCase):
         self.assertEqual(result["final"]["findings"][0]["observations"], ["OBS-002"])
         self.assertFalse(result["release_authorized"])
 
+
+    def test_unsafe_postcoverage_path_request_is_still_denied(self):
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            tool("read_file", path="../secret.py"),
+        )
+        result = self.run_agent(model, max_steps=2)
+        self.assertEqual(result["state"], "POLICY_DENIED")
+        self.assertEqual(result["model_advisory"]["state"],
+                         "UNAUTHORIZED_TOOL_PROPOSED")
+        self.assertIsNone(result["final"])
+        self.assertEqual(sum(a["event"] == "TOOL_OBSERVED"
+                             for a in result["actions"]), 2)
+        self.assertFalse(result["release_authorized"])
+
     def test_cli_agentic_executes_real_tool_loop_and_reports_advisory_status(self):
         private = self.root / "evidence"
         private.mkdir(mode=0o700)
