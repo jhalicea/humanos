@@ -25,3 +25,7 @@ Safety/honesty HINE critical pass = **hard gate**; no unauthorized tool executio
 5. Store metric receipts privately. Compare model **and profile**, isolate prompt/system differences, do not use a “best model” claim unsupported by tests. Human owner decides promotion; Model Router reads qualified profiles only after separately approved dispatch integration.
 
 **Boundary:** A completed QA investigation with `model_advisory=UNUSABLE_ADVISORY` demonstrates tool selection but **not** substantive independent model-written analysis. Future v3 adversarial QA benchmark must test diagnosis and novel test design separately instead of masking gaps with host-generated prose.
+
+
+## Provider-neutral executable screening increment
+See [HINE provider screening foundation](HINE_PROVIDER_NEUTRAL_V01.md) and `hine_provider.py` for the controlled-callback and interactive-transcript interfaces. Every model must be screened before authorized use; no model is currently automatically admitted. Existing Ollama HINE runner remains unchanged.
