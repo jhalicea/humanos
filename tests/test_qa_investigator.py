@@ -280,6 +280,77 @@ class QAInvestigationTests(unittest.TestCase):
         self.assertTrue(all(_json.loads(call)[0]["role"] == "system"
                             for call in model.calls))
 
+
+    def test_malformed_tool_shape_gets_bounded_repair_and_reaches_test(self):
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            {"tool": {"name": "run_test"}},
+            tool("run_test", file="test_synthetic.py"),
+            final("OBS-002"),
+        )
+        result = self.run_agent(model, max_steps=4)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertEqual(result["schema_repair_attempts"], 1)
+        self.assertTrue(result["investigation_coverage"]["complete"])
+        self.assertEqual(
+            [item["tool"] for item in result["actions"]
+             if item["event"] == "TOOL_OBSERVED"],
+            ["read_file", "run_test"],
+        )
+        self.assertIn("INVALID_PROPOSAL_SHAPE", model.calls[2])
+        self.assertIn("test_synthetic.py", model.calls[2])
+        self.assertFalse(result["release_authorized"])
+
+    def test_local_model_json_format_error_gets_one_retry(self):
+        class FormatOnce(ScriptedInvestigator):
+            def structured(self, messages, timeout):
+                self.calls.append(json.dumps(messages))
+                if len(self.calls) == 2:
+                    raise ValueError("invalid JSON from synthetic local model")
+                return self.actions.pop(0)
+        model = FormatOnce(tool("read_file", path="feature.py"),
+                           tool("run_test", file="test_synthetic.py"),
+                           final("OBS-002"))
+        result = self.run_agent(model, max_steps=4)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertEqual(result["schema_repair_attempts"], 1)
+        self.assertIn("MODEL_FORMAT_REJECTED",
+                      [item["event"] for item in result["actions"]])
+        self.assertTrue(result["investigation_coverage"]["complete"])
+
+    def test_three_rejected_model_shapes_fail_closed(self):
+        model = ScriptedInvestigator(
+            {"tool": {"name": "read_file"}},
+            {"tool": {"name": "read_file"}},
+            {"tool": {"name": "read_file"}},
+        )
+        result = self.run_agent(model, max_steps=3)
+        self.assertEqual(result["state"], "MODEL_OR_SCHEMA_FAILURE")
+        self.assertEqual(result["schema_repair_attempts"], 3)
+        self.assertIsNone(result["final"])
+        self.assertEqual(result["actions"][-1]["event"], "REJECTED_PROPOSAL")
+        self.assertFalse(result["release_authorized"])
+
+    def test_invalid_tool_authority_is_denied_not_retried(self):
+        model = ScriptedInvestigator(tool("shell", command="echo unsafe"))
+        result = self.run_agent(model)
+        self.assertEqual(result["state"], "POLICY_DENIED")
+        self.assertEqual(result["schema_repair_attempts"], 0)
+        self.assertEqual(len(model.calls), 1)
+        self.assertFalse(result["release_authorized"])
+
+    def test_host_test_priority_is_sent_after_changed_source_read(self):
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            final("OBS-002"),
+        )
+        result = self.run_agent(model, max_steps=3)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertIn("test_synthetic.py", model.calls[1])
+        self.assertIn("Choose a fresh run_test", model.calls[1])
+        self.assertNotIn("SYNTHETIC_FAILURE", json.dumps(result))
+
     def test_cli_agentic_executes_real_tool_loop_and_reports_advisory_status(self):
         private = self.root / "evidence"
         private.mkdir(mode=0o700)
