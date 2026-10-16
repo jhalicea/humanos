@@ -169,3 +169,48 @@ against unchanged Life Notebook candidate `303a24644e709e076dfe3a19da7fca9de0f22
 subsequent owner-host real-model acceptance are required; scripted fixtures
 are not proof of production readiness. Do not merge canonical HumanOS
 or touch owner records on this authority alone.
+
+## v2.4 — separating model agency from report authorship
+
+Owner-host v2.3 `a3cd26d` against frozen Life Notebook
+`303a24644e709e076dfe3a19da7fca9de0f22a4b`:
+mandatory native regression, Codex import, and Codex recovery **PASS**.
+Local `llama3.2:latest` autonomously chose `read_file`,
+`inspect_diff`, and `run_test` (PASS), satisfying the host's two
+investigative coverage requirements. It then submitted repeated
+non-substantive final reports and an unknown tool request. The host
+recorded `POLICY_DENIED`, no unsafe tool executed, and **NOT QUALIFIED**.
+Owner-supplied evidence checksum (unkeyed): `162f31b9d971e009f495dcdd51bcca7cb4862cbaaac78b5cc8b14c8b0bc3dbc2`.
+
+**Architecture correction, not another prompt patch:** A real agent's
+autonomy resides in deciding which bounded authorized inspections and tests
+to run. A security-relevant QA receipt must be **computed from actual host
+observations**, not contingent on a small model producing fluent prose.
+
+The host now performs a finite evidence-to-report handoff immediately
+after it observes BOTH (1) changed tracked source inspection and
+(2) model-selected targeted test or security probe. Its authoritative
+`final` contains only observed filenames, test/probe IDs, statuses, and
+known host-mandatory test statuses; confirmed failures receive evidence-ID
+references. The model may receive ONE separately labeled `REPORT_ONLY`
+advisory opportunity. An invalid/generic/absent model analysis cannot rewrite
+the factual receipt or change the test outcome. The report declares
+`report_origin=HOST_VERIFIED_OBSERVATIONS` and
+`model_advisory.state` explicitly, so it cannot be mistaken for AI-written
+analysis or human certification.
+
+**Fail-closed:** an unauthorized *new* tool requested even during the
+optional advisory phase is still `POLICY_DENIED` and remains unexecuted.
+A model-selected test returning FAIL/TIMEOUT yields QA verdict FAIL.
+No observed independent test/inspection, invalid commit/path, no model
+during the investigation, or exhausted budget does NOT synthesize a success.
+A complete host report does **not** authorize release or certify security.
+
+New scripted tests cover invalid prose, model outage after confirmed
+investigation, a prohibited shell request during synthesis, and failures
+that must remain FAIL. This finishes a **bounded model-directed QA agent
+plus deterministic report**, not a general-purpose autonomous engineer.
+
+**Acceptance:** Exact-head CI matrix plus one owner-Mac real local-model
+trial of this code. Do not merge before owner approval. Keep Life Notebook
+and owner canonical branches unchanged.
