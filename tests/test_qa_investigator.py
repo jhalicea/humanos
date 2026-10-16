@@ -197,7 +197,7 @@ class QAInvestigationTests(unittest.TestCase):
 
 
     def test_premature_final_rejected_until_independent_test_performed(self):
-        empty = {"final": {"summary": "I am finished, tests have passed.",
+        empty = {"final": {"summary": "I finished, but haven't tested the changed code myself.",
                            "findings": []}}
         model = ScriptedInvestigator(
             tool("read_file", path="feature.py"),
@@ -219,9 +219,9 @@ class QAInvestigationTests(unittest.TestCase):
     def test_no_targeted_test_never_counts_as_completed(self):
         model = ScriptedInvestigator(
             tool("read_file", path="feature.py"),
-            {"final": {"summary": "Source inspected. No new test was run.",
+            {"final": {"summary": "Source inspected, but no independent test was actually executed.",
                        "findings": []}},
-            {"final": {"summary": "Repeating a claim of completion.",
+            {"final": {"summary": "Repeating a completion claim without independent test evidence.",
                        "findings": []}},
         )
         result = self.run_agent(model, max_steps=2)
@@ -229,6 +229,29 @@ class QAInvestigationTests(unittest.TestCase):
         self.assertIsNone(result["final"])
         self.assertFalse(result["investigation_coverage"]["complete"])
         self.assertFalse(result["release_authorized"])
+
+
+    def test_placeholder_report_rejected_until_specific_report(self):
+        placeholder = {"final": {
+            "summary": "bounded assessment",
+            "findings": [{
+                "severity": "LOW", "description": "falsifiable concern",
+                "observations": ["OBS-002"]}]
+        }}
+        model = ScriptedInvestigator(
+            tool("read_file", path="feature.py"),
+            tool("run_test", file="test_synthetic.py"),
+            placeholder,
+            final("OBS-002"),
+        )
+        result = self.run_agent(model, max_steps=4)
+        self.assertEqual(result["state"], "COMPLETED")
+        self.assertIn("PREMATURE_FINAL",
+                      [row["event"] for row in result["actions"]])
+        self.assertTrue(result["investigation_coverage"]["complete"])
+        self.assertTrue(any("non-placeholder" in phrase for row in result["actions"]
+                            if row["event"] == "PREMATURE_FINAL"
+                            for phrase in row["missing"]))
 
     def test_duplicate_inspection_is_rejected_and_model_can_recover(self):
         model = ScriptedInvestigator(
