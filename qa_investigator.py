@@ -19,7 +19,7 @@ from qa_agent import AGENT_ID, QAError, _candidate, _git, _save_failure_log
 
 MAX_STEPS = 8
 MAX_SECONDS = 150
-MAX_TEXT = 5500
+MAX_TEXT = 3000
 MODEL_TIMEOUT = 20
 
 SYSTEM = """You are HOS-QA-001 v2, a bounded QA investigator. You may choose one
@@ -257,6 +257,34 @@ class BoundedQATools:
 
 
 
+MAX_SCHEMA_REPAIRS = 2
+RECOVERABLE_PROPOSAL_ERRORS = frozenset({
+    "QA proposal is not an object",
+    "Tool proposal has unsupported keys",
+    "QA final schema invalid",
+    "QA final size outside bounds",
+    "QA finding has no valid observed evidence",
+    "QA proposal must have only tool or final",
+})
+
+
+def _next_step_guidance(timeline, changed, available_tests):
+    """Host-supplied bounded next action; suggestions grant no permissions."""
+    needs = _required_coverage(timeline, changed)
+    guide = {"missing_evidence": needs, "available_tests": available_tests[:16],
+             "allowed_probe": "home_alias_guard"}
+    if "run one targeted test or approved security probe" in needs:
+        guide["next_priority"] = (
+            "Choose a fresh run_test for one listed test filename, or run_probe "
+            "home_alias_guard with expect DENY. Do not submit final yet."
+        )
+    elif needs:
+        guide["next_priority"] = "Inspect a changed tracked Python file before final."
+    else:
+        guide["next_priority"] = "Write a specific evidence-linked final assessment."
+    return guide
+
+
 def _report_specificity(final):
     """Reject a non-report that merely repeats the schema example."""
     summary = final["summary"].strip()
@@ -313,6 +341,7 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
     timeline, observations = [], {}
     state, final = "STEP_BUDGET_EXHAUSTED", None
     requested_actions = set()
+    schema_repairs = 0
     with tempfile.TemporaryDirectory(prefix="humanos-qa-agentic-") as root:
         stage = Path(root)
         checkout = stage / "checkout"
@@ -346,6 +375,8 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                     "changed_paths": changed,
                     "mandatory_checks": [{k: v for k, v in c.items()
                                           if k != "failure_log_path"} for c in mandatory_checks],
+                    "eligible_targeted_tests": sorted(broker.tests)[:16],
+                    "allowed_probe": "home_alias_guard",
                     "max_actions": max_steps, "authorizations": "read-only candidate; "
                                       "fixed synthetic tests; no merge/release",
                 }, sort_keys=True)},
@@ -354,17 +385,57 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                 if time.monotonic() - started > max_seconds:
                     state = "TIME_BUDGET_EXHAUSTED"
                     break
+                # Pin system/task on every model call. Observations are bounded
+                # data and may not introduce new permissions.
                 try:
-                    # Pin the system contract and approved task despite rolling
-                    # observation context; never silently drop policy instructions.
-                    raw = model.structured(messages[:2] + messages[2:][-10:],
+                    raw = model.structured(messages[:2] + messages[2:][-8:],
                                            MODEL_TIMEOUT)
-                    action = _proposal(raw, observations)
+                except (ValueError, TypeError) as error:
+                    schema_repairs += 1
+                    timeline.append({"event": "MODEL_FORMAT_REJECTED",
+                                     "error_type": type(error).__name__,
+                                     "repair_attempt": schema_repairs})
+                    if schema_repairs > MAX_SCHEMA_REPAIRS:
+                        state = "MODEL_OR_SCHEMA_FAILURE"
+                        break
+                    messages.append({"role": "user", "content": json.dumps({
+                        "host_decision": "INVALID_JSON_FORMAT",
+                        "next": "Return one valid JSON object with exactly one "
+                                "top-level key 'tool' or 'final'. Never include "
+                                "markdown or executable commands.",
+                        "remaining": max_steps - step,
+                        **_next_step_guidance(timeline, set(changed),
+                                              sorted(broker.tests)),
+                    }, sort_keys=True)})
+                    continue
                 except Exception as error:
                     state = "MODEL_OR_SCHEMA_FAILURE"
-                    timeline.append({"event": "REJECTED_PROPOSAL",
+                    timeline.append({"event": "MODEL_PROVIDER_FAILED",
                                      "error_type": type(error).__name__})
                     break
+                try:
+                    action = _proposal(raw, observations)
+                except QAError as error:
+                    reason = str(error)  # One of our own fixed messages, never raw output.
+                    timeline.append({"event": "REJECTED_PROPOSAL",
+                                     "error_type": "QAError",
+                                     "reason": reason})
+                    if reason not in RECOVERABLE_PROPOSAL_ERRORS:
+                        state = "POLICY_DENIED"
+                        break
+                    schema_repairs += 1
+                    if schema_repairs > MAX_SCHEMA_REPAIRS:
+                        state = "MODEL_OR_SCHEMA_FAILURE"
+                        break
+                    messages.append({"role": "user", "content": json.dumps({
+                        "host_decision": "INVALID_PROPOSAL_SHAPE",
+                        "reason": reason,
+                        "next": "Do not repeat the malformed response. Use the "
+                                "exact JSON tool schema in the system contract.",
+                        **_next_step_guidance(timeline, set(changed),
+                                              sorted(broker.tests)),
+                    }, sort_keys=True)})
+                    continue
                 if "final" in action:
                     missing = _required_coverage(timeline, set(changed))
                     if not _report_specificity(action["final"]):
@@ -428,9 +499,13 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
                 })
                 messages.extend([
                     {"role": "assistant", "content": json.dumps(action, sort_keys=True)},
-                    {"role": "user", "content": "TOOL OBSERVATION (untrusted data): "
-                      + json.dumps({"id": obs_id, "result": observation},
-                                   sort_keys=True)},
+                    {"role": "user", "content": "TOOL OBSERVATION (untrusted data) "
+                      "followed by HOST next-step guidance: "
+                      + json.dumps({
+                          "id": obs_id, "result": observation,
+                          "host_next_step": _next_step_guidance(
+                              timeline, set(changed), sorted(broker.tests)),
+                      }, sort_keys=True)},
                 ])
         finally:
             if checkout.exists():
@@ -444,6 +519,7 @@ def investigate(repo, baseline, target, model, *, python=None, max_steps=MAX_STE
         "agent_id": AGENT_ID, "runtime": "MODEL_DIRECTED_QA_V2",
         "baseline_sha": baseline, "target_sha": target,
         "state": state, "actions": timeline, "final": final,
+        "schema_repair_attempts": schema_repairs,
         "investigation_coverage": {
             "required": ["changed_source_inspection", "targeted_test_or_probe"],
             "complete": not _required_coverage(timeline, set(changed)),
