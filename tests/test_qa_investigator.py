@@ -92,7 +92,8 @@ class QAInvestigationTests(unittest.TestCase):
         result = self.run_agent(model, max_steps=5)
         self.assertEqual(result["state"], "COMPLETED")
         self.assertEqual(result["qa_verdict"], "INCONCLUSIVE")
-        self.assertEqual([a["tool"] for a in result["actions"]],
+        self.assertEqual([a["tool"] for a in result["actions"]
+                          if a["event"] == "TOOL_OBSERVED"],
                          ["list_files", "inspect_diff", "read_file", "run_test"])
         self.assertTrue(all(a["status"] in ("OK", "PASS") for a in result["actions"]))
         self.assertIn("return x + 2", model.calls[3])
@@ -421,7 +422,7 @@ class QAInvestigationTests(unittest.TestCase):
         self.assertEqual(result["report_origin"], "HOST_VERIFIED_OBSERVATIONS")
         self.assertIsNotNone(result["final"])
         self.assertEqual(result["qa_verdict"], "INCONCLUSIVE")
-        self.assertEqual(result["model_advisory"]["state"], "EXTRA_TOOL_IGNORED")
+        self.assertEqual(result["model_advisory"]["state"], "UNUSABLE_ADVISORY")
         self.assertFalse(result["release_authorized"])
 
 
@@ -536,7 +537,8 @@ class QAInvestigationTests(unittest.TestCase):
         self.assertEqual(report["test_status"], "PASS")
         self.assertEqual(report["qa_status"], "INCONCLUSIVE")
         self.assertEqual(report["agentic"]["state"], "COMPLETED")
-        self.assertEqual([x["tool"] for x in report["agentic"]["actions"]],
+        self.assertEqual([x["tool"] for x in report["agentic"]["actions"]
+                          if x["event"] == "TOOL_OBSERVED"],
                          ["read_file", "run_test"])
         self.assertFalse(report["release_authorized"])
         self.assertFalse(report["agentic"]["release_authorized"])
